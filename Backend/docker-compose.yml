@@ -1,0 +1,88 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: oscar-admin-db
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-oscar}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-oscar}
+      POSTGRES_DB: ${POSTGRES_DB:-oscar_admin}
+    ports:
+      - "5432:5432"
+    volumes:
+      - oscar_admin_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U oscar -d oscar_admin"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build: .
+    container_name: oscar-admin-api
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-oscar}:${POSTGRES_PASSWORD:-oscar}@db:5432/${POSTGRES_DB:-oscar_admin}
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - default
+      - proxy-network
+
+  # --------------------------------------------------------------------- #
+  #  Keycloak (IAM) - base de donnees DEDIEE (jamais oscar_admin).
+  # --------------------------------------------------------------------- #
+  keycloak-db:
+    image: postgres:16-alpine
+    container_name: oscar-keycloak-db
+    environment:
+      POSTGRES_USER: ${KC_DB_USER:-keycloak}
+      POSTGRES_PASSWORD: ${KC_DB_PASSWORD:-keycloak}
+      POSTGRES_DB: ${KC_DB_NAME:-keycloak}
+    volumes:
+      - oscar_keycloak_pg:/var/lib/postgresql/data   # volume propre, isole
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${KC_DB_USER:-keycloak} -d ${KC_DB_NAME:-keycloak}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.1
+    container_name: oscar-keycloak
+    command: start-dev --import-realm --features=organization
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN_USER:-admin}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://keycloak-db:5432/${KC_DB_NAME:-keycloak}
+      KC_DB_USERNAME: ${KC_DB_USER:-keycloak}
+      KC_DB_PASSWORD: ${KC_DB_PASSWORD:-keycloak}
+      KC_HEALTH_ENABLED: "true"
+      # Secret du client backend / redirect URIs du SPA resolus a l'import.
+      OSCAR_BACKEND_CLIENT_SECRET: ${KEYCLOAK_BACKEND_CLIENT_SECRET:-change-me-in-env}
+      OSCAR_FRONTEND_REDIRECT_URIS: ${OSCAR_FRONTEND_REDIRECT_URIS:-http://localhost:5173/*}
+      OSCAR_FRONTEND_WEB_ORIGINS: ${OSCAR_FRONTEND_WEB_ORIGINS:-http://localhost:5173}
+      OSCAR_FRONTEND_POST_LOGOUT_URIS: ${OSCAR_FRONTEND_POST_LOGOUT_URIS:-http://localhost:5173/*}
+    ports:
+      - "8080:8080"
+    volumes:
+      - ../infra/keycloak/realm-oscar.json:/opt/keycloak/data/import/realm-oscar.json:ro
+    depends_on:
+      keycloak-db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/localhost/9000 && echo -e 'GET /health/ready HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3 && cat <&3 | grep -q '\"status\": \"UP\"'"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  oscar_admin_pg:
+  oscar_keycloak_pg:
+
+networks:
+  proxy-network:
+    external: true

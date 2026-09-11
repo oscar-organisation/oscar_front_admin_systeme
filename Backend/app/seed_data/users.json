@@ -1,0 +1,42 @@
+[
+  {
+    "email": "melissa.larras@oscar-bot.com",
+    "nom": "Melissa Larras",
+    "org": "oscar-rnd",
+    "role": "Administrateur",
+    "scope": "all",
+    "statut": "active"
+  },
+  {
+    "email": "joel.kemkeng@oscar-bot.com",
+    "nom": "Joel Kemkeng",
+    "org": "oscar-rnd",
+    "role": "Gestionnaire de flotte",
+    "scope": "all",
+    "statut": "active"
+  },
+  {
+    "email": "marc.dupont@carrefour.fr",
+    "nom": "Marc Dupont",
+    "org": "carrefour-france",
+    "site": "FR-PAR-001",
+    "role": "Opérateur XR",
+    "statut": "active"
+  },
+  {
+    "email": "alice.martin@carrefour.fr",
+    "nom": "Alice Martin",
+    "org": "carrefour-france",
+    "site": "FR-LYO-002",
+    "role": "Opérateur 2D",
+    "statut": "active"
+  },
+  {
+    "email": "camille.bernard@carrefour.fr",
+    "nom": "Camille Bernard",
+    "org": "carrefour-france",
+    "site": "FR-PAR-001",
+    "role": "Responsable Retail",
+    "statut": "invited"
+  }
+]

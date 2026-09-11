@@ -1,0 +1,35 @@
+# =============================================================================
+# Compose de DEPLOIEMENT du frontend Console Admin OSCAR
+# Domaine : admin-console.oscar-bot.com
+# Rejoint le reseau partage du proxy central (proxy-network).
+# Le proxy resout le conteneur par son nom : oscar-admin-console-frontend.
+# =============================================================================
+services:
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    image: oscar-admin-console-frontend:latest
+    container_name: oscar-admin-console-frontend
+    restart: unless-stopped
+    environment:
+      OSCAR_API_BASE_URL: ${VITE_API_URL}
+      OSCAR_COCKPIT_URL: ${VITE_COCKPIT_URL}
+      OSCAR_BASE_PATH: ${OSCAR_BASE_PATH:-/}
+      OSCAR_APPLICATION_NAME: ${OSCAR_APPLICATION_NAME:-OSCAR Control Plane}
+      OSCAR_SHORT_NAME: ${OSCAR_SHORT_NAME:-OSCAR}
+      OSCAR_DEFAULT_THEME: ${OSCAR_DEFAULT_THEME:-dark}
+      OSCAR_API_TIMEOUT_MS: ${OSCAR_API_TIMEOUT_MS:-15000}
+      OSCAR_ENVIRONMENT: ${OSCAR_ENVIRONMENT:-production}
+      OSCAR_VERSION: ${OSCAR_VERSION:-1.1.0}
+      OSCAR_SUPPORT_EMAIL: ${OSCAR_SUPPORT_EMAIL:-support@oscar-bot.com}
+    expose:
+      - "3000"          # EXPOSE (pas PORTS) : accessible uniquement via le proxy
+    networks:
+      - proxy-network
+
+networks:
+  # Reseau partage avec le proxy central (cree hors de ce projet)
+  proxy-network:
+    external: true

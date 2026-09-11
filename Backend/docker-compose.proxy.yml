@@ -1,0 +1,126 @@
+# =============================================================================
+# Compose de DEPLOIEMENT du backend Console Admin OSCAR (derriere le proxy)
+# Domaine : api-admin.oscar-bot.com
+#
+# Difference avec docker-compose.yml (dev) :
+#   - l'API utilise "expose" (pas "ports") : accessible UNIQUEMENT via le proxy
+#   - l'API rejoint le reseau partage proxy-network (resolue par nom de conteneur)
+#   - la base de donnees reste sur un reseau INTERNE, jamais exposee
+#   - CORS_ORIGINS / secrets passent par .env (jamais en dur dans le code)
+#
+# Lancement :
+#   cd /home/ubuntu/oscar-admin-console/Backend
+#   cp .env.deploy.example .env     # puis ajuster les secrets
+#   docker compose -f docker-compose.proxy.yml up -d --build
+# =============================================================================
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: oscar-admin-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-oscar}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-oscar}
+      POSTGRES_DB: ${POSTGRES_DB:-oscar_admin}
+    volumes:
+      - oscar_admin_pg:/var/lib/postgresql/data
+    networks:
+      - oscar-admin-internal        # Reseau interne uniquement (jamais expose)
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-oscar} -d ${POSTGRES_DB:-oscar_admin}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build: .
+    image: oscar-admin-api:latest
+    container_name: oscar-admin-api
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      # Connexion a la BDD via le nom de service interne "db"
+      DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-oscar}:${POSTGRES_PASSWORD:-oscar}@db:5432/${POSTGRES_DB:-oscar_admin}
+    expose:
+      - "8000"                      # EXPOSE (pas PORTS) : accessible via le proxy
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - oscar-admin-internal
+      - proxy-network               # Connecte au proxy central
+
+  # --------------------------------------------------------------------- #
+  #  Keycloak (IAM) + sa base DEDIEE. Derriere le proxy nginx/TLS :
+  #  pas de port publie en direct (expose uniquement).
+  # --------------------------------------------------------------------- #
+  keycloak-db:
+    image: postgres:16-alpine
+    container_name: oscar-keycloak-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${KC_DB_USER:-keycloak}
+      POSTGRES_PASSWORD: ${KC_DB_PASSWORD:-change-me-strong-kc-db-password}
+      POSTGRES_DB: ${KC_DB_NAME:-keycloak}
+    volumes:
+      - oscar_keycloak_pg:/var/lib/postgresql/data
+    networks:
+      - oscar-admin-internal        # Reseau interne uniquement (jamais expose)
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${KC_DB_USER:-keycloak} -d ${KC_DB_NAME:-keycloak}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.1
+    container_name: oscar-keycloak
+    restart: unless-stopped
+    command: start --import-realm --features=organization --optimized
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN_USER:-admin}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-change-me-strong-admin-password}
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://keycloak-db:5432/${KC_DB_NAME:-keycloak}
+      KC_DB_USERNAME: ${KC_DB_USER:-keycloak}
+      KC_DB_PASSWORD: ${KC_DB_PASSWORD:-change-me-strong-kc-db-password}
+      # Derriere le proxy TLS : mode edge + hostname par env.
+      KC_PROXY: ${KC_PROXY:-edge}
+      KC_HOSTNAME: ${KC_HOSTNAME:-auth.oscar-bot.com}
+      KC_HTTP_ENABLED: "true"
+      KC_HEALTH_ENABLED: "true"
+      OSCAR_BACKEND_CLIENT_SECRET: ${KEYCLOAK_BACKEND_CLIENT_SECRET:?KEYCLOAK_BACKEND_CLIENT_SECRET requis}
+      OSCAR_FRONTEND_REDIRECT_URIS: ${OSCAR_FRONTEND_REDIRECT_URIS:-https://admin-console.oscar-bot.com/*}
+      OSCAR_FRONTEND_WEB_ORIGINS: ${OSCAR_FRONTEND_WEB_ORIGINS:-https://admin-console.oscar-bot.com}
+      OSCAR_FRONTEND_POST_LOGOUT_URIS: ${OSCAR_FRONTEND_POST_LOGOUT_URIS:-https://admin-console.oscar-bot.com/*}
+    build:
+      # Etape build : compile la config optimisee (KC_DB fige a l'image).
+      context: .
+      dockerfile_inline: |
+        FROM quay.io/keycloak/keycloak:26.1 AS builder
+        ENV KC_DB=postgres
+        ENV KC_FEATURES=organization
+        RUN /opt/keycloak/bin/kc.sh build
+        FROM quay.io/keycloak/keycloak:26.1
+        COPY --from=builder /opt/keycloak/ /opt/keycloak/
+    expose:
+      - "8080"                      # EXPOSE (pas PORTS) : accessible via le proxy
+    volumes:
+      - ../infra/keycloak/realm-oscar.json:/opt/keycloak/data/import/realm-oscar.json:ro
+    depends_on:
+      keycloak-db:
+        condition: service_healthy
+    networks:
+      - oscar-admin-internal
+      - proxy-network               # Expose au proxy central (TLS termine en amont)
+
+volumes:
+  oscar_admin_pg:
+  oscar_keycloak_pg:
+
+networks:
+  oscar-admin-internal:
+    name: oscar-admin-internal
+    driver: bridge
+  proxy-network:
+    external: true                  # Reseau partage avec le proxy central

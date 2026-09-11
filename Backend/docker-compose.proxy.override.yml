@@ -1,0 +1,37 @@
+# =============================================================================
+# Override ADDITIF (prod) applique par-dessus docker-compose.proxy.yml.
+#
+# 1) Volume KC-db DEDIE et VIERGE (prod) : "start --import-realm" doit importer
+#    reellement le realm avec les valeurs de prod (redirect URIs https, secret
+#    backend fort, mot de passe admin fort). Sans ca, le volume logique
+#    "oscar_keycloak_pg" resoudrait vers le volume de DEV
+#    "backend_oscar_keycloak_pg" (deja peuple) et l'import serait IGNORE.
+#    On renomme la cible -> "oscar_keycloak_prod_pg" (neuf). Le volume de dev
+#    reste INTACT (reversibilite totale).
+#
+# 2) Correctif build/optimized : KC_HEALTH_ENABLED est une option BUILD-TIME.
+#    Le dockerfile_inline de base ne la cuit pas, mais l'env runtime la met a
+#    "true" ; avec "start --optimized" Keycloak refuse cette divergence et sort
+#    en code 2. On cuit donc KC_HEALTH_ENABLED=true dans l'image (comme KC_DB et
+#    KC_FEATURES) pour rester coherent avec le mode optimise.
+#
+# Lancement :
+#   docker compose -f docker-compose.proxy.yml -f docker-compose.proxy.override.yml \
+#     up -d --build keycloak-db keycloak
+# =============================================================================
+services:
+  keycloak:
+    build:
+      context: .
+      dockerfile_inline: |
+        FROM quay.io/keycloak/keycloak:26.1 AS builder
+        ENV KC_DB=postgres
+        ENV KC_FEATURES=organization
+        ENV KC_HEALTH_ENABLED=true
+        RUN /opt/keycloak/bin/kc.sh build
+        FROM quay.io/keycloak/keycloak:26.1
+        COPY --from=builder /opt/keycloak/ /opt/keycloak/
+
+volumes:
+  oscar_keycloak_pg:
+    name: oscar_keycloak_prod_pg

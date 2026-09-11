@@ -1,0 +1,26 @@
+[
+  {
+    "org": "carrefour-france",
+    "code": "FR-PAR-001",
+    "nom": "Carrefour Saint-Lazare",
+    "adresse": "13 rue de Rome, 75008 Paris",
+    "statut": "operational",
+    "zones": ["Boissons", "Produits frais", "Épicerie", "Réserve"]
+  },
+  {
+    "org": "carrefour-france",
+    "code": "FR-LYO-002",
+    "nom": "Carrefour Part-Dieu",
+    "adresse": "17 rue du Docteur Bouchut, 69003 Lyon",
+    "statut": "operational",
+    "zones": ["Épicerie", "Textile", "Réserve"]
+  },
+  {
+    "org": "oscar-rnd",
+    "code": "FR-LAB-001",
+    "nom": "Laboratoire OSCAR",
+    "adresse": "12 rue de l'Innovation, 33000 Bordeaux",
+    "statut": "tests",
+    "zones": ["Piste d'essai A", "Piste d'essai B"]
+  }
+]

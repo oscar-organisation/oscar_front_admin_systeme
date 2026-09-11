@@ -1,0 +1,250 @@
+.iam-page {
+  display: grid;
+  gap: 18px;
+}
+
+.iam-error {
+  margin: 0;
+}
+
+.iam-tabs {
+  width: fit-content;
+  display: flex;
+  gap: 3px;
+  padding: 4px;
+  border: 1px solid var(--shell-line);
+  border-radius: var(--radius-md);
+  background: var(--shell-surface);
+}
+
+.iam-tabs button {
+  min-height: 34px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  color: var(--shell-muted);
+  background: transparent;
+  cursor: pointer;
+}
+
+.iam-tabs button:hover {
+  color: var(--shell-text);
+  background: var(--shell-card-hover);
+}
+
+.iam-tabs button[aria-selected="true"] {
+  color: #061014;
+  background: var(--shell-blue);
+  font-weight: 700;
+}
+
+.iam-two-columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(320px, 0.65fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.iam-panel {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.iam-scroll-area {
+  max-height: min(62vh, 680px);
+  overflow: auto;
+  scrollbar-gutter: stable;
+}
+
+.iam-loading,
+.iam-empty {
+  padding: 32px 20px;
+  color: var(--shell-dim);
+  text-align: center;
+}
+
+.iam-list {
+  max-height: min(62vh, 680px);
+  overflow: auto;
+}
+
+.iam-list-row {
+  min-height: 66px;
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  border-bottom: 1px solid var(--shell-line);
+}
+
+.iam-list-row:last-child {
+  border-bottom: 0;
+}
+
+.iam-list-row strong,
+.iam-list-row small,
+.iam-cell-note {
+  display: block;
+}
+
+.iam-list-row strong {
+  color: var(--shell-text);
+  font-size: 13px;
+}
+
+.iam-list-row small,
+.iam-cell-note {
+  margin-top: 3px;
+  color: var(--shell-dim);
+  font-size: 11px;
+}
+
+.iam-row-main {
+  min-width: 0;
+  flex: 1;
+  padding: 0;
+  border: 0;
+  color: inherit;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.iam-hierarchy-table {
+  table-layout: fixed;
+}
+
+.iam-hierarchy-table th:first-child { width: 36%; }
+.iam-hierarchy-table th:nth-child(2) { width: 30%; }
+.iam-hierarchy-table th:nth-child(3) { width: 34%; }
+
+.iam-org-name {
+  position: relative;
+  min-width: 0;
+}
+
+.iam-org-name strong,
+.iam-org-name small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.iam-org-name small {
+  margin-top: 2px;
+  color: var(--shell-dim);
+  font: 10px/1.3 var(--font-mono);
+}
+
+.iam-branch {
+  position: absolute;
+  left: 5px;
+  top: 3px;
+  width: 9px;
+  height: 13px;
+  border-left: 1px solid var(--shell-line-strong);
+  border-bottom: 1px solid var(--shell-line-strong);
+}
+
+.field-shell.compact {
+  min-height: 34px;
+  padding: 6px 9px;
+  font-size: 12px;
+}
+
+.iam-modal {
+  width: min(680px, calc(100vw - 32px));
+  max-height: min(88vh, 820px);
+}
+
+.iam-modal .modal-body {
+  overflow: auto;
+}
+
+.iam-modal .auth-label:not(:first-child) {
+  margin-top: 14px;
+}
+
+.iam-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.iam-choice-fieldset {
+  min-width: 0;
+  margin: 16px 0 0;
+  padding: 0;
+  border: 0;
+}
+
+.iam-choice-fieldset legend {
+  margin-bottom: 8px;
+  color: var(--shell-muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.iam-choice-grid {
+  max-height: 180px;
+  padding: 8px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  overflow: auto;
+  border: 1px solid var(--shell-line);
+  border-radius: var(--radius-md);
+  background: var(--shell-bg);
+}
+
+.iam-choice-grid label {
+  min-width: 0;
+  min-height: 36px;
+  padding: 7px 9px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  color: var(--shell-muted);
+  cursor: pointer;
+}
+
+.iam-choice-grid label:hover {
+  background: var(--shell-card-hover);
+}
+
+.iam-choice-grid label.selected {
+  border-color: var(--shell-blue-border);
+  color: var(--shell-text);
+  background: var(--shell-blue-soft);
+}
+
+.iam-choice-grid label span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.iam-choice-grid input {
+  accent-color: var(--shell-blue);
+}
+
+@media (max-width: 980px) {
+  .iam-two-columns { grid-template-columns: 1fr; }
+  .iam-scroll-area, .iam-list { max-height: none; }
+}
+
+@media (max-width: 620px) {
+  .iam-tabs {
+    width: 100%;
+    overflow-x: auto;
+  }
+
+  .iam-tabs button { flex: 0 0 auto; }
+  .iam-choice-grid, .iam-form-grid { grid-template-columns: 1fr; }
+  .iam-hierarchy-table { min-width: 680px; }
+}

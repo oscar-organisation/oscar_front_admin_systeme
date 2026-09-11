@@ -1,0 +1,222 @@
+{
+  "_doc": "Source de verite UNIQUE du catalogue RBAC OSCAR (privileges + roles systeme). Consomme par le provisioning Keycloak (infra/keycloak/sync_realm.py -> realm roles = privileges, composite roles = roles metier) ET, a terme, par le seed backend. Codes STABLES en dot.notation resource.action (privileges) et en SCREAMING_SNAKE (roles). Ne jamais renommer un code existant : ajouter/deprecier. Ceci est un socle initial representatif (Lot 0), pas la totalite des privileges cible.",
+  "privileges": [
+    {"code": "organization.read", "label": "Consulter les organisations", "resource": "organization", "action": "read"},
+    {"code": "organization.create", "label": "Creer une organisation", "resource": "organization", "action": "create"},
+    {"code": "organization.update", "label": "Modifier une organisation", "resource": "organization", "action": "update"},
+    {"code": "organization.delete", "label": "Supprimer une organisation", "resource": "organization", "action": "delete"},
+    {"code": "organization.manage_hierarchy", "label": "Gerer la hierarchie des organisations", "resource": "organization", "action": "manage_hierarchy"},
+
+    {"code": "site.read", "label": "Consulter les sites", "resource": "site", "action": "read"},
+    {"code": "site.create", "label": "Creer un site", "resource": "site", "action": "create"},
+    {"code": "site.update", "label": "Modifier un site", "resource": "site", "action": "update"},
+    {"code": "site.delete", "label": "Supprimer un site", "resource": "site", "action": "delete"},
+
+    {"code": "user.read", "label": "Consulter les utilisateurs", "resource": "user", "action": "read"},
+    {"code": "user.create", "label": "Creer un utilisateur", "resource": "user", "action": "create"},
+    {"code": "user.update", "label": "Modifier un utilisateur", "resource": "user", "action": "update"},
+    {"code": "user.delete", "label": "Supprimer un utilisateur", "resource": "user", "action": "delete"},
+    {"code": "user.invite", "label": "Inviter un utilisateur", "resource": "user", "action": "invite"},
+
+    {"code": "role.read", "label": "Consulter les roles", "resource": "role", "action": "read"},
+    {"code": "role.create", "label": "Creer un role", "resource": "role", "action": "create"},
+    {"code": "role.update", "label": "Modifier un role", "resource": "role", "action": "update"},
+    {"code": "role.delete", "label": "Supprimer un role", "resource": "role", "action": "delete"},
+    {"code": "role.assign", "label": "Attribuer un role a un utilisateur", "resource": "role", "action": "assign"},
+
+    {"code": "robot.read", "label": "Consulter les robots", "resource": "robot", "action": "read"},
+    {"code": "robot.create", "label": "Enregistrer un robot", "resource": "robot", "action": "create"},
+    {"code": "robot.update", "label": "Modifier un robot", "resource": "robot", "action": "update"},
+    {"code": "robot.delete", "label": "Supprimer un robot", "resource": "robot", "action": "delete"},
+    {"code": "robot.assign", "label": "Affecter un robot (site/operateur)", "resource": "robot", "action": "assign"},
+    {"code": "robot.operate", "label": "Piloter un robot", "resource": "robot", "action": "operate"},
+    {"code": "robot.supervise", "label": "Superviser un robot", "resource": "robot", "action": "supervise"},
+
+    {"code": "integration.read", "label": "Consulter les integrations", "resource": "integration", "action": "read"},
+    {"code": "integration.create", "label": "Creer une integration", "resource": "integration", "action": "create"},
+    {"code": "integration.update", "label": "Modifier une integration", "resource": "integration", "action": "update"},
+    {"code": "integration.delete", "label": "Supprimer une integration", "resource": "integration", "action": "delete"},
+    {"code": "integration.token.issue", "label": "Emettre un jeton d integration SDK", "resource": "integration", "action": "token_issue"},
+
+    {"code": "realtime.session.read", "label": "Consulter les sessions temps reel", "resource": "realtime", "action": "read"},
+    {"code": "realtime.token.issue", "label": "Emettre un jeton temps reel (LiveKit)", "resource": "realtime", "action": "token_issue"},
+    {"code": "realtime.stream.view", "label": "Visualiser un flux temps reel", "resource": "realtime", "action": "stream_view"},
+
+    {"code": "audit.read", "label": "Consulter le journal d audit", "resource": "audit", "action": "read"},
+    {"code": "audit.export", "label": "Exporter le journal d audit", "resource": "audit", "action": "export"},
+
+    {"code": "context.switch", "label": "Changer de contexte (tenant/org/site)", "resource": "context", "action": "switch"},
+    {"code": "context.read", "label": "Consulter le contexte effectif et ses privileges", "resource": "context", "action": "read"}
+  ],
+  "roles": [
+    {
+      "code": "PLATFORM_SUPER_ADMIN",
+      "label": "Super administrateur plateforme",
+      "composite": true,
+      "privileges": [
+        "organization.read", "organization.create", "organization.update", "organization.delete", "organization.manage_hierarchy",
+        "site.read", "site.create", "site.update", "site.delete",
+        "user.read", "user.create", "user.update", "user.delete", "user.invite",
+        "role.read", "role.create", "role.update", "role.delete", "role.assign",
+        "robot.read", "robot.create", "robot.update", "robot.delete", "robot.assign", "robot.operate", "robot.supervise",
+        "integration.read", "integration.create", "integration.update", "integration.delete", "integration.token.issue",
+        "realtime.session.read", "realtime.token.issue", "realtime.stream.view",
+        "audit.read", "audit.export",
+        "context.switch", "context.read"
+      ]
+    },
+    {
+      "code": "TENANT_ADMIN",
+      "label": "Administrateur de tenant",
+      "composite": true,
+      "privileges": [
+        "organization.read", "organization.create", "organization.update", "organization.delete", "organization.manage_hierarchy",
+        "site.read", "site.create", "site.update", "site.delete",
+        "user.read", "user.create", "user.update", "user.delete", "user.invite",
+        "role.read", "role.create", "role.update", "role.delete", "role.assign",
+        "robot.read", "robot.create", "robot.update", "robot.delete", "robot.assign",
+        "integration.read", "integration.create", "integration.update", "integration.delete", "integration.token.issue",
+        "realtime.session.read", "realtime.token.issue", "realtime.stream.view",
+        "audit.read", "audit.export",
+        "context.switch", "context.read"
+      ]
+    },
+    {
+      "code": "ORGANIZATION_ADMIN",
+      "label": "Administrateur d organisation",
+      "composite": true,
+      "privileges": [
+        "organization.read", "organization.update", "organization.manage_hierarchy",
+        "site.read", "site.create", "site.update", "site.delete",
+        "user.read", "user.create", "user.update", "user.invite",
+        "role.read", "role.assign",
+        "robot.read", "robot.create", "robot.update", "robot.assign",
+        "integration.read", "integration.create", "integration.update",
+        "realtime.session.read", "realtime.token.issue", "realtime.stream.view",
+        "audit.read",
+        "context.switch", "context.read"
+      ]
+    },
+    {
+      "code": "ORGANIZATION_MANAGER",
+      "label": "Gestionnaire d organisation",
+      "composite": true,
+      "privileges": [
+        "organization.read",
+        "site.read", "site.update",
+        "user.read", "user.invite",
+        "role.read",
+        "robot.read", "robot.update", "robot.assign",
+        "integration.read",
+        "realtime.session.read", "realtime.stream.view",
+        "audit.read",
+        "context.switch", "context.read"
+      ]
+    },
+    {
+      "code": "SITE_ADMIN",
+      "label": "Administrateur de site",
+      "composite": true,
+      "privileges": [
+        "site.read", "site.update",
+        "user.read", "user.invite",
+        "role.read", "role.assign",
+        "robot.read", "robot.create", "robot.update", "robot.assign",
+        "integration.read", "integration.create", "integration.update",
+        "realtime.session.read", "realtime.token.issue", "realtime.stream.view",
+        "audit.read",
+        "context.switch", "context.read"
+      ]
+    },
+    {
+      "code": "SITE_MANAGER",
+      "label": "Gestionnaire de site",
+      "composite": true,
+      "privileges": [
+        "site.read",
+        "user.read",
+        "role.read",
+        "robot.read", "robot.update", "robot.assign",
+        "integration.read",
+        "realtime.session.read", "realtime.stream.view",
+        "audit.read",
+        "context.switch", "context.read"
+      ]
+    },
+    {
+      "code": "SITE_OPERATOR",
+      "label": "Operateur de site",
+      "composite": true,
+      "privileges": [
+        "site.read",
+        "robot.read", "robot.operate",
+        "realtime.session.read", "realtime.token.issue", "realtime.stream.view",
+        "context.switch", "context.read"
+      ]
+    },
+    {
+      "code": "ROBOT_MANAGER",
+      "label": "Gestionnaire de robots",
+      "composite": true,
+      "privileges": [
+        "robot.read", "robot.create", "robot.update", "robot.delete", "robot.assign",
+        "integration.read", "integration.create", "integration.update", "integration.delete", "integration.token.issue",
+        "realtime.session.read",
+        "context.switch", "context.read"
+      ]
+    },
+    {
+      "code": "ROBOT_OPERATOR",
+      "label": "Operateur de robot",
+      "composite": true,
+      "privileges": [
+        "robot.read", "robot.operate",
+        "realtime.session.read", "realtime.token.issue", "realtime.stream.view",
+        "context.switch", "context.read"
+      ]
+    },
+    {
+      "code": "ROBOT_SUPERVISOR",
+      "label": "Superviseur de robot",
+      "composite": true,
+      "privileges": [
+        "robot.read", "robot.supervise",
+        "realtime.session.read", "realtime.stream.view",
+        "audit.read",
+        "context.switch", "context.read"
+      ]
+    },
+    {
+      "code": "AUDITOR",
+      "label": "Auditeur",
+      "composite": true,
+      "privileges": [
+        "organization.read",
+        "site.read",
+        "user.read",
+        "role.read",
+        "robot.read",
+        "integration.read",
+        "realtime.session.read",
+        "audit.read", "audit.export",
+        "context.switch", "context.read"
+      ]
+    },
+    {
+      "code": "READ_ONLY",
+      "label": "Lecture seule",
+      "composite": true,
+      "privileges": [
+        "organization.read",
+        "site.read",
+        "user.read",
+        "role.read",
+        "robot.read",
+        "integration.read",
+        "realtime.session.read",
+        "audit.read",
+        "context.read"
+      ]
+    }
+  ]
+}

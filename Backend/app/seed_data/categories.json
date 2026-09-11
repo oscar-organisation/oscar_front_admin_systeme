@@ -1,0 +1,8 @@
+[
+  { "code": "rayon_vide", "label": "Rayon vide", "couleur": "#f87171", "type": "retail" },
+  { "code": "stock_faible", "label": "Stock faible", "couleur": "#fbbf24", "type": "retail" },
+  { "code": "produit_mal_place", "label": "Produit mal placé", "couleur": "#22d3ee", "type": "retail" },
+  { "code": "objet_au_sol", "label": "Objet au sol", "couleur": "#a78bfa", "type": "securite" },
+  { "code": "presence_personnel", "label": "Présence personnel", "couleur": "#65c34a", "type": "securite" },
+  { "code": "zone_a_nettoyer", "label": "Zone à nettoyer", "couleur": "#fb923c", "type": "retail" }
+]

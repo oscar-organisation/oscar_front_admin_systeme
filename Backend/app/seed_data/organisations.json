@@ -1,0 +1,14 @@
+[
+  {
+    "slug": "carrefour-france",
+    "nom": "Carrefour France",
+    "contact": "supervision.robotique@carrefour.fr",
+    "statut": "active"
+  },
+  {
+    "slug": "oscar-rnd",
+    "nom": "OSCAR R&D",
+    "contact": "labo@oscar-bot.com",
+    "statut": "active"
+  }
+]

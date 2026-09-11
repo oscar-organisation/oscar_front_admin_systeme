@@ -1,0 +1,42 @@
+[
+  {
+    "nom": "OSCAR-01",
+    "org": "carrefour-france",
+    "site": "FR-PAR-001",
+    "serial": "OSC-2024-0001",
+    "firmware": "v2.8.4",
+    "statut": "online",
+    "batterie": 82,
+    "capacites": ["camera_360", "bras_manipulateur", "micro", "haut_parleur"]
+  },
+  {
+    "nom": "OSCAR-02",
+    "org": "carrefour-france",
+    "site": "FR-PAR-001",
+    "serial": "OSC-2024-0002",
+    "firmware": "v2.8.4",
+    "statut": "online",
+    "batterie": 64,
+    "capacites": ["camera_360", "micro", "haut_parleur"]
+  },
+  {
+    "nom": "OSCAR-03",
+    "org": "carrefour-france",
+    "site": "FR-LYO-002",
+    "serial": "OSC-2024-0003",
+    "firmware": "v2.7.9",
+    "statut": "maintenance",
+    "batterie": 31,
+    "capacites": ["camera_360", "bras_manipulateur"]
+  },
+  {
+    "nom": "OSCAR-LAB-1",
+    "org": "oscar-rnd",
+    "site": "FR-LAB-001",
+    "serial": "OSC-LAB-0001",
+    "firmware": "v3.0.0-rc1",
+    "statut": "offline",
+    "batterie": 100,
+    "capacites": ["camera_360", "bras_manipulateur", "lidar"]
+  }
+]

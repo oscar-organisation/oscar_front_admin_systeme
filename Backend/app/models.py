@@ -1,0 +1,446 @@
+import uuid
+from datetime import datetime
+
+from sqlalchemy import (
+    Boolean,
+    DateTime,
+    ForeignKey,
+    Integer,
+    JSON,
+    String,
+    Text,
+    UniqueConstraint,
+    func,
+)
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from .database import Base
+
+
+def _uuid() -> str:
+    return uuid.uuid4().hex
+
+
+class TimestampMixin:
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+# --------------------------------------------------------------------------- #
+#  Organisations & Sites
+# --------------------------------------------------------------------------- #
+class Organisation(Base, TimestampMixin):
+    __tablename__ = "organisations"
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_uuid)
+    nom: Mapped[str] = mapped_column(String(160), nullable=False)
+    slug: Mapped[str] = mapped_column(String(80), unique=True, nullable=False)
+    contact: Mapped[str | None] = mapped_column(String(160))
+    statut: Mapped[str] = mapped_column(String(20), default="active")  # active|suspended
+    category_id: Mapped[str | None] = mapped_column(
+        ForeignKey("organisation_categories.id", ondelete="SET NULL")
+    )
+    parent_id: Mapped[str | None] = mapped_column(
+        ForeignKey("organisations.id", ondelete="SET NULL")
+    )
+
+    sites: Mapped[list["Site"]] = relationship(back_populates="organisation", cascade="all, delete-orphan")
+    category: Mapped["OrganisationCategory | None"] = relationship(back_populates="organisations")
+    parent: Mapped["Organisation | None"] = relationship(
+        remote_side="Organisation.id", back_populates="children"
+    )
+    children: Mapped[list["Organisation"]] = relationship(back_populates="parent")
+
+
+class OrganisationCategory(Base, TimestampMixin):
+    __tablename__ = "organisation_categories"
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_uuid)
+    code: Mapped[str] = mapped_column(String(60), unique=True, nullable=False, index=True)
+    nom: Mapped[str] = mapped_column(String(120), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text)
+
+    organisations: Mapped[list[Organisation]] = relationship(back_populates="category")
+
+
+class Site(Base, TimestampMixin):
+    __tablename__ = "sites"
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_uuid)
+    org_id: Mapped[str] = mapped_column(ForeignKey("organisations.id", ondelete="CASCADE"))
+    nom: Mapped[str] = mapped_column(String(160), nullable=False)
+    code: Mapped[str] = mapped_column(String(40), nullable=False)  # ex FR-PAR-001
+    adresse: Mapped[str | None] = mapped_column(String(240))
+    zones: Mapped[list] = mapped_column(JSON, default=list)
+    statut: Mapped[str] = mapped_column(String(20), default="operational")  # operational|tests|offline
+
+    organisation: Mapped[Organisation] = relationship(back_populates="sites")
+
+
+# --------------------------------------------------------------------------- #
+#  Utilisateurs, rôles, permissions (RBAC)
+# --------------------------------------------------------------------------- #
+class User(Base, TimestampMixin):
+    __tablename__ = "users"
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_uuid)
+    org_id: Mapped[str | None] = mapped_column(ForeignKey("organisations.id", ondelete="SET NULL"))
+    email: Mapped[str] = mapped_column(String(200), unique=True, nullable=False, index=True)
+    nom: Mapped[str] = mapped_column(String(160), nullable=False)
+    password_hash: Mapped[str | None] = mapped_column(String(255))
+    statut: Mapped[str] = mapped_column(String(20), default="invited")  # active|invited|disabled
+    is_superadmin: Mapped[bool] = mapped_column(Boolean, default=False)
+    last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    roles: Mapped[list["UserRole"]] = relationship(back_populates="user", cascade="all, delete-orphan")
+    organisation_memberships: Mapped[list["UserOrganisation"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
+    team_memberships: Mapped[list["TeamMember"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
+    role_groups: Mapped[list["UserRoleGroup"]] = relationship(
+        cascade="all, delete-orphan"
+    )
+
+
+class UserOrganisation(Base, TimestampMixin):
+    __tablename__ = "user_organisations"
+    __table_args__ = (UniqueConstraint("user_id", "org_id"),)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    org_id: Mapped[str] = mapped_column(ForeignKey("organisations.id", ondelete="CASCADE"))
+    is_primary: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    user: Mapped[User] = relationship(back_populates="organisation_memberships")
+    organisation: Mapped[Organisation] = relationship()
+
+
+class Team(Base, TimestampMixin):
+    __tablename__ = "teams"
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_uuid)
+    nom: Mapped[str] = mapped_column(String(120), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text)
+    statut: Mapped[str] = mapped_column(String(20), default="active")
+
+    members: Mapped[list["TeamMember"]] = relationship(
+        back_populates="team", cascade="all, delete-orphan"
+    )
+    organisations: Mapped[list["TeamOrganisation"]] = relationship(
+        back_populates="team", cascade="all, delete-orphan"
+    )
+    roles: Mapped[list["TeamRole"]] = relationship(
+        back_populates="team", cascade="all, delete-orphan"
+    )
+    role_groups: Mapped[list["TeamRoleGroup"]] = relationship(
+        cascade="all, delete-orphan"
+    )
+
+
+class TeamMember(Base, TimestampMixin):
+    __tablename__ = "team_members"
+    __table_args__ = (UniqueConstraint("team_id", "user_id"),)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    team_id: Mapped[str] = mapped_column(ForeignKey("teams.id", ondelete="CASCADE"))
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    title: Mapped[str | None] = mapped_column(String(80))
+
+    team: Mapped[Team] = relationship(back_populates="members")
+    user: Mapped[User] = relationship(back_populates="team_memberships")
+
+
+class TeamOrganisation(Base):
+    __tablename__ = "team_organisations"
+    __table_args__ = (UniqueConstraint("team_id", "org_id"),)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    team_id: Mapped[str] = mapped_column(ForeignKey("teams.id", ondelete="CASCADE"))
+    org_id: Mapped[str] = mapped_column(ForeignKey("organisations.id", ondelete="CASCADE"))
+
+    team: Mapped[Team] = relationship(back_populates="organisations")
+    organisation: Mapped[Organisation] = relationship()
+
+
+class Feature(Base):
+    __tablename__ = "features"
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_uuid)
+    code: Mapped[str] = mapped_column(String(80), unique=True, nullable=False, index=True)
+    label: Mapped[str] = mapped_column(String(160), nullable=False)
+    type: Mapped[str] = mapped_column(String(10), nullable=False)  # api|ui
+    module: Mapped[str] = mapped_column(String(40), nullable=False)
+    actions: Mapped[list] = mapped_column(JSON, default=list)
+
+
+class Role(Base, TimestampMixin):
+    __tablename__ = "roles"
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_uuid)
+    org_id: Mapped[str | None] = mapped_column(ForeignKey("organisations.id", ondelete="CASCADE"))
+    nom: Mapped[str] = mapped_column(String(120), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text)
+    is_system: Mapped[bool] = mapped_column(Boolean, default=False)
+    visibility: Mapped[str] = mapped_column(String(20), default="private")  # public|private
+
+    permissions: Mapped[list["RolePermission"]] = relationship(
+        back_populates="role", cascade="all, delete-orphan"
+    )
+    permission_groups: Mapped[list["RolePermissionGroup"]] = relationship(
+        back_populates="role", cascade="all, delete-orphan"
+    )
+
+
+class RolePermission(Base):
+    __tablename__ = "role_permissions"
+    __table_args__ = (UniqueConstraint("role_id", "feature_id"),)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    role_id: Mapped[str] = mapped_column(ForeignKey("roles.id", ondelete="CASCADE"))
+    feature_id: Mapped[str] = mapped_column(ForeignKey("features.id", ondelete="CASCADE"))
+    actions: Mapped[list] = mapped_column(JSON, default=list)
+
+    role: Mapped[Role] = relationship(back_populates="permissions")
+    feature: Mapped[Feature] = relationship()
+
+
+class UserRole(Base):
+    __tablename__ = "user_roles"
+    __table_args__ = (UniqueConstraint("user_id", "role_id", "scope_type", "scope_id"),)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    role_id: Mapped[str] = mapped_column(ForeignKey("roles.id", ondelete="CASCADE"))
+    scope_type: Mapped[str] = mapped_column(String(10), default="all")  # all|org|site
+    scope_id: Mapped[str | None] = mapped_column(String(32))
+
+    user: Mapped[User] = relationship(back_populates="roles")
+    role: Mapped[Role] = relationship()
+
+
+class PermissionGroup(Base, TimestampMixin):
+    __tablename__ = "permission_groups"
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_uuid)
+    org_id: Mapped[str | None] = mapped_column(ForeignKey("organisations.id", ondelete="CASCADE"))
+    nom: Mapped[str] = mapped_column(String(120), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text)
+    visibility: Mapped[str] = mapped_column(String(20), default="private")
+
+    permissions: Mapped[list["PermissionGroupPermission"]] = relationship(
+        back_populates="group", cascade="all, delete-orphan"
+    )
+
+
+class RolePermissionGroup(Base):
+    __tablename__ = "role_permission_groups"
+    __table_args__ = (UniqueConstraint("role_id", "permission_group_id"),)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    role_id: Mapped[str] = mapped_column(ForeignKey("roles.id", ondelete="CASCADE"))
+    permission_group_id: Mapped[str] = mapped_column(
+        ForeignKey("permission_groups.id", ondelete="CASCADE")
+    )
+
+    role: Mapped[Role] = relationship(back_populates="permission_groups")
+    permission_group: Mapped[PermissionGroup] = relationship()
+
+
+class PermissionGroupPermission(Base):
+    __tablename__ = "permission_group_permissions"
+    __table_args__ = (UniqueConstraint("group_id", "feature_id"),)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    group_id: Mapped[str] = mapped_column(ForeignKey("permission_groups.id", ondelete="CASCADE"))
+    feature_id: Mapped[str] = mapped_column(ForeignKey("features.id", ondelete="CASCADE"))
+    actions: Mapped[list] = mapped_column(JSON, default=list)
+
+    group: Mapped[PermissionGroup] = relationship(back_populates="permissions")
+    feature: Mapped[Feature] = relationship()
+
+
+class RoleGroup(Base, TimestampMixin):
+    __tablename__ = "role_groups"
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_uuid)
+    org_id: Mapped[str | None] = mapped_column(ForeignKey("organisations.id", ondelete="CASCADE"))
+    nom: Mapped[str] = mapped_column(String(120), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text)
+    visibility: Mapped[str] = mapped_column(String(20), default="private")
+
+    roles: Mapped[list["RoleGroupRole"]] = relationship(
+        back_populates="group", cascade="all, delete-orphan"
+    )
+    permission_groups: Mapped[list["RoleGroupPermissionGroup"]] = relationship(
+        back_populates="role_group", cascade="all, delete-orphan"
+    )
+
+
+class RoleGroupRole(Base):
+    __tablename__ = "role_group_roles"
+    __table_args__ = (UniqueConstraint("group_id", "role_id"),)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    group_id: Mapped[str] = mapped_column(ForeignKey("role_groups.id", ondelete="CASCADE"))
+    role_id: Mapped[str] = mapped_column(ForeignKey("roles.id", ondelete="CASCADE"))
+
+    group: Mapped[RoleGroup] = relationship(back_populates="roles")
+    role: Mapped[Role] = relationship()
+
+
+class RoleGroupPermissionGroup(Base):
+    __tablename__ = "role_group_permission_groups"
+    __table_args__ = (UniqueConstraint("role_group_id", "permission_group_id"),)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    role_group_id: Mapped[str] = mapped_column(ForeignKey("role_groups.id", ondelete="CASCADE"))
+    permission_group_id: Mapped[str] = mapped_column(
+        ForeignKey("permission_groups.id", ondelete="CASCADE")
+    )
+
+    role_group: Mapped[RoleGroup] = relationship(back_populates="permission_groups")
+    permission_group: Mapped[PermissionGroup] = relationship()
+
+
+class UserRoleGroup(Base):
+    __tablename__ = "user_role_groups"
+    __table_args__ = (UniqueConstraint("user_id", "role_group_id", "scope_type", "scope_id"),)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    role_group_id: Mapped[str] = mapped_column(ForeignKey("role_groups.id", ondelete="CASCADE"))
+    scope_type: Mapped[str] = mapped_column(String(10), default="all")
+    scope_id: Mapped[str | None] = mapped_column(String(32))
+
+
+class TeamRole(Base):
+    __tablename__ = "team_roles"
+    __table_args__ = (UniqueConstraint("team_id", "role_id", "scope_type", "scope_id"),)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    team_id: Mapped[str] = mapped_column(ForeignKey("teams.id", ondelete="CASCADE"))
+    role_id: Mapped[str] = mapped_column(ForeignKey("roles.id", ondelete="CASCADE"))
+    scope_type: Mapped[str] = mapped_column(String(10), default="all")
+    scope_id: Mapped[str | None] = mapped_column(String(32))
+
+    team: Mapped[Team] = relationship(back_populates="roles")
+    role: Mapped[Role] = relationship()
+
+
+class TeamRoleGroup(Base):
+    __tablename__ = "team_role_groups"
+    __table_args__ = (UniqueConstraint("team_id", "role_group_id", "scope_type", "scope_id"),)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    team_id: Mapped[str] = mapped_column(ForeignKey("teams.id", ondelete="CASCADE"))
+    role_group_id: Mapped[str] = mapped_column(ForeignKey("role_groups.id", ondelete="CASCADE"))
+    scope_type: Mapped[str] = mapped_column(String(10), default="all")
+    scope_id: Mapped[str | None] = mapped_column(String(32))
+
+
+# --------------------------------------------------------------------------- #
+#  Robots + associations + jetons LiveKit
+# --------------------------------------------------------------------------- #
+class Robot(Base, TimestampMixin):
+    __tablename__ = "robots"
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_uuid)
+    org_id: Mapped[str | None] = mapped_column(ForeignKey("organisations.id", ondelete="SET NULL"))
+    site_id: Mapped[str | None] = mapped_column(ForeignKey("sites.id", ondelete="SET NULL"))
+    nom: Mapped[str] = mapped_column(String(80), nullable=False)  # OSCAR-01
+    serial: Mapped[str | None] = mapped_column(String(120), unique=True)
+    firmware: Mapped[str | None] = mapped_column(String(40))
+    statut: Mapped[str] = mapped_column(String(20), default="offline")  # online|offline|maintenance
+    batterie: Mapped[int | None] = mapped_column(Integer)
+    capacites: Mapped[list] = mapped_column(JSON, default=list)
+
+    assignments: Mapped[list["RobotAssignment"]] = relationship(
+        back_populates="robot", cascade="all, delete-orphan"
+    )
+    tokens: Mapped[list["LiveKitToken"]] = relationship(
+        back_populates="robot", cascade="all, delete-orphan"
+    )
+
+
+class Fleet(Base, TimestampMixin):
+    __tablename__ = "fleets"
+    __table_args__ = (UniqueConstraint("org_id", "code"),)
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_uuid)
+    org_id: Mapped[str] = mapped_column(ForeignKey("organisations.id", ondelete="CASCADE"))
+    nom: Mapped[str] = mapped_column(String(120), nullable=False)
+    code: Mapped[str] = mapped_column(String(60), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text)
+
+    robots: Mapped[list["FleetRobot"]] = relationship(
+        back_populates="fleet", cascade="all, delete-orphan"
+    )
+
+
+class FleetRobot(Base):
+    __tablename__ = "fleet_robots"
+    __table_args__ = (UniqueConstraint("fleet_id", "robot_id"),)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    fleet_id: Mapped[str] = mapped_column(ForeignKey("fleets.id", ondelete="CASCADE"))
+    robot_id: Mapped[str] = mapped_column(ForeignKey("robots.id", ondelete="CASCADE"))
+
+    fleet: Mapped[Fleet] = relationship(back_populates="robots")
+    robot: Mapped[Robot] = relationship()
+
+
+class RobotAssignment(Base):
+    __tablename__ = "robot_assignments"
+    __table_args__ = (UniqueConstraint("robot_id", "user_id"),)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    robot_id: Mapped[str] = mapped_column(ForeignKey("robots.id", ondelete="CASCADE"))
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    op_role: Mapped[str] = mapped_column(String(20), default="pilote")  # pilote|superviseur
+
+    robot: Mapped[Robot] = relationship(back_populates="assignments")
+    user: Mapped[User] = relationship()
+
+
+class LiveKitToken(Base):
+    __tablename__ = "livekit_tokens"
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_uuid)
+    robot_id: Mapped[str] = mapped_column(ForeignKey("robots.id", ondelete="CASCADE"))
+    room: Mapped[str] = mapped_column(String(160), nullable=False)
+    subject: Mapped[str] = mapped_column(String(20), nullable=False)  # robot|operator
+    identity: Mapped[str] = mapped_column(String(160), nullable=False)
+    token: Mapped[str] = mapped_column(Text, nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    revoked: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    robot: Mapped[Robot] = relationship(back_populates="tokens")
+
+
+# --------------------------------------------------------------------------- #
+#  Sandbox IA : modèles & catégories
+# --------------------------------------------------------------------------- #
+class ModelCategory(Base):
+    __tablename__ = "model_categories"
+    __table_args__ = (UniqueConstraint("model_id", "category_id"),)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    model_id: Mapped[str] = mapped_column(ForeignKey("ai_models.id", ondelete="CASCADE"))
+    category_id: Mapped[str] = mapped_column(ForeignKey("detection_categories.id", ondelete="CASCADE"))
+
+
+class AiModel(Base, TimestampMixin):
+    __tablename__ = "ai_models"
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_uuid)
+    org_id: Mapped[str | None] = mapped_column(ForeignKey("organisations.id", ondelete="SET NULL"))
+    nom: Mapped[str] = mapped_column(String(160), nullable=False)
+    version: Mapped[str] = mapped_column(String(40), nullable=False)
+    tache: Mapped[str] = mapped_column(String(40), default="detection")  # detection|classification
+    framework: Mapped[str | None] = mapped_column(String(40))
+    fichier: Mapped[str | None] = mapped_column(String(255))  # chemin de stockage
+    statut: Mapped[str] = mapped_column(String(20), default="sandbox")  # sandbox|production|archive
+    metrics: Mapped[dict] = mapped_column(JSON, default=dict)  # {precision, recall}
+
+
+class DetectionCategory(Base, TimestampMixin):
+    __tablename__ = "detection_categories"
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_uuid)
+    org_id: Mapped[str | None] = mapped_column(ForeignKey("organisations.id", ondelete="SET NULL"))
+    code: Mapped[str] = mapped_column(String(60), nullable=False)
+    label: Mapped[str] = mapped_column(String(120), nullable=False)
+    couleur: Mapped[str] = mapped_column(String(16), default="#22d3ee")
+    type: Mapped[str] = mapped_column(String(20), default="retail")  # retail|securite
+    actif: Mapped[bool] = mapped_column(Boolean, default=True)
+
+
+# --------------------------------------------------------------------------- #
+#  Audit
+# --------------------------------------------------------------------------- #
+class AuditLog(Base):
+    __tablename__ = "audit_logs"
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_uuid)
+    ts: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), index=True)
+    actor_id: Mapped[str | None] = mapped_column(String(32))
+    actor_label: Mapped[str | None] = mapped_column(String(200))
+    action: Mapped[str] = mapped_column(String(60), nullable=False)  # USER_CREATE, TOKEN_ISSUE...
+    resource: Mapped[str | None] = mapped_column(String(200))
+    result: Mapped[str] = mapped_column(String(20), default="success")
+    ip: Mapped[str | None] = mapped_column(String(60))

@@ -1,0 +1,41 @@
+name: Quality
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: Admin-Console-Front-end
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: Admin-Console-Front-end/package-lock.json
+      - run: npm ci
+      - run: npm run quality
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
+
+  backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: Backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: |
+            Backend/requirements.txt
+            Backend/requirements-dev.txt
+      - run: pip install -r requirements.txt -r requirements-dev.txt
+      - run: PYTHONPATH=. pytest -q
