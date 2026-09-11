@@ -561,8 +561,8 @@ export default function Users() {
                         gap: 12,
                         padding: "10px 14px",
                         borderRadius: "var(--radius-md)",
-                        background: active ? "rgba(0, 229, 255, 0.08)" : "rgba(255, 255, 255, 0.02)",
-                        border: `1px solid ${active ? "rgba(0, 229, 255, 0.3)" : "var(--shell-line)"}`,
+                        background: active ? "rgba(216, 88, 16, 0.08)" : "rgba(255, 255, 255, 0.02)",
+                        border: `1px solid ${active ? "rgba(216, 88, 16, 0.3)" : "var(--shell-line)"}`,
                         cursor: "pointer",
                       }}
                     >

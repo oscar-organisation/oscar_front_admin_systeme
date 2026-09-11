@@ -6,6 +6,7 @@ import { ADMINISTRATION_NAVIGATION } from "@/modules/module-administration/modul
 import { useTheme } from "@/shared/design-system/themes";
 import { evaluatePolicy } from "@/shared/kernel/permissions";
 import OrganisationSwitcher from "@/components/OrganisationSwitcher.jsx";
+import OscarBrand from "@/components/OscarBrand.jsx";
 import {
   IconHome,
   IconBuilding,
@@ -82,11 +83,7 @@ export default function AdminLayout() {
       <aside className={`platform-sidebar${open ? " open" : ""}${collapsed ? " collapsed" : ""}`}>
         <div className="sidebar-top-row">
           <a className="brand" href="/" title={branding.applicationName} aria-label={`${branding.applicationName} - espaces`} onClick={(e) => { e.preventDefault(); navigate("/"); }}>
-            <span className="brand-symbol"><IconActivity size={22} /></span>
-            <div className="brand-copy">
-              <strong>{branding.shortName}</strong>
-              <small>CONTROL PLANE</small>
-            </div>
+            <OscarBrand compact={collapsed} />
           </a>
           <div className="sidebar-controls">
             <button
@@ -112,7 +109,7 @@ export default function AdminLayout() {
         <nav className="side-nav" data-testid="admin-nav">
           <div className="side-nav-title">Administration</div>
           {items.map((n) => {
-            const Icon = ICONS[n.icon] || IconActivity;
+            const Icon = ICONS[n.icon] || IconHome;
             return (
               <NavLink
                 key={n.to}
