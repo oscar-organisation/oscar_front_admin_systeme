@@ -327,7 +327,7 @@ class TokenPairOut(BaseModel):
 class CategoryIn(BaseModel):
     code: str
     label: str
-    couleur: str = "#22d3ee"
+    couleur: str = "#d85810"
     type: str = "retail"
     actif: bool = True
     org_id: str | None = None
@@ -341,17 +341,49 @@ class CategoryOut(CategoryIn):
 class ModelOut(BaseModel):
     model_config = ORM
     id: str
+    org_id: str | None = None
     nom: str
     version: str
     tache: str
     framework: str | None
+    runtime: str
+    description: str | None = None
+    artifact_name: str | None = None
+    artifact_sha256: str | None = None
+    artifact_size: int | None = None
+    artifact_trusted: bool = False
     statut: str
+    validation_status: str
+    validation_errors: list = Field(default_factory=list)
+    input_spec: dict = Field(default_factory=dict)
+    output_spec: dict = Field(default_factory=dict)
+    labels: list[str] = Field(default_factory=list)
     metrics: dict
     created_at: datetime | None = None
 
 
 class ModelPromoteIn(BaseModel):
     statut: str  # production|archive|sandbox
+
+
+class ModelDeploymentIn(BaseModel):
+    enabled: bool = False
+    inference_fps: int = Field(default=5, ge=1, le=30)
+    confidence: int = Field(default=25, ge=0, le=100)
+    iou_threshold: int = Field(default=45, ge=0, le=100)
+    overlay_enabled: bool = True
+    incident_enabled: bool = False
+    config: dict = Field(default_factory=dict)
+
+
+class ModelDeploymentOut(ModelDeploymentIn):
+    model_config = ORM
+    id: str
+    org_id: str
+    model_id: str
+    robot_id: str
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
 
 
 # ---- Audit -----------------------------------------------------------------

@@ -174,7 +174,7 @@ def seed_demo(db: Session) -> None:
         db.add(DetectionCategory(
             org_id=(orgs[row["org"]].id if row.get("org") else (default_org.id if default_org else None)),
             code=row["code"], label=row["label"],
-            couleur=row.get("couleur", "#22d3ee"), type=row.get("type", "retail"),
+            couleur=row.get("couleur", "#d85810"), type=row.get("type", "retail"),
         ))
 
     for row in _load("models.json"):
@@ -182,6 +182,8 @@ def seed_demo(db: Session) -> None:
             org_id=orgs[row["org"]].id if row.get("org") else None,
             nom=row["nom"], version=row["version"], tache=row.get("tache", "detection"),
             framework=row.get("framework"), statut=row.get("statut", "sandbox"),
+            validation_status="artifact_missing",
+            validation_errors=["Donnée de démonstration sans artefact exécutable"],
             metrics=row.get("metrics", {}),
         ))
     db.commit()

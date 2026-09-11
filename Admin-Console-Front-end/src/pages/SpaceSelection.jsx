@@ -2,7 +2,6 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext.jsx";
 import { ADMIN_UI_FEATURES, canAny, canSee } from "../lib/permissions.js";
 import {
-  IconActivity,
   IconShield,
   IconRobot,
   IconVideo,
@@ -10,6 +9,7 @@ import {
   IconArrowRight,
 } from "../components/Icons.jsx";
 import OrganisationSwitcher from "@/components/OrganisationSwitcher.jsx";
+import OscarBrand from "@/components/OscarBrand.jsx";
 
 const SPACES = [
   {
@@ -48,7 +48,7 @@ export default function SpaceSelection() {
   return (
     <main className="space-select-wrap" data-testid="space-selection" id="main-content" tabIndex={-1}>
       <div className="space-select-header">
-        <div className="space-select-brand"><IconActivity size={18} /><span>OSCAR CONTROL PLANE</span></div>
+        <div className="space-select-brand"><OscarBrand /></div>
         <div className="space-select-heading">
           <div>
             <h1>Espace de travail</h1>

@@ -3,12 +3,12 @@ import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext.jsx";
 import { useTheme } from "@/shared/design-system/themes";
 import { getUserErrorMessage } from "@/shared/kernel/errors";
+import OscarBrand from "@/components/OscarBrand.jsx";
 import {
   IconAlertCircle,
   IconArrowRight,
   IconEye,
   IconEyeOff,
-  IconLock,
 } from "../components/Icons.jsx";
 
 export default function Login() {
@@ -45,10 +45,8 @@ export default function Login() {
     <main className="auth-page-wrap" data-testid="login-page" id="main-content" tabIndex={-1}>
       <div className="auth-card-shell">
         <div className="auth-brand-header">
-          <div className="auth-brand-mark" aria-hidden="true">
-            <IconLock size={23} />
-          </div>
-          <h1>{branding.applicationName}</h1>
+          <OscarBrand className="auth-oscar-brand" />
+          <h1 className="sr-only">{branding.applicationName}</h1>
           <p>Control plane pour opérations robotiques</p>
         </div>
 

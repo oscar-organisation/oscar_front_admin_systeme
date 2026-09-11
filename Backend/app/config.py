@@ -39,6 +39,8 @@ class Settings(BaseSettings):
 
     # Stockage des modèles IA (sandbox)
     model_storage_dir: str = "./storage/models"
+    model_max_upload_mb: int = 512
+    perception_worker_api_key: str = ""
 
     # ------------------------------------------------------------------ #
     #  Keycloak / OIDC (IAM) - piloté par variables d'environnement.
