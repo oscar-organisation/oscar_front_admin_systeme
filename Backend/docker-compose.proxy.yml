@@ -46,6 +46,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    volumes:
+      - oscar_ai_models:/app/storage/models
     networks:
       - oscar-admin-internal
       - proxy-network               # Connecte au proxy central
@@ -117,6 +119,7 @@ services:
 volumes:
   oscar_admin_pg:
   oscar_keycloak_pg:
+  oscar_ai_models:
 
 networks:
   oscar-admin-internal:
