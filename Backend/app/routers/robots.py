@@ -1,4 +1,3 @@
-import re
 import uuid
 from datetime import datetime, timedelta, timezone
 
@@ -11,6 +10,7 @@ from ..config import settings
 from ..database import get_db
 from ..deps import request_organisation_id, require, write_audit
 from ..livekit_admin import list_participants
+from ..livekit_rooms import robot_room, room_slug
 from ..models import LiveKitToken, Robot, RobotAssignment, Site, User
 from ..schemas import (
     LiveKitTokenOut,
@@ -23,15 +23,6 @@ from ..schemas import (
 from ..security import create_livekit_token
 
 router = APIRouter(tags=["robots"])
-
-
-def _slug(s: str) -> str:
-    return re.sub(r"[^a-z0-9]+", "-", (s or "").lower()).strip("-") or "x"
-
-
-def robot_room(robot: Robot) -> str:
-    """Room LiveKit STABLE d'un robot (une room par robot, toujours la même)."""
-    return f"oscar-{_slug(robot.nom)}-{robot.id[:8]}"
 
 
 def _conn_info(room: str, identity: str, token: str) -> dict:
@@ -187,7 +178,7 @@ def issue_tokens(robot_id: str, body: TokenIssueIn, db: Session = Depends(get_db
     now = datetime.now(timezone.utc)
 
     # jeton robot : publie vidéo/audio/pose
-    robot_identity = f"robot-{_slug(robot.nom)}"
+    robot_identity = f"robot-{room_slug(robot.nom)}"
     robot_jwt = create_livekit_token(
         robot_identity, room, can_publish=True, can_subscribe=True,
         can_publish_data=True, ttl_hours=settings.livekit_robot_ttl_hours, name=robot.nom,
@@ -340,7 +331,7 @@ def integration(robot_id: str, db: Session = Depends(get_db),
     if not robot:
         raise HTTPException(404, "Robot introuvable")
     room = robot_room(robot)
-    identity = f"robot-{_slug(robot.nom)}"
+    identity = f"robot-{room_slug(robot.nom)}"
     token = create_livekit_token(identity, room, can_publish=True, can_subscribe=True,
                                  can_publish_data=True, ttl_hours=settings.livekit_sdk_ttl_hours,
                                  name=robot.nom)
@@ -408,7 +399,7 @@ def integration_custom(robot_id: str, body: dict, db: Session = Depends(get_db),
     if not name:
         raise HTTPException(400, "Le nom de l'équipement est requis")
     can_publish = bool(body.get("can_publish", False))
-    identity = "client-" + (_slug(body.get("identity")) if body.get("identity") else _slug(name))
+    identity = "client-" + (room_slug(body.get("identity")) if body.get("identity") else room_slug(name))
     room = robot_room(robot)
     token = create_livekit_token(identity, room, can_publish=can_publish, can_subscribe=True,
                                  can_publish_data=True, ttl_hours=settings.livekit_sdk_ttl_hours, name=name)

@@ -21,10 +21,10 @@
   --shell-faint: rgba(218, 225, 235, 0.28);
 
   /* Actions and semantic feedback */
-  --shell-blue: #0a84ff;
-  --shell-blue-strong: #409cff;
-  --shell-blue-border: rgba(64, 156, 255, 0.36);
-  --shell-blue-soft: rgba(10, 132, 255, 0.105);
+  --shell-blue: #d85810;
+  --shell-blue-strong: #ed6b22;
+  --shell-blue-border: rgba(216, 88, 16, 0.38);
+  --shell-blue-soft: rgba(216, 88, 16, 0.12);
   --shell-green: #51d59a;
   --shell-green-soft: rgba(81, 213, 154, 0.1);
   --shell-amber: #e8ad52;
@@ -90,8 +90,8 @@
   --shell-muted: #515156;
   --shell-dim: #74747a;
   --shell-faint: #98989f;
-  --shell-blue-border: rgba(0, 122, 255, 0.32);
-  --shell-blue-soft: rgba(0, 122, 255, 0.08);
+  --shell-blue-border: rgba(216, 88, 16, 0.32);
+  --shell-blue-soft: rgba(216, 88, 16, 0.09);
   --surface-satin: linear-gradient(180deg, rgba(255, 255, 255, 0.7), rgba(255, 255, 255, 0));
   --shadow-sm: 0 1px 4px rgba(0, 0, 0, 0.045);
   --shadow-md: 0 18px 44px rgba(0, 0, 0, 0.11);

@@ -618,7 +618,7 @@ export default function Robots() {
                   </div>
 
                   {sel && (
-                    <div className="card-shell" style={{ marginTop: 6, background: "rgba(0, 229, 255, 0.04)", border: "1px solid rgba(0, 229, 255, 0.2)" }}>
+                    <div className="card-shell" style={{ marginTop: 6, background: "rgba(216, 88, 16, 0.04)", border: "1px solid rgba(216, 88, 16, 0.2)" }}>
                       <div className="card-body" style={{ padding: 14 }}>
                         <strong>{sel.name}</strong> <span style={{ color: "var(--shell-dim)" }}>({sel.identity})</span>
                         <ul style={{ margin: "8px 0 0", paddingLeft: 18, fontSize: 12, color: "var(--shell-muted)" }}>

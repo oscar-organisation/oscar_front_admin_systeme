@@ -409,15 +409,45 @@ class ModelCategory(Base):
 
 class AiModel(Base, TimestampMixin):
     __tablename__ = "ai_models"
+    __table_args__ = (UniqueConstraint("org_id", "nom", "version", name="uq_ai_model_org_name_version"),)
     id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_uuid)
     org_id: Mapped[str | None] = mapped_column(ForeignKey("organisations.id", ondelete="SET NULL"))
     nom: Mapped[str] = mapped_column(String(160), nullable=False)
     version: Mapped[str] = mapped_column(String(40), nullable=False)
     tache: Mapped[str] = mapped_column(String(40), default="detection")  # detection|classification
     framework: Mapped[str | None] = mapped_column(String(40))
-    fichier: Mapped[str | None] = mapped_column(String(255))  # chemin de stockage
+    runtime: Mapped[str] = mapped_column(String(40), default="onnxruntime")
+    description: Mapped[str | None] = mapped_column(Text)
+    fichier: Mapped[str | None] = mapped_column(String(512))  # chemin interne, jamais exposé au client
+    artifact_name: Mapped[str | None] = mapped_column(String(255))
+    artifact_sha256: Mapped[str | None] = mapped_column(String(64))
+    artifact_size: Mapped[int | None] = mapped_column(Integer)
+    artifact_trusted: Mapped[bool] = mapped_column(Boolean, default=False)
     statut: Mapped[str] = mapped_column(String(20), default="sandbox")  # sandbox|production|archive
+    validation_status: Mapped[str] = mapped_column(String(24), default="manifest_valid")
+    validation_errors: Mapped[list] = mapped_column(JSON, default=list)
+    input_spec: Mapped[dict] = mapped_column(JSON, default=dict)
+    output_spec: Mapped[dict] = mapped_column(JSON, default=dict)
+    labels: Mapped[list] = mapped_column(JSON, default=list)
     metrics: Mapped[dict] = mapped_column(JSON, default=dict)  # {precision, recall}
+
+
+class AiModelDeployment(Base, TimestampMixin):
+    __tablename__ = "ai_model_deployments"
+    __table_args__ = (
+        UniqueConstraint("model_id", "robot_id", name="uq_ai_model_deployment_robot"),
+    )
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_uuid)
+    org_id: Mapped[str] = mapped_column(ForeignKey("organisations.id", ondelete="CASCADE"))
+    model_id: Mapped[str] = mapped_column(ForeignKey("ai_models.id", ondelete="CASCADE"))
+    robot_id: Mapped[str] = mapped_column(ForeignKey("robots.id", ondelete="CASCADE"))
+    enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    inference_fps: Mapped[int] = mapped_column(Integer, default=5)
+    confidence: Mapped[int] = mapped_column(Integer, default=25)  # pourcentage 0..100
+    iou_threshold: Mapped[int] = mapped_column(Integer, default=45)
+    overlay_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    incident_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    config: Mapped[dict] = mapped_column(JSON, default=dict)
 
 
 class DetectionCategory(Base, TimestampMixin):
@@ -426,7 +456,7 @@ class DetectionCategory(Base, TimestampMixin):
     org_id: Mapped[str | None] = mapped_column(ForeignKey("organisations.id", ondelete="SET NULL"))
     code: Mapped[str] = mapped_column(String(60), nullable=False)
     label: Mapped[str] = mapped_column(String(120), nullable=False)
-    couleur: Mapped[str] = mapped_column(String(16), default="#22d3ee")
+    couleur: Mapped[str] = mapped_column(String(16), default="#d85810")
     type: Mapped[str] = mapped_column(String(20), default="retail")  # retail|securite
     actif: Mapped[bool] = mapped_column(Boolean, default=True)
 

@@ -241,17 +241,63 @@ def test_robot_and_livekit_tokens(client, admin_headers):
 #  Sandbox IA (F)
 # --------------------------------------------------------------------------- #
 def test_ai_model_upload_and_promote(client, admin_headers):
-    files = {"file": ("model.bin", b"\x00\x01FAKE-MODEL", "application/octet-stream")}
-    data = {"nom": "Retail Detection", "version": uniq("v"), "tache": "detection", "framework": "onnx"}
-    r = client.post("/api/ai/models", headers=admin_headers, data=data, files=files)
+    org = client.post("/api/organisations", headers=admin_headers,
+                      json={"nom": "Org Vision", "slug": uniq("org-vision")}).json()
+    robot = client.post("/api/robots", headers=admin_headers,
+                        json={"nom": uniq("OSCAR-VISION"), "org_id": org["id"]}).json()
+    scoped_headers = {**admin_headers, "X-Organization-ID": org["id"]}
+    files = {"file": ("model.pt", b"FAKE-TRUSTED-ULTRALYTICS-MODEL", "application/octet-stream")}
+    data = {
+        "nom": "Retail Detection", "version": uniq("v"), "tache": "product_detection",
+        "framework": "ultralytics", "runtime": "ultralytics", "trusted_artifact": "true",
+        "labels_json": '["produit", "rayon_vide"]',
+    }
+    r = client.post("/api/ai/models", headers=scoped_headers, data=data, files=files)
     assert r.status_code == 201, r.text
     model = r.json()
     assert model["statut"] == "sandbox"
+    assert model["artifact_sha256"] and model["artifact_size"] > 0
+    assert model["labels"] == ["produit", "rayon_vide"]
 
-    r = client.post(f"/api/ai/models/{model['id']}/promote", headers=admin_headers,
+    r = client.post(f"/api/ai/models/{model['id']}/promote", headers=scoped_headers,
                     json={"statut": "production"})
     assert r.status_code == 200 and r.json()["statut"] == "production"
-    assert any(m["id"] == model["id"] for m in client.get("/api/ai/models", headers=admin_headers).json())
+    assert any(m["id"] == model["id"] for m in client.get("/api/ai/models", headers=scoped_headers).json())
+
+    deployment = client.put(
+        f"/api/ai/models/{model['id']}/deployments/{robot['id']}", headers=scoped_headers,
+        json={"enabled": True, "inference_fps": 5, "confidence": 30, "iou_threshold": 45},
+    )
+    assert deployment.status_code == 200, deployment.text
+    assert deployment.json()["enabled"] is True
+
+    worker_headers = {"X-OSCAR-Worker-Key": "test-perception-worker-key"}
+    manifest = client.get(f"/api/ai/runtime/robots/{robot['id']}/manifest", headers=worker_headers)
+    assert manifest.status_code == 200, manifest.text
+    assert manifest.json()["overlay_topic"] == "oscar.vision.overlay"
+    assert manifest.json()["models"][0]["id"] == model["id"]
+    session = client.get(f"/api/ai/runtime/robots/{robot['id']}/session", headers=worker_headers)
+    assert session.status_code == 200, session.text
+    session_payload = session.json()
+    decoded = jwt.decode(session_payload["token"], livekit_secret(), algorithms=["HS256"])
+    assert session_payload["room"] == manifest.json()["room"]
+    assert decoded["video"]["canSubscribe"] is True
+    assert decoded["video"]["canPublish"] is False
+    assert decoded["video"]["canPublishData"] is True
+    artifact = client.get(f"/api/ai/runtime/models/{model['id']}/artifact", headers=worker_headers)
+    assert artifact.status_code == 200 and artifact.content == b"FAKE-TRUSTED-ULTRALYTICS-MODEL"
+
+
+def test_ai_model_rejects_unknown_artifact(client, admin_headers):
+    org = client.post("/api/organisations", headers=admin_headers,
+                      json={"nom": "Org Vision Reject", "slug": uniq("org-vision-reject")}).json()
+    scoped_headers = {**admin_headers, "X-Organization-ID": org["id"]}
+    response = client.post(
+        "/api/ai/models", headers=scoped_headers,
+        data={"nom": "Unsafe", "version": "1", "tache": "object_detection"},
+        files={"file": ("payload.bin", b"invalid", "application/octet-stream")},
+    )
+    assert response.status_code == 415
 
 
 def test_ai_categories(client, admin_headers):
