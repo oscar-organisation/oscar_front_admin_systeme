@@ -3,7 +3,13 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..database import get_db
-from ..deps import request_organisation_id, require, verifier_perimetre, write_audit
+from ..deps import (
+    request_organisation_id,
+    require,
+    sans_perimetre,
+    verifier_perimetre,
+    write_audit,
+)
 from ..models import Site
 from ..schemas import SiteIn, SiteOut
 
@@ -22,6 +28,8 @@ def _site_du_perimetre(db: Session, request: Request, site_id: str) -> Site:
 @router.get("", response_model=list[SiteOut])
 def list_sites(request: Request, org_id: str | None = None, db: Session = Depends(get_db),
                _=Depends(require("api:site.read"))):
+    if sans_perimetre(request):
+        return []
     q = select(Site).order_by(Site.nom)
     scoped_org_id = request_organisation_id(request)
     if scoped_org_id:

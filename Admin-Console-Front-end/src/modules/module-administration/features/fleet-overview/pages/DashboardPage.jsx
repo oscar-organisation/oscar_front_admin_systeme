@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "@/api/client.js";
+import { useAuth } from "@/auth/AuthContext.jsx";
 import PageHeader from "@/components/PageHeader.jsx";
 import { runtimeConfig } from "@/shared/config";
 import { captureError } from "@/shared/kernel/observability";
@@ -24,31 +25,53 @@ export default function Dashboard() {
   });
   const [loading, setLoading] = useState(true);
   const [loadWarning, setLoadWarning] = useState("");
+  const { can } = useAuth();
+
+  /* La page est l'accueil de tout le monde, mais elle agrege six ressources
+     dont chacune a sa permission. Les demander toutes puis afficher « certaines
+     donnees n'ont pas pu etre actualisees » fait passer un refus normal pour
+     une panne : un Responsable Retail voyait cette alerte a chaque connexion.
+     On ne demande donc que ce que le role autorise, et l'alerte redevient ce
+     qu'elle doit etre : le signe d'une vraie erreur. */
+  const droits = {
+    robots: can("api:robot.read"),
+    users: can("api:user.read"),
+    sites: can("api:site.read"),
+    models: can("api:ai.model.read"),
+    orgs: can("api:org.read"),
+    audit: can("api:audit.read"),
+  };
 
   useEffect(() => {
-    Promise.allSettled([
-      api.get("/robots"),
-      api.get("/users"),
-      api.get("/sites"),
-      api.get("/ai/models"),
-      api.get("/organisations"),
-      api.get("/audit?limit=6"),
-    ]).then(([r, u, s, m, o, a]) => {
-      const rejected = [r, u, s, m, o, a].filter((result) => result.status === "rejected");
-      if (rejected.length) {
-        setLoadWarning(captureError(rejected[0].reason, { feature: "fleet-overview", action: "load-dashboard" }));
+    const sources = [
+      ["robots", droits.robots, "/robots"],
+      ["users", droits.users, "/users"],
+      ["sites", droits.sites, "/sites"],
+      ["models", droits.models, "/ai/models"],
+      ["orgs", droits.orgs, "/organisations"],
+      ["audit", droits.audit, "/audit?limit=6"],
+    ].filter(([, autorise]) => autorise);
+
+    if (!sources.length) {
+      setLoading(false);
+      return;
+    }
+
+    Promise.allSettled(sources.map(([, , url]) => api.get(url))).then((resultats) => {
+      const echec = resultats.find((r) => r.status === "rejected");
+      if (echec) {
+        setLoadWarning(captureError(echec.reason, { feature: "fleet-overview", action: "load-dashboard" }));
       }
-      setData({
-        robots: r.status === "fulfilled" && Array.isArray(r.value) ? r.value : [],
-        users: u.status === "fulfilled" && Array.isArray(u.value) ? u.value : [],
-        sites: s.status === "fulfilled" && Array.isArray(s.value) ? s.value : [],
-        models: m.status === "fulfilled" && Array.isArray(m.value) ? m.value : [],
-        orgs: o.status === "fulfilled" && Array.isArray(o.value) ? o.value : [],
-        audit: a.status === "fulfilled" && Array.isArray(a.value) ? a.value : [],
+      const suivant = {};
+      sources.forEach(([cle], i) => {
+        const r = resultats[i];
+        suivant[cle] = r.status === "fulfilled" && Array.isArray(r.value) ? r.value : [];
       });
+      setData((precedent) => ({ ...precedent, ...suivant }));
       setLoading(false);
     });
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [droits.robots, droits.users, droits.sites, droits.models, droits.orgs, droits.audit]);
 
   const onlineRobots = data.robots.filter((r) => r.statut === "online").length;
   const maintenanceRobots = data.robots.filter((r) => r.statut === "maintenance").length;
@@ -67,6 +90,7 @@ export default function Dashboard() {
         )}
         {/* KPI Grid */}
         <div className="metrics-grid">
+          {droits.robots && (
           <div className="kpi-card" data-testid="kpi-robots">
             <div className="kpi-card-header">
               <span className="kpi-title">Robots</span>
@@ -86,7 +110,9 @@ export default function Dashboard() {
               )}
             </div>
           </div>
+          )}
 
+          {droits.users && (
           <div className="kpi-card" data-testid="kpi-users">
             <div className="kpi-card-header">
               <span className="kpi-title">Utilisateurs</span>
@@ -99,7 +125,9 @@ export default function Dashboard() {
               Comptes opérateurs et administrateurs
             </div>
           </div>
+          )}
 
+          {droits.sites && (
           <div className="kpi-card" data-testid="kpi-sites">
             <div className="kpi-card-header">
               <span className="kpi-title">Sites</span>
@@ -109,10 +137,12 @@ export default function Dashboard() {
             </div>
             <div className="kpi-value">{loading ? "—" : data.sites.length}</div>
             <div className="kpi-subtext" style={{ color: "var(--shell-dim)" }}>
-              {data.orgs.length} organisation(s)
+              {droits.orgs ? `${data.orgs.length} organisation(s)` : "Sites de votre périmètre"}
             </div>
           </div>
+          )}
 
+          {droits.models && (
           <div className="kpi-card" data-testid="kpi-models">
             <div className="kpi-card-header">
               <span className="kpi-title">Modèles IA déployés</span>
@@ -125,11 +155,13 @@ export default function Dashboard() {
               Services de détection configurés
             </div>
           </div>
+          )}
         </div>
 
         {/* Content Section */}
         <div className="content-grid">
           {/* Recent Robots Fleet Status */}
+          {droits.robots && (
           <div className="card-shell">
             <div className="card-head">
               <div>
@@ -201,7 +233,10 @@ export default function Dashboard() {
             </div>
           </div>
 
+          )}
+
           {/* Real-time Activity Stream */}
+          {droits.audit && (
           <div className="card-shell">
             <div className="card-head">
               <div>
@@ -239,6 +274,7 @@ export default function Dashboard() {
               </div>
             </div>
           </div>
+          )}
         </div>
       </div>
     </>

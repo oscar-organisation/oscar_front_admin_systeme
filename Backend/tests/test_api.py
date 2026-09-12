@@ -512,6 +512,10 @@ def test_supervise_requires_assignment(client, admin_headers):
     u = client.post("/api/users", headers=admin_headers,
                     json={"email": email, "nom": "Op", "password": "pass1234", "statut": "active"}).json()
     client.post(f"/api/users/{u['id']}/roles", headers=admin_headers, json={"role_id": role["id"]})
+    # Rattachement a l'organisation du robot : sans perimetre, le robot est hors
+    # de portee et l'API repond 404 avant meme de regarder l'association.
+    client.put(f"/api/users/{u['id']}/organisations", headers=admin_headers,
+               json={"org_ids": [org["id"]], "primary_org_id": org["id"]})
     tok = client.post("/api/auth/login", json={"email": email, "password": "pass1234"}).json()
     h = {"Authorization": f"Bearer {tok['access_token']}"}
 

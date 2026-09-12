@@ -8,7 +8,13 @@ from sqlalchemy.orm import Session
 
 from ..config import settings
 from ..database import get_db
-from ..deps import request_organisation_id, require, verifier_perimetre, write_audit
+from ..deps import (
+    request_organisation_id,
+    require,
+    sans_perimetre,
+    verifier_perimetre,
+    write_audit,
+)
 from ..livekit_admin import list_participants
 from ..livekit_rooms import robot_room, room_slug
 from ..models import LiveKitToken, Robot, RobotAssignment, Site, User
@@ -54,6 +60,8 @@ def _robot_du_perimetre(db: Session, request: Request, robot_id: str) -> Robot:
 @router.get("/robots", response_model=list[RobotOut])
 def list_robots(request: Request, org_id: str | None = None, site_id: str | None = None,
                 db: Session = Depends(get_db), _=Depends(require("api:robot.read"))):
+    if sans_perimetre(request):
+        return []
     q = select(Robot).order_by(Robot.nom)
     scoped_org_id = request_organisation_id(request)
     if scoped_org_id:
@@ -87,6 +95,8 @@ def create_robot(body: RobotIn, db: Session = Depends(get_db),
 def assigned_robots(request: Request, db: Session = Depends(get_db),
                     user=Depends(require("api:robot.supervise", "execute"))):
     """Robots auxquels l'utilisateur courant est associé (tous si superadmin)."""
+    if sans_perimetre(request):
+        return []
     scoped_org_id = request_organisation_id(request)
     if user.is_superadmin:
         query = select(Robot).order_by(Robot.nom)
