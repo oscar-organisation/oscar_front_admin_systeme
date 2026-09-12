@@ -42,16 +42,16 @@ body {
 
 .auth-login-panel {
   min-height: 100vh;
-  padding: clamp(28px, 5vh, 54px) clamp(34px, 5vw, 76px) 30px;
+  padding: clamp(28px, 4vh, 48px) clamp(34px, 4.5vw, 68px) 28px;
   background: #08090b;
   display: flex;
   flex-direction: column;
 }
 
 .auth-card-shell {
-  width: min(100%, 410px);
+  width: min(100%, 380px);
   margin: auto 0;
-  padding: clamp(48px, 8vh, 88px) 0;
+  padding: clamp(42px, 7vh, 72px) 0;
   border: 0;
   border-radius: 0;
   background: transparent;
@@ -59,35 +59,33 @@ body {
 }
 
 .auth-brand-header {
-  width: 100%;
+  width: auto;
   margin: 0;
   align-items: center;
   flex-direction: row;
-  justify-content: space-between;
+  justify-content: flex-start;
+  gap: 18px;
   text-align: left;
 }
+.auth-brand-header .auth-oscar-brand { width: 148px; height: 35px; margin: 0; }
 
 .auth-brand-header span {
-  color: rgba(255, 255, 255, 0.34);
-  font: 600 9px/1 var(--font-mono);
-  letter-spacing: 0.13em;
+  padding-left: 18px;
+  border-left: 1px solid rgba(255, 255, 255, 0.18);
+  color: rgba(255, 255, 255, 0.48);
+  font: 600 10px/1 var(--font-mono);
+  letter-spacing: 0.1em;
   text-transform: uppercase;
 }
 
-.auth-login-heading { margin-bottom: 34px; }
-.auth-login-heading > span {
-  color: var(--shell-blue-strong);
-  font: 650 9px/1 var(--font-mono);
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-}
-.auth-login-heading h1 { margin: 13px 0 10px; color: #f5f6f8; font-size: clamp(34px, 4vw, 48px); font-weight: 590; letter-spacing: -0.04em; }
-.auth-login-heading p { max-width: 34ch; margin: 0; color: rgba(255, 255, 255, 0.43); font-size: 12px; line-height: 1.65; }
-.auth-form { gap: 21px; }
+.auth-login-heading { margin-bottom: 30px; }
+.auth-login-heading h1 { margin: 0 0 9px; color: #f5f6f8; font-size: 30px; font-weight: 590; letter-spacing: -0.025em; }
+.auth-login-heading p { max-width: 38ch; margin: 0; color: rgba(255, 255, 255, 0.43); font-size: 12px; line-height: 1.6; }
+.auth-form { gap: 18px; }
 .auth-label { margin: 0 0 9px; color: rgba(255, 255, 255, 0.66); font-size: 11px; font-weight: 560; }
 .auth-form .field-shell {
-  min-height: 54px;
-  padding: 12px 15px;
+  min-height: 48px;
+  padding: 10px 14px;
   border-color: rgba(255, 255, 255, 0.16);
   border-radius: 7px;
   background: rgba(255, 255, 255, 0.018);
@@ -96,8 +94,8 @@ body {
 .auth-form .field-shell:hover { border-color: rgba(255, 255, 255, 0.26); }
 .auth-form .field-shell:focus { border-color: rgba(216, 88, 16, 0.75); box-shadow: 0 0 0 3px rgba(216, 88, 16, 0.11); }
 .auth-form .btn-shell.primary {
-  min-height: 54px;
-  margin-top: 8px;
+  min-height: 48px;
+  margin-top: 6px;
   border-radius: 7px;
   font-size: 11px;
   letter-spacing: 0.04em;
@@ -135,22 +133,7 @@ body {
   background-position: center;
   background-size: cover;
   overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
 }
-.auth-visual-shade {
-  position: absolute;
-  inset: 0;
-  background: rgba(5, 6, 8, 0.28);
-  box-shadow: inset 50px 0 80px rgba(4, 5, 7, 0.22);
-}
-.auth-visual-copy { position: relative; z-index: 1; width: min(100%, 520px); margin-top: -8vh; }
-.auth-visual-copy > span { color: rgba(255, 255, 255, 0.58); font: 600 9px/1 var(--font-mono); letter-spacing: 0.14em; text-transform: uppercase; }
-.auth-visual-copy h2 { margin: 18px 0 14px; color: #fff; font-size: clamp(38px, 5vw, 68px); font-weight: 530; letter-spacing: -0.045em; line-height: 0.99; text-shadow: 0 2px 24px rgba(0, 0, 0, 0.35); }
-.auth-visual-copy p { max-width: 40ch; margin: 0; color: rgba(255, 255, 255, 0.67); font-size: 13px; line-height: 1.65; text-shadow: 0 1px 14px rgba(0, 0, 0, 0.55); }
-.auth-visual-footer { position: absolute; z-index: 1; right: clamp(32px, 5vw, 76px); bottom: 34px; left: clamp(32px, 5vw, 76px); color: rgba(255, 255, 255, 0.48); display: flex; align-items: center; gap: 14px; font: 600 9px/1 var(--font-mono); letter-spacing: 0.1em; text-transform: uppercase; }
-.auth-visual-footer i { height: 1px; flex: 1; background: rgba(255, 255, 255, 0.28); }
 
 /* Workspace chooser */
 .space-select-wrap {
@@ -526,8 +509,6 @@ body {
 
 @media (max-width: 900px) {
   .auth-page-wrap { grid-template-columns: minmax(390px, 0.95fr) minmax(0, 1.05fr); }
-  .auth-visual-panel { padding: 44px; }
-  .auth-visual-copy h2 { font-size: 44px; }
   .space-cards-grid { grid-template-columns: 1fr; }
   .space-card { min-height: 190px; }
   .space-card-icon { margin-bottom: 24px; }
@@ -536,8 +517,8 @@ body {
 @media (max-width: 760px) {
   .auth-page-wrap { grid-template-columns: 1fr; }
   .auth-login-panel { min-height: 100vh; padding: 26px 24px 22px; }
-  .auth-card-shell { width: min(100%, 430px); margin: auto; padding: 52px 0; }
-  .auth-login-footer { width: min(100%, 430px); margin: 0 auto; }
+  .auth-card-shell { width: min(100%, 380px); margin: auto; padding: 52px 0; }
+  .auth-login-footer { width: min(100%, 380px); margin: 0 auto; }
   .auth-visual-panel { display: none; }
   .space-select-wrap { padding: 28px 16px; }
   .space-select-brand { margin-bottom: 26px; }

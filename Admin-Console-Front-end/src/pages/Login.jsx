@@ -46,14 +46,13 @@ export default function Login() {
       <section className="auth-login-panel">
         <div className="auth-brand-header">
           <OscarBrand className="auth-oscar-brand" />
-          <span>Control plane</span>
+          <span>Control Plane</span>
         </div>
 
         <div className="auth-card-shell">
           <div className="auth-login-heading">
-            <span>Accès sécurisé</span>
             <h1>Connexion</h1>
-            <p>Accédez à votre environnement d'opérations robotiques.</p>
+            <p>Identifiez-vous pour accéder à votre environnement d'opérations.</p>
           </div>
 
           <form data-testid="login-form" onSubmit={handleSubmit} className="auth-form">
@@ -121,15 +120,7 @@ export default function Login() {
         </footer>
       </section>
 
-      <aside className="auth-visual-panel" aria-label="Plateforme d'opérations OSCAR">
-        <div className="auth-visual-shade" />
-        <div className="auth-visual-copy">
-          <span>Opérations robotiques / temps réel</span>
-          <h2>Voir, comprendre,<br />agir.</h2>
-          <p>Une vision unifiée de vos robots, de leur perception et de vos environnements.</p>
-        </div>
-        <div className="auth-visual-footer"><span>OSCAR Control Plane</span><i /><span>01</span></div>
-      </aside>
+      <aside className="auth-visual-panel" aria-label="Plateforme d'opérations OSCAR" />
     </main>
   );
 }
