@@ -46,7 +46,7 @@ export default function Login() {
       <section className="auth-login-panel">
         <div className="auth-brand-header">
           <OscarBrand className="auth-oscar-brand" />
-          <span>Control Plane</span>
+          <span className="auth-brand-tag">Control Plane</span>
         </div>
 
         <div className="auth-card-shell">
