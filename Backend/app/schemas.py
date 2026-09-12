@@ -459,3 +459,34 @@ class AuditOut(BaseModel):
     resource: str | None
     result: str
     ip: str | None
+
+
+# --------------------------------------------------------------------------- #
+#  Mot de passe : oubli, réinitialisation, invitation, compte personnel
+# --------------------------------------------------------------------------- #
+class ForgotPasswordIn(BaseModel):
+    email: EmailStr
+
+
+class ResetPasswordIn(BaseModel):
+    token: str
+    password: str
+
+
+class InvitationCheckOut(BaseModel):
+    """Réponse volontairement minimale : elle ne dit rien que le porteur du
+    lien ne sache déjà, et ne révèle jamais pourquoi un lien est refusé."""
+    valide: bool
+    email: str | None = None
+    nom: str | None = None
+    kind: str | None = None
+
+
+class ProfileUpdateIn(BaseModel):
+    nom: str | None = None
+    email: EmailStr | None = None
+
+
+class PasswordChangeIn(BaseModel):
+    current_password: str
+    new_password: str

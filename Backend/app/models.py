@@ -550,3 +550,37 @@ class AuditLog(Base):
     resource: Mapped[str | None] = mapped_column(String(200))
     result: Mapped[str] = mapped_column(String(20), default="success")
     ip: Mapped[str | None] = mapped_column(String(60))
+
+
+# --------------------------------------------------------------------------- #
+#  Jetons à usage unique : invitation et réinitialisation de mot de passe
+# --------------------------------------------------------------------------- #
+class AuthToken(Base):
+    """Jeton d'activation ou de réinitialisation, à usage unique.
+
+    Seule l'empreinte SHA-256 du jeton est conservée. Une fuite de la base ne
+    permet donc pas de prendre la main sur un compte : le secret n'existe que
+    dans le courriel envoyé et dans l'URL que l'utilisateur ouvre.
+
+    `used_at` marque la consommation. Un jeton consommé n'est pas supprimé :
+    il sert de trace, et son existence permet de distinguer « lien déjà
+    utilisé » de « lien inconnu » dans les journaux, sans le dire au visiteur.
+    """
+
+    __tablename__ = "auth_tokens"
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_uuid)
+    user_id: Mapped[str] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    kind: Mapped[str] = mapped_column(String(20), nullable=False)  # invite|reset
+    token_hash: Mapped[str] = mapped_column(String(64), nullable=False, unique=True, index=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), index=True
+    )
+    requested_ip: Mapped[str | None] = mapped_column(String(60))
+
+    __table_args__ = (
+        CheckConstraint("kind in ('invite','reset')", name="ck_auth_tokens_kind"),
+    )

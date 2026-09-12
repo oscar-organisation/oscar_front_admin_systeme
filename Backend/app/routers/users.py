@@ -2,6 +2,8 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
+from .. import auth_tokens, mailer
+from ..config import settings
 from ..database import get_db
 from ..deps import request_organisation_id, require, write_audit
 from ..models import Organisation, Role, RoleGroup, User, UserOrganisation, UserRole, UserRoleGroup
@@ -101,7 +103,48 @@ def create_user(body: UserIn, db: Session = Depends(get_db),
         db.commit()
     u = _load_user(db, u.id)
     write_audit(db, actor=user, action="USER_CREATE", resource=u.email)
+
+    # Compte cree sans mot de passe : on envoie une invitation plutot que de
+    # laisser un administrateur transmettre un secret par un canal tiers.
+    if not u.password_hash and u.statut == "invited":
+        secret = auth_tokens.emettre(db, u, auth_tokens.INVITE)
+        write_audit(db, actor=user, action="USER_INVITED", resource=u.email)
+        db.commit()
+        mailer.envoyer(
+            mailer.courriel_invitation(
+                u.nom,
+                auth_tokens.lien("/accept-invitation", secret),
+                settings.invite_ttl_hours,
+            ),
+            u.email,
+        )
     return _user_out(u, _org_name(db, u.org_id))
+
+
+@router.post("/{user_id}/resend-invitation", status_code=204)
+def resend_invitation(user_id: str, db: Session = Depends(get_db),
+                      user=Depends(require("api:user.write", "update"))):
+    """Renvoie une invitation : le lien precedent est invalide au passage."""
+    cible = db.get(User, user_id)
+    if not cible:
+        raise HTTPException(404, "Utilisateur introuvable")
+    if cible.statut == "disabled":
+        raise HTTPException(409, "Compte désactivé")
+    if cible.password_hash and cible.statut == "active":
+        raise HTTPException(409, "Ce compte est déjà activé")
+
+    secret = auth_tokens.emettre(db, cible, auth_tokens.INVITE)
+    write_audit(db, actor=user, action="USER_INVITE_RESENT", resource=cible.email)
+    db.commit()
+    mailer.envoyer(
+        mailer.courriel_invitation(
+            cible.nom,
+            auth_tokens.lien("/accept-invitation", secret),
+            settings.invite_ttl_hours,
+        ),
+        cible.email,
+    )
+    return None
 
 
 @router.patch("/{user_id}", response_model=UserOut)
