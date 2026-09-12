@@ -132,12 +132,30 @@ body {
   grid-column: 1;
   grid-row: 1;
   position: relative;
-  min-height: 100vh;
+  /* Detachee des bords : la marge laisse respirer le noir de la page derriere.
+     La hauteur retranche les deux marges, sinon le panneau depasse la fenetre
+     et fait apparaitre une barre de defilement. */
+  margin: 14px;
+  min-height: calc(100vh - 28px);
+  /* Meme rayon que les boutons et les champs du formulaire (7 px). */
+  border-radius: 7px;
   padding: clamp(42px, 7vw, 96px);
   background-color: #151719;
-  background-image: url("/brand/oscar-login-robots.jpg");
-  background-position: 50% 46%;
-  background-size: cover;
+  /* Deux couches : le degrade est declare en premier, donc peint au-dessus de
+     la photo. Il enracine le bas de l'image dans le noir de la page au lieu de
+     la laisser se couper net sur le bord. */
+  background-image:
+    linear-gradient(
+      to top,
+      rgba(8, 9, 11, 0.88) 0%,
+      rgba(8, 9, 11, 0.55) 12%,
+      rgba(8, 9, 11, 0.18) 26%,
+      rgba(8, 9, 11, 0) 40%
+    ),
+    url("/brand/oscar-login-humanoid.jpg");
+  background-position: center, 50% 42%;
+  background-size: cover, cover;
+  background-repeat: no-repeat, no-repeat;
   overflow: hidden;
 }
 
@@ -495,7 +513,10 @@ body {
 :root[data-theme="light"] .modal-foot { background: rgba(255, 255, 255, 0.94); }
 :root[data-theme="light"] .auth-page-wrap { background: #08090b; }
 :root[data-theme="light"] .space-select-wrap { background: #f4f4f6; }
-:root[data-theme="light"] .auth-login-panel { background: #ffffff; }
+:root[data-theme="light"] .auth-login-panel { background: #08090b; }
+:root[data-theme="light"] .auth-form .field-shell { border-color: rgba(255, 255, 255, 0.16); background: rgba(255, 255, 255, 0.018); color: #f5f6f8; }
+:root[data-theme="light"] .auth-page-wrap .oscar-brand-on-dark { display: block !important; }
+:root[data-theme="light"] .auth-page-wrap .oscar-brand-on-light { display: none !important; }
 :root[data-theme="light"] .platform-sidebar { box-shadow: 1px 0 16px rgba(0, 0, 0, 0.035); }
 :root[data-theme="light"] .nav-link:hover,
 :root[data-theme="light"] .nav-link.active { background: rgba(0, 0, 0, 0.045); }
@@ -544,98 +565,44 @@ body {
 }
 
 
-/* ---------------------------------------------------------------------------
-   Panneau de connexion sur fond blanc.
-   L'image reste sombre a gauche : le contraste porte desormais sur la coupure
-   entre les deux moities, et le texte gagne un rapport bien superieur au seuil
-   AA. Le bouton principal garde son orange, deja lisible en blanc dessus.
-   --------------------------------------------------------------------------- */
-.auth-login-panel { background: #ffffff; }
-
-/* Le composant de marque rend les deux logos et laisse le CSS choisir.
-   Sur fond blanc, c'est la version foncee qu'il faut. */
-.auth-login-panel .oscar-brand-on-dark { display: none !important; }
-.auth-login-panel .oscar-brand-on-light { display: block !important; }
-
-.auth-login-panel .auth-brand-tag {
-  border-left-color: rgba(16, 18, 20, 0.16);
-  color: rgba(16, 18, 20, 0.7);
-}
-
-.auth-login-panel .auth-login-heading h1 { color: #15171a; }
-.auth-login-panel .auth-login-heading p { color: rgba(16, 18, 20, 0.58); }
-.auth-login-panel .auth-label { color: rgba(16, 18, 20, 0.74); }
-
-.auth-login-panel .auth-form .field-shell {
-  border-color: rgba(16, 18, 20, 0.18);
-  background: #ffffff;
-  color: #15171a;
-}
-.auth-login-panel .auth-form .field-shell::placeholder { color: rgba(16, 18, 20, 0.36); }
-.auth-login-panel .auth-form .field-shell:hover { border-color: rgba(16, 18, 20, 0.3); }
-.auth-login-panel .auth-form .field-shell:focus { border-color: #d85810; box-shadow: none; }
-
-.auth-login-panel .password-toggle { color: rgba(16, 18, 20, 0.45); }
-.auth-login-panel .password-toggle:hover { color: #15171a; }
-
-.auth-login-panel .auth-error {
-  border-color: rgba(198, 40, 40, 0.28);
-  background: rgba(198, 40, 40, 0.06);
-  color: #a5251f;
-}
-
-.auth-login-panel .auth-login-footer { color: rgba(16, 18, 20, 0.6); }
-.auth-login-panel .auth-login-footer span { color: rgba(16, 18, 20, 0.66); }
-
-/* Sur fond blanc, le haut du degrade d'origine (#e8661c) ne donnait que
-   3,31:1 avec du texte blanc a 13 px, sous le seuil AA de 4,5. Le degrade est
-   assombri d'un cran : #c94e0b etait deja le bas du degrade precedent, donc la
-   teinte reste dans la famille de l'Orange Signal. Pire cas mesure : 4,59:1. */
-.auth-login-panel .auth-form .btn-shell.primary {
-  border-color: #a93f07;
-  background: linear-gradient(180deg, #c94e0b, #b34308);
-}
-.auth-login-panel .auth-form .btn-shell.primary:hover:not(:disabled) {
-  border-color: #bf4b0b;
-  background: linear-gradient(180deg, #d2540d, #bf4b0b);
-}
-
-/* --- Pages d'identite : liens secondaires, avis, indications --- */
+/* --- Pages d'identite : liens secondaires, avis, indications ---
+   Le panneau est revenu au fond sombre : ces couleurs sont donc claires sur
+   fond noir, et non l'inverse. */
 .auth-secondary {
   display: flex;
   flex-wrap: wrap;
   gap: 6px 18px;
   margin-top: 20px;
   padding-top: 18px;
-  border-top: 1px solid rgba(16, 18, 20, 0.1);
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
   font-size: 13px;
 }
 .auth-link {
-  color: #b34308;
+  color: #f0803c;
   font-weight: 560;
   text-decoration: none;
-  border-bottom: 1px solid rgba(179, 67, 8, 0.28);
+  border-bottom: 1px solid rgba(240, 128, 60, 0.32);
 }
-.auth-link:hover { border-bottom-color: #b34308; }
+.auth-link:hover { border-bottom-color: #f0803c; }
 
 .auth-hint {
   display: block;
   margin-top: 7px;
-  color: rgba(16, 18, 20, 0.55);
+  color: rgba(255, 255, 255, 0.5);
   font-size: 12px;
   line-height: 1.5;
 }
-.auth-hint.warn { color: #a5251f; }
+.auth-hint.warn { color: #ff9a92; }
 
 .auth-notice {
   display: flex;
   align-items: flex-start;
   gap: 10px;
   padding: 13px 15px;
-  border: 1px solid rgba(28, 142, 90, 0.26);
+  border: 1px solid rgba(73, 212, 157, 0.28);
   border-radius: 8px;
-  background: rgba(28, 142, 90, 0.06);
-  color: #1b6e48;
+  background: rgba(73, 212, 157, 0.08);
+  color: #6fddb2;
   font-size: 13px;
   line-height: 1.5;
 }
