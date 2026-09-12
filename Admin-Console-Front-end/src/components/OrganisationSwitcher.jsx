@@ -71,8 +71,11 @@ export default function OrganisationSwitcher({ compact = false }) {
         <span className="organisation-switcher-icon" aria-hidden="true">
           {switchingOrganisation ? <IconRefresh className="spin" size={15} /> : <IconBuilding size={15} />}
         </span>
+        {/* Deux lignes suffisent : le nom, puis le perimetre. L'etiquette
+            « Organisation active » disait ce que l'icone et le chevron
+            montrent deja, et elle reste portee par aria-label pour les
+            lecteurs d'ecran. */}
         <span className="organisation-switcher-copy">
-          <span>Organisation active</span>
           <strong>{activeLabel}</strong>
           <small id="organisation-context" title={contextLabel}>
             {contextLabel}

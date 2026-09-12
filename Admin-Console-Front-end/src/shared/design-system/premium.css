@@ -52,7 +52,7 @@ body {
 
 .auth-card-shell {
   width: min(100%, 380px);
-  align-self: flex-start;
+  align-self: center;
   margin: auto 0;
   padding: clamp(42px, 7vh, 72px) 0;
   border: 0;
@@ -607,3 +607,17 @@ body {
   line-height: 1.5;
 }
 .auth-notice svg { flex: none; margin-top: 2px; }
+
+
+/* --- Composition centree de la page de connexion ---
+   Le bloc de marque, le titre et le pied de page se centrent avec la carte,
+   sur un axe unique. Les libelles des champs restent alignes a gauche : une
+   etiquette centree au-dessus d'un champ pleine largeur se detache de ce
+   qu'elle designe, et l'oeil doit revenir en arriere pour lire la saisie. */
+.auth-login-panel { align-items: center; }
+.auth-brand-header { justify-content: center; }
+.auth-login-heading { text-align: center; }
+.auth-login-heading p { margin-inline: auto; }
+.auth-secondary { justify-content: center; }
+.auth-login-footer { width: min(100%, 380px); }
+.auth-notice { text-align: left; }
