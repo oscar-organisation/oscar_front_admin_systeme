@@ -199,6 +199,25 @@ def request_organisation_id(request: Request) -> str | None:
     return getattr(request.state, "active_org_id", None)
 
 
+def verifier_perimetre(request: Request, org_id: str | None, message: str) -> None:
+    """Refuse une ressource qui n'appartient pas a l'organisation active.
+
+    `require()` a deja repondu « a-t-il le droit ? ». Cette fonction repond a
+    l'autre question, celle qui fait l'etancheite entre locataires : « sur quoi
+    ? ». Sans elle, un administrateur d'organisation garde ses permissions
+    completes sur les ressources d'une organisation voisine des lors qu'il
+    connait un identifiant.
+
+    Le refus est un 404 et non un 403 : repondre « interdit » confirmerait
+    l'existence de la ressource, donc renseignerait un locataire sur ses
+    voisins. L'organisation active vaut None dans un seul cas, la vue globale,
+    reservee au superadmin par `resolve_active_organisation_id`.
+    """
+    actif = request_organisation_id(request)
+    if actif and org_id != actif:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, message)
+
+
 def require(feature_code: str, action: str = "view"):
     """Dependency FastAPI : impose une feature `api:*` + action (403 sinon)."""
 
@@ -212,6 +231,9 @@ def require(feature_code: str, action: str = "view"):
             )
         request.state.actor = user
         request.state.active_org_id = active_org_id
+        # Depose sur la session ce que `write_audit` estampillera. Passer par
+        # `Session.info` evite d'ajouter un parametre a soixante-dix appels.
+        db.info["active_org_id"] = active_org_id
         return user
 
     return _dep
@@ -225,11 +247,13 @@ def write_audit(
     resource: str | None = None,
     result: str = "success",
     ip: str | None = None,
+    org_id: str | None = None,
 ) -> None:
     db.add(
         AuditLog(
             actor_id=actor.id if actor else None,
             actor_label=(f"{actor.nom}" if actor else "system"),
+            org_id=org_id if org_id is not None else db.info.get("active_org_id"),
             action=action,
             resource=resource,
             result=result,

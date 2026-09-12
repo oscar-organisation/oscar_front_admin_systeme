@@ -546,6 +546,9 @@ class AuditLog(Base):
     ts: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), index=True)
     actor_id: Mapped[str | None] = mapped_column(String(32))
     actor_label: Mapped[str | None] = mapped_column(String(200))
+    # Organisation active au moment de l'action. Pas de cle etrangere : la trace
+    # doit survivre a la suppression de l'organisation qu'elle documente.
+    org_id: Mapped[str | None] = mapped_column(String(32), index=True)
     action: Mapped[str] = mapped_column(String(60), nullable=False)  # USER_CREATE, TOKEN_ISSUE...
     resource: Mapped[str | None] = mapped_column(String(200))
     result: Mapped[str] = mapped_column(String(20), default="success")

@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session, selectinload
 from .. import auth_tokens, mailer
 from ..config import settings
 from ..database import get_db
-from ..deps import request_organisation_id, require, write_audit
+from ..deps import accessible_organisation_ids, request_organisation_id, require, write_audit
 from ..models import Organisation, Role, RoleGroup, User, UserOrganisation, UserRole, UserRoleGroup
 from ..schemas import (
     OrganisationMembershipIn,
@@ -58,6 +58,25 @@ def _load_user(db: Session, user_id: str) -> User | None:
     ).scalar_one_or_none()
 
 
+def _cible_du_perimetre(db: Session, request: Request, user_id: str) -> User:
+    """Charge un utilisateur en verifiant qu'il est rattache a l'organisation active.
+
+    Le critere reprend exactement celui de la liste (`UserOrganisation` sur
+    l'organisation active) : ce qu'on ne voit pas dans la liste ne doit pas
+    devenir modifiable parce qu'on en connait l'identifiant. Le refus est un
+    404 pour ne pas reveler l'existence du compte a un locataire voisin.
+    """
+    cible = _load_user(db, user_id)
+    if not cible:
+        raise HTTPException(404, "Utilisateur introuvable")
+    actif = request_organisation_id(request)
+    if not actif or cible.org_id == actif:
+        return cible
+    if any(m.org_id == actif for m in cible.organisation_memberships):
+        return cible
+    raise HTTPException(404, "Utilisateur introuvable")
+
+
 def _org_name(db: Session, org_id: str | None) -> str | None:
     if not org_id:
         return None
@@ -88,12 +107,15 @@ def list_users(request: Request, org_id: str | None = None, db: Session = Depend
 
 
 @router.post("", response_model=UserOut, status_code=201)
-def create_user(body: UserIn, db: Session = Depends(get_db),
+def create_user(body: UserIn, request: Request, db: Session = Depends(get_db),
                 user=Depends(require("api:user.write", "create"))):
     if db.execute(select(User).where(User.email == body.email)).scalar_one_or_none():
         raise HTTPException(409, "E-mail déjà utilisé")
+    actif = request_organisation_id(request)
+    # Un administrateur borne cree dans son organisation, quoi que dise le corps.
+    org_id = actif or body.org_id
     u = User(
-        email=body.email, nom=body.nom, org_id=body.org_id, statut=body.statut,
+        email=body.email, nom=body.nom, org_id=org_id, statut=body.statut,
         password_hash=hash_password(body.password) if body.password else None,
     )
     db.add(u)
@@ -122,12 +144,10 @@ def create_user(body: UserIn, db: Session = Depends(get_db),
 
 
 @router.post("/{user_id}/resend-invitation", status_code=204)
-def resend_invitation(user_id: str, db: Session = Depends(get_db),
+def resend_invitation(user_id: str, request: Request, db: Session = Depends(get_db),
                       user=Depends(require("api:user.write", "update"))):
     """Renvoie une invitation : le lien precedent est invalide au passage."""
-    cible = db.get(User, user_id)
-    if not cible:
-        raise HTTPException(404, "Utilisateur introuvable")
+    cible = _cible_du_perimetre(db, request, user_id)
     if cible.statut == "disabled":
         raise HTTPException(409, "Compte désactivé")
     if cible.password_hash and cible.statut == "active":
@@ -148,14 +168,18 @@ def resend_invitation(user_id: str, db: Session = Depends(get_db),
 
 
 @router.patch("/{user_id}", response_model=UserOut)
-def update_user(user_id: str, body: UserUpdate, db: Session = Depends(get_db),
+def update_user(user_id: str, body: UserUpdate, request: Request, db: Session = Depends(get_db),
                 user=Depends(require("api:user.write", "update"))):
-    u = _load_user(db, user_id)
-    if not u:
-        raise HTTPException(404, "Utilisateur introuvable")
+    u = _cible_du_perimetre(db, request, user_id)
 
     changes = body.model_dump(exclude_unset=True)
     password = changes.pop("password", None)
+    if "org_id" in changes and changes["org_id"] != u.org_id:
+        # Deplacer un compte, c'est le sortir d'un perimetre ou l'introduire
+        # dans un autre : les deux extremites doivent nous appartenir.
+        autorisees = accessible_organisation_ids(db, user)
+        if autorisees is not None and changes["org_id"] not in autorisees:
+            raise HTTPException(403, "Organisation hors de votre périmètre")
     next_email = changes.get("email")
     if next_email and next_email != u.email:
         duplicate = db.execute(
@@ -175,21 +199,18 @@ def update_user(user_id: str, body: UserUpdate, db: Session = Depends(get_db),
 
 
 @router.delete("/{user_id}", status_code=204)
-def delete_user(user_id: str, db: Session = Depends(get_db),
+def delete_user(user_id: str, request: Request, db: Session = Depends(get_db),
                 user=Depends(require("api:user.write", "delete"))):
-    u = db.get(User, user_id)
-    if not u:
-        raise HTTPException(404, "Utilisateur introuvable")
+    u = _cible_du_perimetre(db, request, user_id)
     db.delete(u)
     db.commit()
     write_audit(db, actor=user, action="USER_DELETE", resource=u.email)
 
 
 @router.post("/{user_id}/roles", status_code=204)
-def assign_role(user_id: str, body: RoleAssignIn, db: Session = Depends(get_db),
+def assign_role(user_id: str, body: RoleAssignIn, request: Request, db: Session = Depends(get_db),
                 user=Depends(require("api:user.write", "update"))):
-    if not db.get(User, user_id):
-        raise HTTPException(404, "Utilisateur introuvable")
+    _cible_du_perimetre(db, request, user_id)
     if not db.get(Role, body.role_id):
         raise HTTPException(404, "Rôle introuvable")
     db.add(UserRole(user_id=user_id, role_id=body.role_id,
@@ -199,11 +220,9 @@ def assign_role(user_id: str, body: RoleAssignIn, db: Session = Depends(get_db),
 
 
 @router.put("/{user_id}/roles", response_model=UserOut)
-def set_roles(user_id: str, body: RoleSetIn, db: Session = Depends(get_db),
+def set_roles(user_id: str, body: RoleSetIn, request: Request, db: Session = Depends(get_db),
               user=Depends(require("api:user.write", "update"))):
-    target = _load_user(db, user_id)
-    if not target:
-        raise HTTPException(404, "Utilisateur introuvable")
+    target = _cible_du_perimetre(db, request, user_id)
 
     role_ids = list(dict.fromkeys(body.role_ids))
     roles = db.execute(select(Role).where(Role.id.in_(role_ids))).scalars().all() if role_ids else []
@@ -226,18 +245,22 @@ def set_roles(user_id: str, body: RoleSetIn, db: Session = Depends(get_db),
 def set_organisations(
     user_id: str,
     body: OrganisationMembershipIn,
+    request: Request,
     db: Session = Depends(get_db),
     actor=Depends(require("api:user.write", "update")),
 ):
-    target = _load_user(db, user_id)
-    if not target:
-        raise HTTPException(404, "Utilisateur introuvable")
+    target = _cible_du_perimetre(db, request, user_id)
     org_ids = list(dict.fromkeys(body.org_ids))
     valid_ids = set(
         db.execute(select(Organisation.id).where(Organisation.id.in_(org_ids))).scalars()
     ) if org_ids else set()
     if valid_ids != set(org_ids):
         raise HTTPException(400, "Une organisation sélectionnée est inconnue")
+    # Rattacher un compte ailleurs equivaut a lui ouvrir cette organisation :
+    # on ne peut donc designer que des organisations que l'on administre soi-meme.
+    autorisees = accessible_organisation_ids(db, actor)
+    if autorisees is not None and not set(org_ids) <= autorisees:
+        raise HTTPException(403, "Organisation hors de votre périmètre")
     if body.primary_org_id and body.primary_org_id not in valid_ids:
         raise HTTPException(400, "L'organisation principale doit appartenir à la sélection")
     for membership in list(target.organisation_memberships):
@@ -260,12 +283,11 @@ def set_organisations(
 def set_role_groups(
     user_id: str,
     body: IdSetIn,
+    request: Request,
     db: Session = Depends(get_db),
     actor=Depends(require("api:user.write", "update")),
 ):
-    target = db.get(User, user_id)
-    if not target:
-        raise HTTPException(404, "Utilisateur introuvable")
+    target = _cible_du_perimetre(db, request, user_id)
     group_ids = list(dict.fromkeys(body.ids))
     valid_ids = set(
         db.execute(select(RoleGroup.id).where(RoleGroup.id.in_(group_ids))).scalars()
