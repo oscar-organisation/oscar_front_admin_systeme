@@ -43,76 +43,93 @@ export default function Login() {
 
   return (
     <main className="auth-page-wrap" data-testid="login-page" id="main-content" tabIndex={-1}>
-      <div className="auth-card-shell">
+      <section className="auth-login-panel">
         <div className="auth-brand-header">
           <OscarBrand className="auth-oscar-brand" />
-          <h1 className="sr-only">{branding.applicationName}</h1>
-          <p>Control plane pour opérations robotiques</p>
+          <span>Control plane</span>
         </div>
 
-        <form
-          data-testid="login-form"
-          onSubmit={handleSubmit}
-          className="auth-form"
-        >
-          <div className="auth-field">
-            <label className="auth-label" htmlFor="login-email">Adresse email</label>
-            <input
-              id="login-email"
-              type="email"
-              className="field-shell"
-              data-testid="login-email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="operateur@exemple.fr"
-              required
-              autoFocus
-            />
+        <div className="auth-card-shell">
+          <div className="auth-login-heading">
+            <span>Accès sécurisé</span>
+            <h1>Connexion</h1>
+            <p>Accédez à votre environnement d'opérations robotiques.</p>
           </div>
 
-          <div className="auth-field">
-            <label className="auth-label" htmlFor="login-password">Mot de passe</label>
-            <div className="password-field">
+          <form data-testid="login-form" onSubmit={handleSubmit} className="auth-form">
+            <div className="auth-field">
+              <label className="auth-label" htmlFor="login-email">Adresse email</label>
               <input
-                id="login-password"
-                type={showPassword ? "text" : "password"}
+                id="login-email"
+                type="email"
                 className="field-shell"
-                data-testid="login-password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••••••"
+                data-testid="login-email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="operateur@exemple.fr"
                 required
+                autoFocus
               />
-              <button
-                type="button"
-                className="password-toggle"
-                aria-label={showPassword ? "Masquer la saisie" : "Afficher la saisie"}
-                title={showPassword ? "Masquer le mot de passe" : "Afficher le mot de passe"}
-                onClick={() => setShowPassword((visible) => !visible)}
-              >
-                {showPassword ? <IconEyeOff size={16} /> : <IconEye size={16} />}
-              </button>
             </div>
-          </div>
 
-          {error && (
-            <div className="auth-error" data-testid="login-error" role="alert">
-              <IconAlertCircle size={16} /> {error}
+            <div className="auth-field">
+              <label className="auth-label" htmlFor="login-password">Mot de passe</label>
+              <div className="password-field">
+                <input
+                  id="login-password"
+                  type={showPassword ? "text" : "password"}
+                  className="field-shell"
+                  data-testid="login-password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••••••"
+                  required
+                />
+                <button
+                  type="button"
+                  className="password-toggle"
+                  aria-label={showPassword ? "Masquer la saisie" : "Afficher la saisie"}
+                  title={showPassword ? "Masquer le mot de passe" : "Afficher le mot de passe"}
+                  onClick={() => setShowPassword((visible) => !visible)}
+                >
+                  {showPassword ? <IconEyeOff size={16} /> : <IconEye size={16} />}
+                </button>
+              </div>
             </div>
-          )}
 
-          <button
-            type="submit"
-            className="btn-shell primary"
-            data-testid="login-submit"
-            disabled={loading}
-            aria-busy={loading}
-          >
-            {loading ? "Authentification..." : "Se connecter"} <IconArrowRight size={15} />
-          </button>
-        </form>
+            {error && (
+              <div className="auth-error" data-testid="login-error" role="alert">
+                <IconAlertCircle size={16} /> {error}
+              </div>
+            )}
 
-      </div>
+            <button
+              type="submit"
+              className="btn-shell primary"
+              data-testid="login-submit"
+              disabled={loading}
+              aria-busy={loading}
+            >
+              {loading ? "Authentification..." : "Se connecter"} <IconArrowRight size={15} />
+            </button>
+          </form>
+        </div>
+
+        <footer className="auth-login-footer">
+          <span>{branding.applicationName}</span>
+          <small>Accès réservé aux utilisateurs autorisés</small>
+        </footer>
+      </section>
+
+      <aside className="auth-visual-panel" aria-label="Plateforme d'opérations OSCAR">
+        <div className="auth-visual-shade" />
+        <div className="auth-visual-copy">
+          <span>Opérations robotiques / temps réel</span>
+          <h2>Voir, comprendre,<br />agir.</h2>
+          <p>Une vision unifiée de vos robots, de leur perception et de vos environnements.</p>
+        </div>
+        <div className="auth-visual-footer"><span>OSCAR Control Plane</span><i /><span>01</span></div>
+      </aside>
     </main>
   );
 }

@@ -288,6 +288,116 @@ def test_ai_model_upload_and_promote(client, admin_headers):
     assert artifact.status_code == 200 and artifact.content == b"FAKE-TRUSTED-ULTRALYTICS-MODEL"
 
 
+def test_ai_model_boxes_are_versioned_and_resolved_by_scope(client, admin_headers):
+    org = client.post(
+        "/api/organisations", headers=admin_headers,
+        json={"nom": "Org Model Boxes", "slug": uniq("org-boxes")},
+    ).json()
+    scoped_headers = {**admin_headers, "X-Organization-ID": org["id"]}
+    site = client.post(
+        "/api/sites", headers=admin_headers,
+        json={"org_id": org["id"], "nom": "Magasin Boxes", "code": uniq("BOX")},
+    ).json()
+    robot = client.post(
+        "/api/robots", headers=admin_headers,
+        json={"nom": uniq("OSCAR-BOX"), "org_id": org["id"], "site_id": site["id"]},
+    ).json()
+    category = client.post(
+        "/api/ai/categories", headers=scoped_headers,
+        json={"code": uniq("floor"), "label": "Anomalie au sol", "couleur": "#d85810"},
+    ).json()
+
+    uploaded = []
+    for name, task in (("Produit au sol", "product_detection"), ("Sol sale", "incident_detection")):
+        response = client.post(
+            "/api/ai/models", headers=scoped_headers,
+            data={
+                "nom": name, "version": "1.0.0", "tache": task,
+                "framework": "ultralytics", "runtime": "ultralytics",
+                "trusted_artifact": "true", "labels_json": '["anomalie"]',
+                "category_ids_json": f'["{category["id"]}"]',
+                "metrics_json": '{"map50": 0.9261, "dataset": "exemple équipe IA"}',
+            },
+            files={"file": (f"{name}.pt", f"WEIGHTS-{name}".encode(), "application/octet-stream")},
+        )
+        assert response.status_code == 201, response.text
+        assert response.json()["category_ids"] == [category["id"]]
+        assert response.json()["metrics"]["map50"] == 0.9261
+        model = response.json()
+        promoted = client.post(
+            f"/api/ai/models/{model['id']}/promote", headers=scoped_headers,
+            json={"statut": "production"},
+        )
+        assert promoted.status_code == 200, promoted.text
+        uploaded.append(model)
+
+    created = client.post(
+        "/api/ai/model-boxes", headers=scoped_headers,
+        json={
+            "nom": "Anomalies magasin", "version": "1.0.0",
+            "description": "Composition de modèles indépendante du robot.",
+            "items": [
+                {
+                    "model_id": uploaded[0]["id"], "position": 0,
+                    "inference_fps": 6, "confidence": 31, "iou_threshold": 44,
+                    "overlay_enabled": True, "incident_enabled": False, "camera": "front",
+                },
+                {
+                    "model_id": uploaded[1]["id"], "position": 1,
+                    "inference_fps": 3, "confidence": 18, "iou_threshold": 40,
+                    "overlay_enabled": True, "incident_enabled": True, "camera": "floor",
+                },
+            ],
+        },
+    )
+    assert created.status_code == 201, created.text
+    box = created.json()
+    assert box["statut"] == "draft"
+    assert [item["model_id"] for item in box["items"]] == [model["id"] for model in uploaded]
+
+    published = client.post(
+        f"/api/ai/model-boxes/{box['id']}/publish", headers=scoped_headers,
+    )
+    assert published.status_code == 200, published.text
+    assert published.json()["statut"] == "published"
+    immutable = client.patch(
+        f"/api/ai/model-boxes/{box['id']}", headers=scoped_headers,
+        json={"nom": "Mutated", "version": "1.0.0", "items": []},
+    )
+    assert immutable.status_code == 409
+
+    assignment = client.put(
+        f"/api/ai/model-boxes/{box['id']}/assignments/site/{site['id']}",
+        headers=scoped_headers, json={"enabled": True},
+    )
+    assert assignment.status_code == 200, assignment.text
+    assert assignment.json()["site_id"] == site["id"]
+
+    worker_headers = {"X-OSCAR-Worker-Key": "test-perception-worker-key"}
+    manifest = client.get(
+        f"/api/ai/runtime/robots/{robot['id']}/manifest", headers=worker_headers,
+    )
+    assert manifest.status_code == 200, manifest.text
+    payload = manifest.json()
+    assert payload["schema_version"] == "1.1"
+    assert payload["active_boxes"] == [{
+        "id": box["id"], "name": "Anomalies magasin", "version": "1.0.0",
+    }]
+    assert {model["id"] for model in payload["models"]} == {model["id"] for model in uploaded}
+    floor_model = next(model for model in payload["models"] if model["id"] == uploaded[1]["id"])
+    assert floor_model["camera"] == "floor"
+    assert floor_model["confidence"] == 0.18
+    assert floor_model["box"]["id"] == box["id"]
+
+    cloned = client.post(
+        f"/api/ai/model-boxes/{box['id']}/clone", headers=scoped_headers,
+        json={"version": "1.1.0"},
+    )
+    assert cloned.status_code == 201, cloned.text
+    assert cloned.json()["statut"] == "draft"
+    assert len(cloned.json()["items"]) == 2
+
+
 def test_ai_model_rejects_unknown_artifact(client, admin_headers):
     org = client.post("/api/organisations", headers=admin_headers,
                       json={"nom": "Org Vision Reject", "slug": uniq("org-vision-reject")}).json()

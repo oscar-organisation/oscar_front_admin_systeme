@@ -8,12 +8,29 @@ commandes LiveKit, le watchdog embarqué ou ROS 2.
 
 ## Responsabilités
 
-| Brique | Responsabilité |
-| --- | --- |
-| Admin API | Stocker le manifeste, l'artefact, son SHA-256 et les activations par robot |
-| Admin Front | Importer, promouvoir et activer un modèle dans le contexte d'une organisation |
-| Perception Worker | Souscrire à la vidéo, exécuter l'inférence et publier les résultats |
-| Cockpit 2D / XR | Valider et rendre les boîtes normalisées reçues par LiveKit Data |
+Les quatre briques vivent dans trois dépôts distincts. C'est délibéré : la
+perception se déploie et tombe en panne indépendamment du reste.
+
+| Brique | Dépôt et chemin | Responsabilité |
+| --- | --- | --- |
+| Admin API | `oscar-admin-console/Backend/app/routers/ai.py` | Stocker les artefacts, leur SHA-256, les Model Boxes et leurs affectations |
+| Admin Front | `oscar-admin-console/Admin-Console-Front-end/src/modules/module-administration/features/ai-vision/` | Importer, catégoriser, composer, publier et affecter les capacités IA |
+| Perception Worker | `oscar_Backend_gateway/services/perception-worker/` | Souscrire à la vidéo, exécuter l'inférence et publier les résultats |
+| Cockpit 2D / XR | `OSCAR/src/overlay/` | Valider et rendre les boîtes normalisées reçues par LiveKit Data |
+
+## Objets du domaine
+
+- Une **catégorie** est une taxonomie de recherche et de documentation. Elle ne
+  contient pas de poids et n'est pas une unité de déploiement.
+- Un **modèle** est une version d'artefact immuable : poids, runtime, tâche,
+  dimensions d'entrée, labels, empreinte et métadonnées de validation.
+- Une **Model Box** est une composition versionnée de plusieurs modèles et de
+  leurs réglages d'inférence (caméra, FPS, confiance, IoU, overlay et incident).
+- Une **affectation** lie une Box publiée à un robot, une flotte ou un site. En
+  cas de recouvrement, la priorité est `robot > flotte > site`.
+
+Une Box publiée est immuable. Toute évolution passe par son clonage sous une
+nouvelle version, ce qui rend un déploiement reproductible et auditable.
 
 ## Cycle de vie
 
@@ -21,12 +38,18 @@ commandes LiveKit, le watchdog embarqué ou ROS 2.
 2. L'API valide le manifeste, limite la taille, calcule le SHA-256 et place le
    modèle en `sandbox`.
 3. Après validation métier, le modèle est promu en `production`.
-4. L'administrateur l'active pour un robot, avec une cadence et des seuils.
-5. Le worker lit le manifeste toutes les dix secondes et charge ou retire les
-   modèles sans redémarrer le publisher vidéo.
-6. Pour chaque image échantillonnée, il publie un paquet
+4. L'administrateur compose un ou plusieurs modèles dans une Model Box, puis
+   publie cette version.
+5. La Box est affectée à un robot, une flotte ou un site.
+6. Le worker lit le manifeste résolu toutes les dix secondes et charge ou retire
+   les modèles sans redémarrer le publisher vidéo.
+7. Pour chaque image échantillonnée, il publie un paquet
    `oscar.vision.overlay.v1` non fiable sur `oscar.vision.overlay`.
-7. Le cockpit dessine les boîtes sur la vidéo 2D ou les ancre sur la surface XR.
+8. Le cockpit dessine les boîtes sur la vidéo 2D ou les ancre sur la surface XR.
+
+Les anciennes affectations directes modèle-vers-robot restent lues par le
+manifeste `1.1` pour compatibilité, mais elles ne font plus partie du parcours
+principal de la Sandbox IA & Vision.
 
 ## Session LiveKit du worker
 
@@ -34,6 +57,38 @@ Le worker s'authentifie auprès de l'API avec `X-OSCAR-Worker-Key`, puis demande
 `GET /api/ai/runtime/robots/{robot_id}/session`. Le jeton retourné permet de
 s'abonner aux pistes et de publier des données, mais pas de publier une piste
 audio ou vidéo. Aucun jeton longue durée n'est conservé dans l'interface.
+
+## Contrat d'import constructeur
+
+Un constructeur ne charge pas uniquement un fichier de poids sans contexte. Le
+parcours minimal est un artefact accompagné des champs du formulaire :
+
+- nom et version du modèle ;
+- tâche (`object_detection`, `product_detection`, etc.) et runtime ;
+- dimensions et espace colorimétrique d'entrée ;
+- labels de sortie et catégories métier ;
+- description du dataset, métriques connues et limites d'usage.
+
+La cible est un paquet standard `.oscar-model` contenant l'artefact et un
+`manifest.json` équivalent. Tant que cet import groupé n'est pas exposé, le même
+contrat est saisi dans le formulaire puis stocké par l'API. Le constructeur ne
+fournit jamais de script Python à exécuter sur OSCAR.
+
+Exemple de manifeste portable :
+
+```json
+{
+  "schema_version": "1.0",
+  "name": "product-on-floor",
+  "version": "1.0.0",
+  "task": "product_detection",
+  "runtime": "onnxruntime",
+  "artifact": "model.onnx",
+  "input": { "width": 640, "height": 640, "color_space": "RGB" },
+  "labels": ["product_on_floor"],
+  "metrics": { "map50": 0.9261 }
+}
+```
 
 ## Formats et exécution
 
@@ -63,15 +118,19 @@ opérationnel alors que son contrat de sortie n'a pas été vérifié.
 
 ## Démonstration
 
-1. Déployer la migration `0003_ai_model_runtime.py` et définir
+1. Déployer les migrations `0003_ai_model_runtime.py` et
+   `0004_ai_model_boxes.py`, puis définir
    `PERCEPTION_WORKER_API_KEY` dans l'API.
 2. Importer les poids Ultralytics fournis par l'équipe dans la Sandbox IA.
-3. Promouvoir le modèle, sélectionner le robot et activer l'inférence à 5 FPS.
-4. Démarrer un worker avec `worker.env` construit depuis
-   `services/perception-worker/worker.env.example`.
-5. Ouvrir le cockpit du même robot et vérifier les paquets
+3. Promouvoir les modèles validés, créer une Box et publier sa version.
+4. Affecter la Box au robot, à sa flotte ou à son site.
+5. Démarrer un worker avec `worker.env` construit depuis
+   `oscar_Backend_gateway/services/perception-worker/worker.env.example`.
+6. Ouvrir le cockpit du même robot et vérifier les paquets
    `oscar.vision.overlay.v1`.
 
-Les deux guides de l'équipe citent `product_on_floor.pt`, `dirty_floor.pt` et
-`empty_shelf.pt`. Ces poids ne sont pas présents dans la base de code actuelle :
-ils doivent être fournis séparément avant le test d'inférence de bout en bout.
+Les exemples reçus de l'équipe IA (`product_on_floor.pt` et `dirty_floor.pt`)
+restent hors des dépôts applicatifs. Ils doivent être importés par ce parcours,
+comme les modèles d'un constructeur. Aucun modèle métier n'est référencé en dur
+dans OSCAR. Le jeu « rayon vide » et le jeu « légumes » ne contiennent pas de
+poids livrables à ce jour.
