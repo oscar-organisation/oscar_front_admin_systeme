@@ -9,6 +9,8 @@ import { PolicyGuard } from "./PolicyGuard";
 
 const LoginPage = lazy(() => import("@/pages/Login.jsx"));
 const SpaceSelectionPage = lazy(() => import("@/pages/SpaceSelection.jsx"));
+const ForgotPasswordPage = lazy(() => import("@/pages/ForgotPassword.jsx"));
+const SetPasswordPage = lazy(() => import("@/pages/SetPassword.jsx"));
 
 function guardedElement(
   id: string,
@@ -29,6 +31,34 @@ export default function AppRouter() {
     <Suspense fallback={<LoadingPage />}>
       <Routes>
         <Route path="/login" element={guardedElement("authentication.login", PUBLIC_POLICY, LoginPage)} />
+
+        {/* Parcours d'identite ouverts sans session : le porteur du lien n'est
+            pas encore authentifie, et dans le cas d'une invitation il n'a meme
+            pas encore de mot de passe. */}
+        <Route
+          path="/forgot-password"
+          element={guardedElement("authentication.forgot", PUBLIC_POLICY, ForgotPasswordPage)}
+        />
+        <Route
+          path="/reset-password"
+          element={(
+            <PolicyGuard policy={PUBLIC_POLICY}>
+              <GlobalErrorBoundary scope="authentication.reset">
+                <SetPasswordPage mode="reset" />
+              </GlobalErrorBoundary>
+            </PolicyGuard>
+          )}
+        />
+        <Route
+          path="/accept-invitation"
+          element={(
+            <PolicyGuard policy={PUBLIC_POLICY}>
+              <GlobalErrorBoundary scope="authentication.invitation">
+                <SetPasswordPage mode="invitation" />
+              </GlobalErrorBoundary>
+            </PolicyGuard>
+          )}
+        />
         <Route path="/" element={guardedElement("workspace.selection", AUTHENTICATED_POLICY, SpaceSelectionPage)} />
 
         {applicationModules.map((module) => {
