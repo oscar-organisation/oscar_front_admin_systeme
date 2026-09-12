@@ -371,6 +371,17 @@ export default function AiVisionPage() {
         </section>
 
         <div className="ai-vision-grid">
+          <section className="card-shell ai-models-card">
+            <div className="card-head ai-card-head"><div><h3><IconCpu size={16} /> Registre de modèles ({models.length})</h3><small>Artefacts indépendants, catégorisés et validés avant composition.</small></div>{canUpload && <button className="btn-shell small" onClick={openModel}><IconUpload size={13} /> Importer</button>}</div>
+            <div className="card-body flush table-wrap">
+              <table className="data-table ai-model-table"><thead><tr><th>Modèle</th><th>Catégories</th><th>Artefact</th><th>Cycle</th><th>Validation</th><th>Actions</th></tr></thead><tbody>
+                {loading && <tr><td colSpan={6} className="ai-empty">Chargement des modèles...</td></tr>}
+                {!loading && models.map((model) => <tr key={model.id} data-testid="model-row"><td><div className="ai-model-identity"><span className="ai-model-icon"><IconSparkles size={15} /></span><span><strong data-testid="model-name">{model.nom}</strong><small>{model.tache} · v{model.version}</small></span></div></td><td><div className="ai-category-chips">{(model.category_ids || []).map((id) => <span key={id}>{cats.find((cat) => cat.id === id)?.label || id}</span>)}{!model.category_ids?.length && <small>Non classé</small>}</div></td><td><strong className="ai-runtime-name">{model.runtime || model.framework}</strong><small>{formatBytes(model.artifact_size)}</small></td><td><span className={`status-chip ${MODEL_CHIP[model.statut] || "neutral"}`}>{model.statut}</span></td><td><span className={`status-chip ${model.validation_status === "manifest_valid" ? "online" : "warning"}`}>{model.validation_status || "à valider"}</span></td><td className="row-actions">{canPromote && model.statut === "sandbox" && <button className="btn-shell small" data-testid="model-promote" onClick={() => promote(model)}><IconArrowUpRight size={13} /> Promouvoir</button>}</td></tr>)}
+                {!loading && models.length === 0 && <tr><td colSpan={6} className="ai-empty">Aucun modèle chargé pour cette organisation.</td></tr>}
+              </tbody></table>
+            </div>
+          </section>
+
           <section className="card-shell ai-boxes-card">
             <div className="card-head ai-card-head">
               <div><h3><IconLayers size={16} /> Model Boxes ({boxes.length})</h3><small>Une version publiée est immuable et devient l'unité de déploiement.</small></div>
@@ -421,26 +432,15 @@ export default function AiVisionPage() {
             </div>
           </aside>
 
-          <section className="card-shell ai-models-card">
-            <div className="card-head ai-card-head"><div><h3><IconCpu size={16} /> Registre de modèles ({models.length})</h3><small>Artefacts indépendants, catégorisés et validés avant composition.</small></div>{canUpload && <button className="btn-shell small" onClick={openModel}><IconUpload size={13} /> Importer</button>}</div>
-            <div className="card-body flush table-wrap">
-              <table className="data-table ai-model-table"><thead><tr><th>Modèle</th><th>Catégories</th><th>Artefact</th><th>Cycle</th><th>Validation</th><th>Actions</th></tr></thead><tbody>
-                {loading && <tr><td colSpan={6} className="ai-empty">Chargement des modèles...</td></tr>}
-                {!loading && models.map((model) => <tr key={model.id} data-testid="model-row"><td><div className="ai-model-identity"><span className="ai-model-icon"><IconSparkles size={15} /></span><span><strong data-testid="model-name">{model.nom}</strong><small>{model.tache} · v{model.version}</small></span></div></td><td><div className="ai-category-chips">{(model.category_ids || []).map((id) => <span key={id}>{cats.find((cat) => cat.id === id)?.label || id}</span>)}{!model.category_ids?.length && <small>Non classé</small>}</div></td><td><strong className="ai-runtime-name">{model.runtime || model.framework}</strong><small>{formatBytes(model.artifact_size)}</small></td><td><span className={`status-chip ${MODEL_CHIP[model.statut] || "neutral"}`}>{model.statut}</span></td><td><span className={`status-chip ${model.validation_status === "manifest_valid" ? "online" : "warning"}`}>{model.validation_status || "à valider"}</span></td><td className="row-actions">{canPromote && model.statut === "sandbox" && <button className="btn-shell small" data-testid="model-promote" onClick={() => promote(model)}><IconArrowUpRight size={13} /> Promouvoir</button>}</td></tr>)}
-                {!loading && models.length === 0 && <tr><td colSpan={6} className="ai-empty">Aucun modèle chargé pour cette organisation.</td></tr>}
-              </tbody></table>
-            </div>
+          <section className="card-shell ai-categories-card">
+            <div className="card-head"><div><h3><IconGrid size={16} /> Catégories</h3><small>Taxonomie transverse utilisée pour retrouver et documenter les modèles.</small></div>{canCatCreate && <button className="btn-shell small" data-testid="category-add" onClick={() => openCat()}><IconPlus size={13} /> Ajouter</button>}</div>
+            <div className="card-body"><div className="legend-list">{cats.map((category) => <div className="legend-item" key={category.id} data-testid="category-item"><span className="ai-category-name"><i style={{ "--legend-color": category.couleur || "var(--shell-blue)" }} /><strong>{category.label}</strong><small>{category.code}</small></span><span className="row-actions"><span className="status-chip neutral">{category.type || "retail"}</span>{canCatUpdate && <button className="btn-shell small" data-testid="category-edit" onClick={() => openCat(category)} title="Modifier"><IconEdit size={12} /></button>}{canCatDelete && <button className="btn-shell small danger" data-testid="category-delete" onClick={() => removeCat(category)} title="Supprimer"><IconTrash size={12} /></button>}</span></div>)}{cats.length === 0 && <p className="ai-empty compact">Aucune catégorie configurée.</p>}</div><div className="ai-privacy-note"><IconInfo size={15} /><small>La détection de personnes reste non nominative : présence et trajectoire uniquement.</small></div></div>
           </section>
-
           <aside className="card-shell ai-integration-card">
             <div className="card-head"><div><h3><IconInfo size={16} /> Contrat constructeur</h3><small>Ce qu'un partenaire doit fournir.</small></div></div>
             <div className="card-body"><ol className="ai-integration-steps"><li><span>01</span><div><strong>Poids exportés</strong><small>ONNX recommandé. `.pt` réservé aux artefacts de confiance.</small></div></li><li><span>02</span><div><strong>Manifeste d'inférence</strong><small>Tâche, entrée, labels, runtime et version.</small></div></li><li><span>03</span><div><strong>Métriques et limites</strong><small>Dataset, précision, rappel et usages exclus.</small></div></li></ol><div className="ai-privacy-note"><IconInfo size={15} /><small>Aucun script Python arbitraire n'est exécuté sur la plateforme.</small></div></div>
           </aside>
 
-          <section className="card-shell ai-categories-card">
-            <div className="card-head"><div><h3><IconGrid size={16} /> Catégories</h3><small>Taxonomie transverse utilisée pour retrouver et documenter les modèles.</small></div>{canCatCreate && <button className="btn-shell small" data-testid="category-add" onClick={() => openCat()}><IconPlus size={13} /> Ajouter</button>}</div>
-            <div className="card-body"><div className="legend-list">{cats.map((category) => <div className="legend-item" key={category.id} data-testid="category-item"><span className="ai-category-name"><i style={{ "--legend-color": category.couleur || "var(--shell-blue)" }} /><strong>{category.label}</strong><small>{category.code}</small></span><span className="row-actions"><span className="status-chip neutral">{category.type || "retail"}</span>{canCatUpdate && <button className="btn-shell small" data-testid="category-edit" onClick={() => openCat(category)} title="Modifier"><IconEdit size={12} /></button>}{canCatDelete && <button className="btn-shell small danger" data-testid="category-delete" onClick={() => removeCat(category)} title="Supprimer"><IconTrash size={12} /></button>}</span></div>)}{cats.length === 0 && <p className="ai-empty compact">Aucune catégorie configurée.</p>}</div><div className="ai-privacy-note"><IconInfo size={15} /><small>La détection de personnes reste non nominative : présence et trajectoire uniquement.</small></div></div>
-          </section>
         </div>
       </div>
 
