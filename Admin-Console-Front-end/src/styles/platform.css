@@ -1340,6 +1340,11 @@ input[type="color"].field-shell { padding: 5px; }
 .ai-model-picker > button { min-width: 0; min-height: 48px; padding: 7px 9px; border: 1px solid var(--shell-line); border-radius: 7px; background: rgba(255, 255, 255, 0.018); color: var(--shell-muted); cursor: pointer; display: flex; align-items: center; gap: 9px; text-align: left; }
 .ai-model-picker > button:hover { border-color: var(--shell-line-strong); }
 .ai-model-picker > button.selected { border-color: var(--shell-blue-border); background: var(--shell-blue-soft); }
+/* Modele non executable : visible avec son motif, mais pas selectionnable —
+   l'ajouter fabriquerait une Box qui ne pourrait jamais etre publiee. */
+.ai-model-picker > button.unavailable { opacity: 0.5; cursor: not-allowed; }
+.ai-model-picker > button.unavailable:hover { border-color: var(--shell-line); }
+.ai-model-picker > button.unavailable small { color: var(--shell-amber, #d9a13a); }
 .ai-model-picker > button > span:last-child { min-width: 0; display: flex; flex-direction: column; }
 .ai-model-picker strong { overflow: hidden; color: var(--shell-text); font-size: 10.5px; text-overflow: ellipsis; white-space: nowrap; }
 .ai-model-picker small { margin-top: 2px; color: var(--shell-faint); font-size: 9px; }
