@@ -49,6 +49,48 @@ interface AuthContextValue {
   can: (code: string, action?: string) => boolean;
 }
 
+/**
+ * Correspondance des codes courts historiques vers les permissions réellement
+ * servies par l'API.
+ *
+ * L'API expose `api:<ressource>.<capacité>` avec un tableau d'actions, par
+ * exemple `api:org.write -> ["view","create","update","delete"]`. Plusieurs
+ * pages interrogeaient encore une forme abrégée, `org:create`, qui ne
+ * correspond à aucun code servi : la vérification échouait donc toujours, et
+ * les boutons de création, de modification et de suppression restaient
+ * invisibles, y compris pour un super administrateur.
+ *
+ * La table est ici plutôt que dans chaque page : il n'y a qu'un endroit à
+ * corriger le jour où le vocabulaire de l'API change, et les pages gardent une
+ * forme lisible.
+ */
+const CODES_HISTORIQUES: Record<string, readonly [string, string]> = {
+  "org:create": ["api:org.write", "create"],
+  "org:update": ["api:org.write", "update"],
+  "org:delete": ["api:org.write", "delete"],
+  "site:create": ["api:site.write", "create"],
+  "site:update": ["api:site.write", "update"],
+  "site:delete": ["api:site.write", "delete"],
+  "user:create": ["api:user.write", "create"],
+  "user:update": ["api:user.write", "update"],
+  "user:delete": ["api:user.write", "delete"],
+  "user:assign_role": ["api:user.write", "update"],
+  "role:create": ["api:role.write", "create"],
+  "role:update": ["api:role.write", "update"],
+  "role:delete": ["api:role.write", "delete"],
+  "role:assign_permission": ["api:role.write", "update"],
+  "robot:create": ["api:robot.write", "create"],
+  "robot:update": ["api:robot.write", "update"],
+  "robot:delete": ["api:robot.write", "delete"],
+  "robot:diagnose": ["api:robot.supervise", "execute"],
+  "robot:tokens": ["api:robot.token.issue", "execute"],
+};
+
+export function resolvePermissionCode(code: string, action: string): [string, string] {
+  const connu = CODES_HISTORIQUES[code];
+  return connu ? [connu[0], connu[1]] : [code, action];
+}
+
 const AuthContext = createContext<AuthContextValue | null>(null);
 const ACTIVE_ORGANISATION_KEY = "oscar_active_organisation";
 
@@ -199,9 +241,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSwitchingOrganisation(false);
     }
   }, [activeOrganisationId, applyIdentity, user]);
-
   const can = useCallback(
-    (code: string, action = "view") => hasPermission(permissions, code, action),
+    (code: string, action = "view") => {
+      const [codeReel, actionReelle] = resolvePermissionCode(code, action);
+      return hasPermission(permissions, codeReel, actionReelle);
+    },
     [permissions],
   );
 
