@@ -75,8 +75,25 @@ def compute_permissions(
     if user.is_superadmin:
         return {f.code: list(f.actions) for f in db.execute(select(Feature)).scalars()}
 
-    perms: dict[str, set[str]] = {}
     role_ids, role_group_ids = _effective_role_ids(db, user, active_org_id)
+    return permissions_des_roles(db, role_ids, role_group_ids)
+
+
+def permissions_des_roles(
+    db: Session, role_ids: set[str], role_group_ids: set[str]
+) -> dict[str, list[str]]:
+    """Permissions portees par un jeu de roles, independamment de tout porteur.
+
+    Extrait de `compute_permissions` pour pouvoir repondre a une autre question
+    que « que peut cet utilisateur ? » : « que conferrerait ce role ? ». C'est
+    ce qu'il faut savoir avant d'autoriser quelqu'un a l'attribuer.
+    """
+    perms: dict[str, set[str]] = {}
+    if role_group_ids:
+        # Un groupe de roles confere aussi les roles qu'il contient.
+        role_ids = set(role_ids) | set(db.execute(
+            select(RoleGroupRole.role_id).where(RoleGroupRole.group_id.in_(role_group_ids))
+        ).scalars())
 
     rows = db.execute(
         select(RolePermission, Feature)
@@ -199,6 +216,20 @@ def request_organisation_id(request: Request) -> str | None:
     return getattr(request.state, "active_org_id", None)
 
 
+def sans_perimetre(request: Request) -> bool:
+    """True quand la requete n'a aucune organisation active sans y avoir droit.
+
+    L'organisation active vaut None dans deux situations tres differentes : la
+    vue globale d'un super administrateur, et un compte non superadmin rattache
+    a aucune organisation. Confondre les deux transforme « aucun perimetre » en
+    « tous les perimetres », ce qui est l'inverse de l'intention.
+    """
+    if request_organisation_id(request):
+        return False
+    acteur = getattr(request.state, "actor", None)
+    return not (acteur is not None and acteur.is_superadmin)
+
+
 def verifier_perimetre(request: Request, org_id: str | None, message: str) -> None:
     """Refuse une ressource qui n'appartient pas a l'organisation active.
 
@@ -214,7 +245,11 @@ def verifier_perimetre(request: Request, org_id: str | None, message: str) -> No
     reservee au superadmin par `resolve_active_organisation_id`.
     """
     actif = request_organisation_id(request)
-    if actif and org_id != actif:
+    if actif is None:
+        if sans_perimetre(request):
+            raise HTTPException(status.HTTP_404_NOT_FOUND, message)
+        return  # vue globale d'un super administrateur
+    if org_id != actif:
         raise HTTPException(status.HTTP_404_NOT_FOUND, message)
 
 
@@ -237,6 +272,47 @@ def require(feature_code: str, action: str = "view"):
         return user
 
     return _dep
+
+
+def verifier_hierarchie(acteur: User, cible: User, message: str) -> None:
+    """Interdit a un non-superadmin d'agir sur un compte de super administrateur.
+
+    Sans cette regle, il suffit qu'un super administrateur soit rattache a une
+    organisation pour que l'administrateur de cette organisation en devienne le
+    gestionnaire : il peut lui retirer ses roles, le deplacer, le supprimer.
+    La hierarchie s'inverse. Le refus est un 404, comme l'absence de ce compte
+    dans les listes servies aux locataires : les deux doivent raconter la meme
+    histoire.
+    """
+    if cible.is_superadmin and not acteur.is_superadmin:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, message)
+
+
+def roles_hors_portee(
+    db: Session, acteur: User, active_org_id: str | None, role_ids, role_group_ids=()
+) -> list[str]:
+    """Roles qui confereraient plus que ce que l'acteur detient lui-meme.
+
+    Sans ce controle, un administrateur borne attribue n'importe quel role, donc
+    se fabrique un complice plus puissant que lui — et, en deux etapes, se
+    promeut lui-meme.
+    """
+    if acteur.is_superadmin:
+        return []
+    miennes = compute_permissions(db, acteur, active_org_id)
+    excessifs: list[str] = []
+    for identifiant in list(role_ids) + list(role_group_ids):
+        est_groupe = identifiant in set(role_group_ids)
+        conferees = permissions_des_roles(
+            db,
+            set() if est_groupe else {identifiant},
+            {identifiant} if est_groupe else set(),
+        )
+        for code, actions in conferees.items():
+            if not set(actions) <= set(miennes.get(code, [])):
+                excessifs.append(identifiant)
+                break
+    return excessifs
 
 
 def write_audit(

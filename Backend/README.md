@@ -60,6 +60,20 @@ appliqués à un sous-arbre. Deux mécanismes portent cette limite :
 séparation des périmètres ; `tests/test_tenant_isolation.py` vérifie
 l'étanchéité endpoint par endpoint, jetons LiveKit compris.
 
+Trois règles séparent en plus le compte plateforme du compte locataire :
+
+- un compte `is_superadmin` n'apparaît pas dans la liste servie à un
+  administrateur d'organisation, même s'il est rattaché à cette organisation ;
+- `verifier_hierarchie` interdit à un non-superadmin toute écriture sur un tel
+  compte : déplacement, rôles, rattachements, suppression ;
+- `roles_hors_portee` refuse d'attribuer un rôle conférant des droits que
+  l'attributeur ne détient pas lui-même, ce qui fermerait l'escalade en deux
+  étapes (fabriquer un complice plus puissant, puis se faire promouvoir).
+
+Enfin, un compte non superadmin rattaché à aucune organisation n'a aucun
+périmètre : `sans_perimetre` fait alors répondre « rien », là où l'absence
+d'organisation active valait auparavant « tout ».
+
 Un cran plus fin existe dans le modèle sans être exposé par l'interface :
 `UserRole.scope_type` (`all|org|site`) permet de n'accorder un rôle que dans une
 organisation donnée, via `POST /users/{id}/roles`.

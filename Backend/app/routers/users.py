@@ -5,7 +5,15 @@ from sqlalchemy.orm import Session, selectinload
 from .. import auth_tokens, mailer
 from ..config import settings
 from ..database import get_db
-from ..deps import accessible_organisation_ids, request_organisation_id, require, write_audit
+from ..deps import (
+    accessible_organisation_ids,
+    request_organisation_id,
+    require,
+    roles_hors_portee,
+    sans_perimetre,
+    verifier_hierarchie,
+    write_audit,
+)
 from ..models import Organisation, Role, RoleGroup, User, UserOrganisation, UserRole, UserRoleGroup
 from ..schemas import (
     OrganisationMembershipIn,
@@ -58,7 +66,8 @@ def _load_user(db: Session, user_id: str) -> User | None:
     ).scalar_one_or_none()
 
 
-def _cible_du_perimetre(db: Session, request: Request, user_id: str) -> User:
+def _cible_du_perimetre(db: Session, request: Request, user_id: str,
+                        acteur: User | None = None) -> User:
     """Charge un utilisateur en verifiant qu'il est rattache a l'organisation active.
 
     Le critere reprend exactement celui de la liste (`UserOrganisation` sur
@@ -69,8 +78,14 @@ def _cible_du_perimetre(db: Session, request: Request, user_id: str) -> User:
     cible = _load_user(db, user_id)
     if not cible:
         raise HTTPException(404, "Utilisateur introuvable")
+    if acteur is not None:
+        verifier_hierarchie(acteur, cible, "Utilisateur introuvable")
     actif = request_organisation_id(request)
-    if not actif or cible.org_id == actif:
+    if actif is None:
+        if sans_perimetre(request):
+            raise HTTPException(404, "Utilisateur introuvable")
+        return cible  # vue globale d'un super administrateur
+    if cible.org_id == actif:
         return cible
     if any(m.org_id == actif for m in cible.organisation_memberships):
         return cible
@@ -86,13 +101,19 @@ def _org_name(db: Session, org_id: str | None) -> str | None:
 
 @router.get("", response_model=list[UserOut])
 def list_users(request: Request, org_id: str | None = None, db: Session = Depends(get_db),
-               _=Depends(require("api:user.read"))):
+               user=Depends(require("api:user.read"))):
     q = select(User).options(
         selectinload(User.roles).selectinload(UserRole.role),
         selectinload(User.organisation_memberships),
         selectinload(User.role_groups),
     ).order_by(User.nom)
     scoped_org_id = request_organisation_id(request)
+    if sans_perimetre(request):
+        return []
+    if not user.is_superadmin:
+        # Les comptes de super administrateur ne sont pas des membres du
+        # locataire : les afficher laisse croire qu'on peut les administrer.
+        q = q.where(User.is_superadmin.is_(False))
     if scoped_org_id:
         q = q.join(UserOrganisation).where(UserOrganisation.org_id == scoped_org_id).distinct()
     elif org_id:
@@ -147,7 +168,7 @@ def create_user(body: UserIn, request: Request, db: Session = Depends(get_db),
 def resend_invitation(user_id: str, request: Request, db: Session = Depends(get_db),
                       user=Depends(require("api:user.write", "update"))):
     """Renvoie une invitation : le lien precedent est invalide au passage."""
-    cible = _cible_du_perimetre(db, request, user_id)
+    cible = _cible_du_perimetre(db, request, user_id, user)
     if cible.statut == "disabled":
         raise HTTPException(409, "Compte désactivé")
     if cible.password_hash and cible.statut == "active":
@@ -170,7 +191,7 @@ def resend_invitation(user_id: str, request: Request, db: Session = Depends(get_
 @router.patch("/{user_id}", response_model=UserOut)
 def update_user(user_id: str, body: UserUpdate, request: Request, db: Session = Depends(get_db),
                 user=Depends(require("api:user.write", "update"))):
-    u = _cible_du_perimetre(db, request, user_id)
+    u = _cible_du_perimetre(db, request, user_id, user)
 
     changes = body.model_dump(exclude_unset=True)
     password = changes.pop("password", None)
@@ -201,7 +222,7 @@ def update_user(user_id: str, body: UserUpdate, request: Request, db: Session = 
 @router.delete("/{user_id}", status_code=204)
 def delete_user(user_id: str, request: Request, db: Session = Depends(get_db),
                 user=Depends(require("api:user.write", "delete"))):
-    u = _cible_du_perimetre(db, request, user_id)
+    u = _cible_du_perimetre(db, request, user_id, user)
     db.delete(u)
     db.commit()
     write_audit(db, actor=user, action="USER_DELETE", resource=u.email)
@@ -210,9 +231,11 @@ def delete_user(user_id: str, request: Request, db: Session = Depends(get_db),
 @router.post("/{user_id}/roles", status_code=204)
 def assign_role(user_id: str, body: RoleAssignIn, request: Request, db: Session = Depends(get_db),
                 user=Depends(require("api:user.write", "update"))):
-    _cible_du_perimetre(db, request, user_id)
+    _cible_du_perimetre(db, request, user_id, user)
     if not db.get(Role, body.role_id):
         raise HTTPException(404, "Rôle introuvable")
+    if roles_hors_portee(db, user, request_organisation_id(request), [body.role_id]):
+        raise HTTPException(403, "Ce rôle confère des droits que vous ne détenez pas")
     db.add(UserRole(user_id=user_id, role_id=body.role_id,
                     scope_type=body.scope_type, scope_id=body.scope_id))
     db.commit()
@@ -222,12 +245,14 @@ def assign_role(user_id: str, body: RoleAssignIn, request: Request, db: Session 
 @router.put("/{user_id}/roles", response_model=UserOut)
 def set_roles(user_id: str, body: RoleSetIn, request: Request, db: Session = Depends(get_db),
               user=Depends(require("api:user.write", "update"))):
-    target = _cible_du_perimetre(db, request, user_id)
+    target = _cible_du_perimetre(db, request, user_id, user)
 
     role_ids = list(dict.fromkeys(body.role_ids))
     roles = db.execute(select(Role).where(Role.id.in_(role_ids))).scalars().all() if role_ids else []
     if len(roles) != len(role_ids):
         raise HTTPException(404, "Un ou plusieurs rôles sont introuvables")
+    if roles_hors_portee(db, user, request_organisation_id(request), role_ids):
+        raise HTTPException(403, "Un rôle sélectionné confère des droits que vous ne détenez pas")
 
     for assignment in list(target.roles):
         db.delete(assignment)
@@ -249,7 +274,7 @@ def set_organisations(
     db: Session = Depends(get_db),
     actor=Depends(require("api:user.write", "update")),
 ):
-    target = _cible_du_perimetre(db, request, user_id)
+    target = _cible_du_perimetre(db, request, user_id, actor)
     org_ids = list(dict.fromkeys(body.org_ids))
     valid_ids = set(
         db.execute(select(Organisation.id).where(Organisation.id.in_(org_ids))).scalars()
@@ -287,13 +312,15 @@ def set_role_groups(
     db: Session = Depends(get_db),
     actor=Depends(require("api:user.write", "update")),
 ):
-    target = _cible_du_perimetre(db, request, user_id)
+    target = _cible_du_perimetre(db, request, user_id, actor)
     group_ids = list(dict.fromkeys(body.ids))
     valid_ids = set(
         db.execute(select(RoleGroup.id).where(RoleGroup.id.in_(group_ids))).scalars()
     ) if group_ids else set()
     if valid_ids != set(group_ids):
         raise HTTPException(400, "Un groupe de rôles sélectionné est inconnu")
+    if roles_hors_portee(db, actor, request_organisation_id(request), [], group_ids):
+        raise HTTPException(403, "Un groupe sélectionné confère des droits que vous ne détenez pas")
     db.query(UserRoleGroup).filter(UserRoleGroup.user_id == user_id).delete()
     for group_id in group_ids:
         db.add(UserRoleGroup(

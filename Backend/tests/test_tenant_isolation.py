@@ -207,3 +207,112 @@ def test_un_site_cree_nait_dans_son_organisation(client, entetes_admin_a, deux_l
                           "org_id": deux_locataires["org_b"]})
     assert r.status_code == 201, r.text
     assert r.json()["org_id"] == deux_locataires["org_a"]
+
+
+# --------------------------------------------------------------------------- #
+#  La hierarchie : un super administrateur rattache a un locataire n'est pas
+#  pour autant administrable par ce locataire.
+#
+#  Situation reelle observee en production : le compte super administrateur
+#  avait ete rattache a une organisation cliente, et l'administrateur de cette
+#  organisation avait pu lui changer d'organisation et de roles.
+# --------------------------------------------------------------------------- #
+@pytest.fixture()
+def superadmin_rattache(db, deux_locataires):
+    """Un super administrateur membre de l'organisation A, comme en production."""
+    from app.models import UserOrganisation as UO
+
+    sa = db.query(User).filter(User.is_superadmin.is_(True)).first()
+    deja = db.query(UO).filter(UO.user_id == sa.id, UO.org_id == deux_locataires["org_a"]).first()
+    if not deja:
+        db.add(UO(user_id=sa.id, org_id=deux_locataires["org_a"], is_primary=False))
+        db.commit()
+    return sa
+
+
+def test_le_superadmin_napparait_pas_dans_la_liste_du_locataire(
+        client, entetes_admin_a, superadmin_rattache):
+    ids = {u["id"] for u in client.get(f"{PREFIXE}/users", headers=entetes_admin_a).json()}
+    assert superadmin_rattache.id not in ids
+
+
+def test_le_superadmin_le_voit_toujours(client, admin_headers, superadmin_rattache):
+    ids = {u["id"] for u in client.get(f"{PREFIXE}/users",
+                                       headers={**admin_headers, "X-Organization-ID": "*"}).json()}
+    assert superadmin_rattache.id in ids
+
+
+def test_un_admin_de_locataire_ne_deplace_pas_le_superadmin(
+        client, entetes_admin_a, superadmin_rattache, deux_locataires):
+    r = client.patch(f"{PREFIXE}/users/{superadmin_rattache.id}", headers=entetes_admin_a,
+                     json={"org_id": deux_locataires["org_a"]})
+    assert r.status_code == 404, r.text
+
+
+def test_un_admin_de_locataire_ne_rattache_pas_le_superadmin(
+        client, entetes_admin_a, superadmin_rattache, deux_locataires):
+    r = client.put(f"{PREFIXE}/users/{superadmin_rattache.id}/organisations",
+                   headers=entetes_admin_a,
+                   json={"org_ids": [deux_locataires["org_a"]],
+                         "primary_org_id": deux_locataires["org_a"]})
+    assert r.status_code == 404, r.text
+
+
+def test_un_admin_de_locataire_ne_touche_pas_aux_roles_du_superadmin(
+        client, entetes_admin_a, superadmin_rattache, db):
+    role = db.query(Role).filter(Role.nom == "Administrateur").one()
+    r = client.put(f"{PREFIXE}/users/{superadmin_rattache.id}/roles",
+                   headers=entetes_admin_a, json={"role_ids": []})
+    assert r.status_code == 404, r.text
+    r = client.post(f"{PREFIXE}/users/{superadmin_rattache.id}/roles",
+                    headers=entetes_admin_a, json={"role_id": role.id})
+    assert r.status_code == 404, r.text
+
+
+def test_un_admin_de_locataire_ne_supprime_pas_le_superadmin(
+        client, entetes_admin_a, superadmin_rattache):
+    r = client.delete(f"{PREFIXE}/users/{superadmin_rattache.id}", headers=entetes_admin_a)
+    assert r.status_code == 404, r.text
+
+
+# --------------------------------------------------------------------------- #
+#  Pas d'escalade par attribution de role
+# --------------------------------------------------------------------------- #
+def test_on_ne_confere_pas_un_role_plus_puissant_que_le_sien(client, admin_headers, db,
+                                                             deux_locataires):
+    """Un gestionnaire qui peut creer des comptes ne peut pas fabriquer un administrateur."""
+    s = uuid.uuid4().hex[:6]
+    restreint = client.post(f"{PREFIXE}/roles", headers=admin_headers,
+                            json={"nom": f"Gestionnaire de comptes {s}"}).json()
+    client.put(f"{PREFIXE}/roles/{restreint['id']}/permissions", headers=admin_headers, json=[
+        {"feature_code": "api:user.read", "actions": ["view"]},
+        {"feature_code": "api:user.write", "actions": ["create", "update", "delete"]},
+    ])
+
+    mdp = "un-mot-de-passe-assez-long"
+    gestionnaire = User(email=f"gestion-{s}@exemple.fr", nom="Gestionnaire", statut="active",
+                        password_hash=hash_password(mdp), org_id=deux_locataires["org_a"])
+    db.add(gestionnaire); db.flush()
+    db.add_all([
+        UserOrganisation(user_id=gestionnaire.id, org_id=deux_locataires["org_a"], is_primary=True),
+        UserRole(user_id=gestionnaire.id, role_id=restreint["id"], scope_type="all", scope_id=None),
+    ])
+    cible = User(email=f"cible-{s}@exemple.fr", nom="Cible", statut="active",
+                 password_hash=hash_password(mdp), org_id=deux_locataires["org_a"])
+    db.add(cible); db.flush()
+    db.add(UserOrganisation(user_id=cible.id, org_id=deux_locataires["org_a"], is_primary=True))
+    db.commit()
+
+    jeton = client.post(f"{PREFIXE}/auth/login",
+                        json={"email": gestionnaire.email, "password": mdp}).json()
+    entetes = {"Authorization": f"Bearer {jeton['access_token']}"}
+
+    administrateur = db.query(Role).filter(Role.nom == "Administrateur").one()
+    r = client.put(f"{PREFIXE}/users/{cible.id}/roles", headers=entetes,
+                   json={"role_ids": [administrateur.id]})
+    assert r.status_code == 403, r.text
+
+    # Le role qu'il detient lui-meme reste attribuable.
+    r = client.put(f"{PREFIXE}/users/{cible.id}/roles", headers=entetes,
+                   json={"role_ids": [restreint["id"]]})
+    assert r.status_code == 200, r.text
