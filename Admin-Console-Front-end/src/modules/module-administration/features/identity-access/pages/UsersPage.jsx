@@ -325,18 +325,20 @@ export default function Users() {
                         </span>
                       </td>
                       <td>
-                        <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                          {userRoles.map((r, idx) => {
-                            return (
-                              <span
-                                key={idx}
-                                className="status-chip info"
-                                style={{ fontSize: 11, padding: "2px 8px" }}
-                              >
-                                {typeof r === "string" ? r : roleName(r)}
-                              </span>
-                            );
-                          })}
+                        {/* Une seule ligne : au-dela de deux roles, le reste est
+                            replie sous un compteur pour que la hauteur de ligne
+                            reste constante quel que soit le nombre de roles. */}
+                        <div className="role-chip-row" title={userRoles.map((r) => (typeof r === "string" ? r : roleName(r))).join(", ")}>
+                          {userRoles.slice(0, 2).map((r, idx) => (
+                            <span key={idx} className="status-chip info role-chip">
+                              {typeof r === "string" ? r : roleName(r)}
+                            </span>
+                          ))}
+                          {userRoles.length > 2 && (
+                            <span className="status-chip info role-chip role-chip-more">
+                              +{userRoles.length - 2}
+                            </span>
+                          )}
                           {userRoles.length === 0 && (
                             <span style={{ color: "var(--shell-dim)", fontSize: 12 }}>Aucun rôle</span>
                           )}

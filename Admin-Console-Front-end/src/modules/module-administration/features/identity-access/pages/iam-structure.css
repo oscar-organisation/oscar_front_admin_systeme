@@ -33,7 +33,7 @@
 }
 
 .iam-tabs button[aria-selected="true"] {
-  color: #061014;
+  color: #ffffff;
   background: var(--shell-blue);
   font-weight: 700;
 }

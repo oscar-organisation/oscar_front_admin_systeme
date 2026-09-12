@@ -218,9 +218,6 @@ export default function Dashboard() {
                 {loading && <p style={{ color: "var(--shell-dim)", fontSize: 13 }}>Chargement...</p>}
                 {!loading && data.audit.slice(0, 5).map((a, idx) => (
                   <div key={a.id || idx} className="audit-entry" style={{ padding: "10px 12px" }}>
-                    <div className="audit-icon" style={{ width: 28, height: 28 }}>
-                      <IconActivity size={14} />
-                    </div>
                     <div className="audit-content">
                       <div className="audit-header">
                         <span className="audit-title" style={{ fontSize: 12.5 }}>{a.action || a.event}</span>

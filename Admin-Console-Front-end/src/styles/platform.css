@@ -64,7 +64,7 @@ img, video, canvas { max-width: 100%; }
 button, input, select, textarea { font: inherit; letter-spacing: 0; }
 button, a { -webkit-tap-highlight-color: transparent; }
 button { touch-action: manipulation; }
-::selection { color: #051014; background: var(--shell-blue); }
+::selection { color: #ffffff; background: var(--shell-blue); }
 
 :focus-visible {
   outline: 2px solid var(--shell-blue);
@@ -990,7 +990,7 @@ button { touch-action: manipulation; }
 .btn-shell.primary {
   border-color: var(--shell-blue-strong);
   background: var(--shell-blue);
-  color: #051014;
+  color: #ffffff;
   font-weight: 600;
 }
 
@@ -1225,16 +1225,13 @@ input[type="color"].field-shell { padding: 5px; }
 .ai-trust-checkbox small { color: var(--shell-dim); font-size: 10.5px; }
 
 .ai-studio-summary {
-  min-height: 148px;
   margin-bottom: 16px;
-  padding: 22px 24px;
+  padding: 18px 24px;
   border: 1px solid var(--shell-line);
   border-radius: var(--radius-lg);
   background: var(--shell-surface);
-  box-shadow: inset 3px 0 0 rgba(73, 136, 246, 0.45), var(--shadow-sm);
-  display: grid;
-  grid-template-columns: minmax(300px, 1.25fr) minmax(460px, 1fr);
-  align-items: center;
+  box-shadow: var(--shadow-sm);
+  display: block;
   gap: 28px;
   overflow: hidden;
 }
@@ -1818,3 +1815,25 @@ input[type="color"].field-shell { padding: 5px; }
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Roles dans la table utilisateurs : une seule ligne, hauteur constante.
+   Au-dela de deux roles, le reste est replie sous un compteur ; la liste
+   complete reste accessible par l'attribut title de la ligne. */
+.role-chip-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  white-space: nowrap;
+}
+.role-chip-row .role-chip {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+  padding: 2px 8px;
+}
+.role-chip-row .role-chip-more { flex: none; max-width: none; font-variant-numeric: tabular-nums; }
