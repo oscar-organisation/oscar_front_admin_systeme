@@ -366,6 +366,10 @@ class ModelOut(BaseModel):
     category_ids: list[str] = Field(default_factory=list)
     metrics: dict
     created_at: datetime | None = None
+    # Verdict d'executabilite, calcule par l'API : l'interface l'affiche au lieu
+    # de recopier la liste des runtimes et des taches supportes.
+    deployable: bool = False
+    blocage: str | None = None
 
 
 class ModelPromoteIn(BaseModel):

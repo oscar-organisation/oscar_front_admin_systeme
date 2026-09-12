@@ -53,13 +53,15 @@ const RUNTIMES = [
   ["tflite", "TensorFlow Lite (.tflite)"],
 ];
 
-const EXECUTABLE_RUNTIMES = new Set(["ultralytics", "pytorch"]);
-const EXECUTABLE_TASKS = new Set([
-  "object_detection", "product_detection", "person_detection", "incident_detection",
-]);
+/* Le verdict d'executabilite vient de l'API (`deployable` / `blocage`). Le
+   recopier ici produisait deux sources de verite : le catalogue accepte huit
+   taches et cinq formats a l'import, le worker n'en execute que quatre et deux. */
+function estPret(model) {
+  return model.deployable === true;
+}
 
-function isDeployable(model) {
-  return EXECUTABLE_RUNTIMES.has(model.runtime) && EXECUTABLE_TASKS.has(model.tache);
+function motifBlocage(model) {
+  return model.blocage || "non exécutable en l'état";
 }
 
 function formatBytes(bytes) {
@@ -471,7 +473,7 @@ export default function AiVisionPage() {
             <div className="ai-form-grid"><div><label className="auth-label">Nom</label><input className="field-shell" value={boxModal.nom} onChange={(event) => setBoxModal({ ...boxModal, nom: event.target.value })} placeholder="Anomalies magasin" required /></div><div><label className="auth-label">Version</label><input className="field-shell" value={boxModal.version} onChange={(event) => setBoxModal({ ...boxModal, version: event.target.value })} required /></div></div>
             <label className="auth-label">Description</label><textarea className="field-shell" rows={2} value={boxModal.description} onChange={(event) => setBoxModal({ ...boxModal, description: event.target.value })} placeholder="Capacité métier et contexte d'utilisation." />
             <div className="ai-box-builder-head"><div><label className="auth-label">Modèles de la Box</label><small>{boxModal.items.length} sélectionné{boxModal.items.length > 1 ? "s" : ""}</small></div><span>Réglages embarqués par version</span></div>
-            <div className="ai-model-picker">{models.map((model) => { const selected = boxModal.items.some((item) => item.model_id === model.id); const ready = model.statut === "production" && model.validation_status === "manifest_valid" && isDeployable(model); return <button type="button" className={selected ? "selected" : ""} key={model.id} onClick={() => toggleModelInBox(model.id)}><span className="ai-picker-check">{selected && <IconCheck size={12} />}</span><span><strong>{model.nom}</strong><small>v{model.version} · {ready ? "prêt à publier" : "sandbox / adaptateur requis"}</small></span></button>; })}{models.length === 0 && <p className="ai-empty compact">Importez d'abord un modèle.</p>}</div>
+            <div className="ai-model-picker">{models.map((model) => { const selected = boxModal.items.some((item) => item.model_id === model.id); const ready = estPret(model); return <button type="button" className={`${selected ? "selected" : ""}${ready ? "" : " unavailable"}`} key={model.id} disabled={!ready} title={ready ? undefined : motifBlocage(model)} onClick={() => ready && toggleModelInBox(model.id)}><span className="ai-picker-check">{selected && <IconCheck size={12} />}</span><span><strong>{model.nom}</strong><small>v{model.version} · {ready ? "prêt à publier" : motifBlocage(model)}</small></span></button>; })}{models.length === 0 && <p className="ai-empty compact">Importez d'abord un modèle.</p>}</div>
             <div className="ai-box-item-list">{boxModal.items.map((item) => { const model = models.find((entry) => entry.id === item.model_id); return <article className="ai-box-item" key={item.model_id}><header><span><IconCpu size={14} /><strong>{model?.nom || item.model_id}</strong></span><button type="button" className="icon-btn" onClick={() => toggleModelInBox(item.model_id)} aria-label="Retirer"><IconX size={13} /></button></header><div className="ai-box-item-fields"><label>Caméra<input className="field-shell" value={item.camera} onChange={(event) => updateBoxItem(item.model_id, { camera: event.target.value })} /></label><label>FPS<input className="field-shell" type="number" min="1" max="30" value={item.inference_fps} onChange={(event) => updateBoxItem(item.model_id, { inference_fps: event.target.value })} /></label><label>Confiance %<input className="field-shell" type="number" min="0" max="100" value={item.confidence} onChange={(event) => updateBoxItem(item.model_id, { confidence: event.target.value })} /></label><label>IoU %<input className="field-shell" type="number" min="0" max="100" value={item.iou_threshold} onChange={(event) => updateBoxItem(item.model_id, { iou_threshold: event.target.value })} /></label></div><div className="ai-box-item-options"><label><input type="checkbox" checked={item.overlay_enabled} onChange={(event) => updateBoxItem(item.model_id, { overlay_enabled: event.target.checked })} /> Overlay cockpit</label><label><input type="checkbox" checked={item.incident_enabled} onChange={(event) => updateBoxItem(item.model_id, { incident_enabled: event.target.checked })} /> Création d'incident</label></div></article>; })}</div>
             {err && <div className="auth-error"><IconAlertCircle size={15} /> {err}</div>}
           </div>

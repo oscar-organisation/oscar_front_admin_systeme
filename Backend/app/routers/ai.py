@@ -49,6 +49,30 @@ def _is_deployable(model: AiModel) -> bool:
     return model.runtime in EXECUTABLE_RUNTIMES and model.tache in EXECUTABLE_TASKS
 
 
+def raison_blocage(model: AiModel) -> str | None:
+    """Pourquoi ce modele ne peut pas etre execute, ou None s'il peut.
+
+    Source unique de la regle, servie avec chaque modele (`ModelOut.blocage`)
+    pour que l'interface dise la meme chose que l'API au lieu de recopier la
+    liste des runtimes. La condition etait jusqu'ici verifiee au dernier moment,
+    a la publication : on pouvait donc composer une Box qui ne publierait
+    jamais, et decouvrir le probleme apres coup.
+    """
+    if model.statut != "production":
+        return f"statut « {model.statut} » : à promouvoir en production"
+    if model.validation_status != "manifest_valid":
+        return "manifeste non validé"
+    if not model.fichier:
+        return "aucun fichier de poids"
+    if model.runtime not in EXECUTABLE_RUNTIMES:
+        return (f"runtime « {model.runtime} » sans adaptateur "
+                f"(disponibles : {', '.join(sorted(EXECUTABLE_RUNTIMES))})")
+    if model.tache not in EXECUTABLE_TASKS:
+        return (f"tâche « {model.tache} » inconnue du worker "
+                f"(attendues : {', '.join(sorted(EXECUTABLE_TASKS))})")
+    return None
+
+
 def _slug(value: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", value.lower()).strip("-") or "model"
 
@@ -150,6 +174,14 @@ def _validate_box_models(db: Session, body: ModelBoxIn, org_id: str) -> list[AiM
         raise HTTPException(400, "Un modèle sélectionné est introuvable")
     if any(model.org_id not in (None, org_id) for model in models):
         raise HTTPException(409, "Tous les modèles doivent appartenir à l'organisation de la Box")
+    bloques = [f"{model.nom} v{model.version} — {raison}" for model in models
+               if (raison := raison_blocage(model))]
+    if bloques:
+        raise HTTPException(
+            409,
+            "Ces modèles ne peuvent pas être exécutés, retirez-les de la Box : "
+            + " ; ".join(bloques),
+        )
     return [by_id[model_id] for model_id in ids]
 
 
@@ -167,7 +199,14 @@ def list_models(request: Request, db: Session = Depends(get_db), _=Depends(requi
     query = select(AiModel).order_by(AiModel.created_at.desc())
     if org_id:
         query = query.where(or_(AiModel.org_id == org_id, AiModel.org_id.is_(None)))
-    return db.execute(query).scalars().all()
+    return [_model_out(model) for model in db.execute(query).scalars()]
+
+
+def _model_out(model: AiModel) -> ModelOut:
+    sortie = ModelOut.model_validate(model)
+    sortie.blocage = raison_blocage(model)
+    sortie.deployable = sortie.blocage is None
+    return sortie
 
 
 @router.post("/models", response_model=ModelOut, status_code=201)
@@ -352,12 +391,10 @@ def publish_model_box(request: Request, box_id: str, db: Session = Depends(get_d
         raise HTTPException(409, "Seule une Box en brouillon peut être publiée")
     if not box.items:
         raise HTTPException(409, "Ajoutez au moins un modèle à la Box")
-    unavailable = [item.model.nom for item in box.items if (
-        item.model.statut != "production" or item.model.validation_status != "manifest_valid"
-        or not item.model.fichier or not _is_deployable(item.model)
-    )]
-    if unavailable:
-        raise HTTPException(409, "Modèles non déployables : " + ", ".join(unavailable))
+    bloques = [f"{item.model.nom} v{item.model.version} — {raison}" for item in box.items
+               if (raison := raison_blocage(item.model))]
+    if bloques:
+        raise HTTPException(409, "Modèles non déployables : " + " ; ".join(bloques))
     box.statut = "published"
     db.commit()
     box = _scoped_box(db, box.id, box.org_id)
