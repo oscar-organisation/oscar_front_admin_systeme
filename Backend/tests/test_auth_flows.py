@@ -224,3 +224,55 @@ def test_changement_de_mot_de_passe_et_notification(client, compte_actif, courri
     assert client.post("/api/auth/login",
                        json={"email": compte_actif["X-Test-Email"],
                              "password": MDP_AUTRE}).status_code == 200
+
+
+# --------------------------------------------------------------------------- #
+#  Politique de mot de passe et garde-fou de configuration
+# --------------------------------------------------------------------------- #
+
+def test_politique_exposee_et_appliquee(client, admin_headers, courriels, db):
+    """L'API annonce la meme longueur que celle qu'elle impose."""
+    from app.config import settings
+
+    annoncee = client.get("/api/auth/password-policy").json()["min_length"]
+    assert annoncee == settings.password_min_length
+
+    _cree_invite(client, admin_headers, "politique@exemple.fr")
+    user = db.query(User).filter(User.email == "politique@exemple.fr").one()
+    secret = auth_tokens.emettre(db, user, auth_tokens.INVITE)
+    db.commit()
+
+    trop_court = "a" * (annoncee - 1)
+    assert client.post("/api/auth/accept-invitation",
+                       json={"token": secret, "password": trop_court}).status_code == 422
+
+    pile = "a" * annoncee
+    assert client.post("/api/auth/accept-invitation",
+                       json={"token": secret, "password": pile}).status_code == 204
+
+
+def test_smtp_actif_et_url_de_developpement_refusent_le_demarrage(monkeypatch):
+    """Un lien vers localhost dans une invitation doit bloquer, pas passer."""
+    from app import main
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "smtp_host", "ssl0.ovh.net")
+    monkeypatch.setattr(settings, "smtp_user", "no-reply@exemple.fr")
+    monkeypatch.setattr(settings, "public_app_url", "http://localhost:5173")
+    with pytest.raises(RuntimeError, match="PUBLIC_APP_URL"):
+        main._verifier_configuration_courriel()
+
+    # Domaine reel : rien ne bloque.
+    monkeypatch.setattr(settings, "public_app_url", "https://admin-console.oscar-bot.com")
+    main._verifier_configuration_courriel()
+
+
+def test_sans_smtp_le_garde_fou_ne_bloque_pas(monkeypatch):
+    """En developpement, l'URL par defaut ne doit empecher personne de demarrer."""
+    from app import main
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "smtp_host", "")
+    monkeypatch.setattr(settings, "smtp_user", "")
+    monkeypatch.setattr(settings, "public_app_url", "http://localhost:5173")
+    main._verifier_configuration_courriel()

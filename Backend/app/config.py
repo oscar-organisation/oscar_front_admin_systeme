@@ -62,6 +62,11 @@ class Settings(BaseSettings):
     invite_ttl_hours: int = 168              # 7 jours
     password_reset_ttl_minutes: int = 60
 
+    # Longueur minimale d'un mot de passe. Source unique : l'API l'impose et
+    # l'expose via /auth/password-policy, pour que l'interface n'ait pas sa
+    # propre copie qui diverge au premier changement de politique.
+    password_min_length: int = 12
+
     # Garde-fous anti-abus sur les points d'entrée non authentifiés.
     password_reset_max_per_hour: int = 5
 

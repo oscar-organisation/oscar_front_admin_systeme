@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { api } from "@/shared/kernel/api";
+import { chargerPolitiqueMotDePasse } from "@/shared/kernel/api/passwordPolicy";
 import { getUserErrorMessage } from "@/shared/kernel/errors";
 import {
   IconAlertCircle,
@@ -11,7 +12,6 @@ import {
 } from "../components/Icons.jsx";
 import AuthShell, { LienRetourConnexion } from "./AuthShell.jsx";
 
-const LONGUEUR_MINIMALE = 12;
 
 /**
  * Écran de choix de mot de passe, partagé par deux parcours qui ne diffèrent
@@ -37,6 +37,14 @@ export default function SetPassword({ mode }) {
   const [err, setErr] = useState("");
   const [loading, setLoading] = useState(false);
   const [termine, setTermine] = useState(false);
+  // Longueur imposee par l'API, lue plutot que recopiee.
+  const [longueurMin, setLongueurMin] = useState(null);
+
+  useEffect(() => {
+    let annule = false;
+    chargerPolitiqueMotDePasse().then((n) => { if (!annule) setLongueurMin(n); });
+    return () => { annule = true; };
+  }, []);
 
   useEffect(() => {
     let annule = false;
@@ -55,11 +63,11 @@ export default function SetPassword({ mode }) {
     return () => { annule = true; };
   }, [token]);
 
-  const tropCourt = password.length > 0 && password.length < LONGUEUR_MINIMALE;
+  const tropCourt = longueurMin !== null && password.length > 0 && password.length < longueurMin;
   const discordant = confirmation.length > 0 && confirmation !== password;
   const soumettable = useMemo(
-    () => password.length >= LONGUEUR_MINIMALE && password === confirmation,
-    [password, confirmation],
+    () => longueurMin !== null && password.length >= longueurMin && password === confirmation,
+    [password, confirmation, longueurMin],
   );
 
   async function handleSubmit(e) {
@@ -160,7 +168,7 @@ export default function SetPassword({ mode }) {
             </button>
           </div>
           <small className={`auth-hint${tropCourt ? " warn" : ""}`}>
-            {LONGUEUR_MINIMALE} caractères minimum. Une phrase dont vous vous souvenez
+            {longueurMin ?? "…"} caractères minimum. Une phrase dont vous vous souvenez
             vaut mieux qu'un mot court parsemé de symboles.
           </small>
         </div>

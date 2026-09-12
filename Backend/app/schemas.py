@@ -490,3 +490,7 @@ class ProfileUpdateIn(BaseModel):
 class PasswordChangeIn(BaseModel):
     current_password: str
     new_password: str
+
+
+class PasswordPolicyOut(BaseModel):
+    min_length: int
