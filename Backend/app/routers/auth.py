@@ -19,6 +19,7 @@ from ..models import AuthToken, Organisation, User
 from ..schemas import (
     ForgotPasswordIn,
     InvitationCheckOut,
+    PasswordPolicyOut,
     LoginIn,
     MeOut,
     OrganisationContextOut,
@@ -114,13 +115,23 @@ def _politique_mot_de_passe(brut: str) -> None:
     Imposer des classes de caractères produit des mots de passe plus courts et
     plus prévisibles ; la longueur est le seul critère qui résiste vraiment.
     """
-    if len(brut) < 12:
+    if len(brut) < settings.password_min_length:
         raise HTTPException(
             status.HTTP_422_UNPROCESSABLE_ENTITY,
-            "Le mot de passe doit contenir au moins 12 caractères.",
+            f"Le mot de passe doit contenir au moins {settings.password_min_length} caractères.",
         )
     if len(brut) > 200:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Mot de passe trop long.")
+
+
+@router.get("/password-policy", response_model=PasswordPolicyOut)
+def password_policy():
+    """Politique de mot de passe appliquee par l'API.
+
+    Expose pour que l'interface affiche exactement la regle qui sera imposee,
+    plutot que d'en garder une copie qui diverge au premier changement.
+    """
+    return PasswordPolicyOut(min_length=settings.password_min_length)
 
 
 @router.post("/forgot-password", status_code=status.HTTP_204_NO_CONTENT)

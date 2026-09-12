@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "@/shared/kernel/api";
+import { chargerPolitiqueMotDePasse } from "@/shared/kernel/api/passwordPolicy";
 import { getUserErrorMessage } from "@/shared/kernel/errors";
 import PageHeader from "@/components/PageHeader.jsx";
 import {
@@ -11,7 +12,6 @@ import {
   IconUser,
 } from "@/components/Icons.jsx";
 
-const LONGUEUR_MINIMALE = 12;
 
 /**
  * Compte personnel de l'utilisateur connecté.
@@ -37,8 +37,12 @@ export default function AccountPage() {
   const [mdpEnCours, setMdpEnCours] = useState(false);
   const [mdpOk, setMdpOk] = useState(false);
   const [mdpErr, setMdpErr] = useState("");
+  const [longueurMin, setLongueurMin] = useState(null);
 
-  useEffect(() => { charger(); }, []);
+  useEffect(() => {
+    charger();
+    chargerPolitiqueMotDePasse().then(setLongueurMin);
+  }, []);
 
   async function charger() {
     try {
@@ -68,8 +72,8 @@ export default function AccountPage() {
   async function changerMotDePasse(e) {
     e.preventDefault();
     setMdpErr(""); setMdpOk(false);
-    if (nouveau.length < LONGUEUR_MINIMALE) {
-      setMdpErr(`Le nouveau mot de passe doit contenir au moins ${LONGUEUR_MINIMALE} caractères.`);
+    if (longueurMin !== null && nouveau.length < longueurMin) {
+      setMdpErr(`Le nouveau mot de passe doit contenir au moins ${longueurMin} caractères.`);
       return;
     }
     if (nouveau !== confirmation) {
@@ -165,7 +169,7 @@ export default function AccountPage() {
                          className="field-shell" data-testid="account-new"
                          value={nouveau} onChange={(e) => setNouveau(e.target.value)}
                          autoComplete="new-password" required />
-                  <small className="auth-hint">{LONGUEUR_MINIMALE} caractères minimum.</small>
+                  <small className="auth-hint">{longueurMin ?? "…"} caractères minimum.</small>
                 </div>
                 <div className="auth-field">
                   <label className="auth-label" htmlFor="account-confirm">Confirmation</label>
