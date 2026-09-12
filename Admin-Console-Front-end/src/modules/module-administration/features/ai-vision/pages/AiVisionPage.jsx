@@ -97,6 +97,7 @@ export default function AiVisionPage() {
   const canUpload = can("api:ai.model.upload", "execute");
   const canPromote = can("api:ai.model.promote", "execute");
   const canDeploy = can("api:ai.model.deploy", "execute");
+  const canModelDelete = can("api:ai.model.delete", "execute");
   const canCatCreate = can("api:ai.category.write", "create");
   const canCatUpdate = can("api:ai.category.write", "update");
   const canCatDelete = can("api:ai.category.write", "delete");
@@ -268,6 +269,19 @@ export default function AiVisionPage() {
     }
   }
 
+  async function removeModel(model) {
+    if (!window.confirm(
+      `Supprimer « ${model.nom} » v${model.version} du catalogue ? `
+      + "Les poids sont effacés et l'opération est définitive.",
+    )) return;
+    try {
+      await api.del(`/ai/models/${model.id}`);
+      await loadStudio();
+    } catch (error) {
+      setErr(captureError(error, { feature: "ai-studio", action: "delete-model" }));
+    }
+  }
+
   async function publishBox(box) {
     if (!window.confirm(`Publier « ${box.nom} » v${box.version} ? Cette version deviendra immuable.`)) return;
     try {
@@ -378,7 +392,7 @@ export default function AiVisionPage() {
             <div className="card-body flush table-wrap">
               <table className="data-table ai-model-table"><thead><tr><th>Modèle</th><th>Catégories</th><th>Artefact</th><th>Cycle</th><th>Validation</th><th>Actions</th></tr></thead><tbody>
                 {loading && <tr><td colSpan={6} className="ai-empty">Chargement des modèles...</td></tr>}
-                {!loading && models.map((model) => <tr key={model.id} data-testid="model-row"><td><div className="ai-model-identity"><span className="ai-model-icon"><IconSparkles size={15} /></span><span><strong data-testid="model-name">{model.nom}</strong><small>{model.tache} · v{model.version}</small></span></div></td><td><div className="ai-category-chips">{(model.category_ids || []).map((id) => <span key={id}>{cats.find((cat) => cat.id === id)?.label || id}</span>)}{!model.category_ids?.length && <small>Non classé</small>}</div></td><td><strong className="ai-runtime-name">{model.runtime || model.framework}</strong><small>{formatBytes(model.artifact_size)}</small></td><td><span className={`status-chip ${MODEL_CHIP[model.statut] || "neutral"}`}>{model.statut}</span></td><td><span className={`status-chip ${model.validation_status === "manifest_valid" ? "online" : "warning"}`}>{model.validation_status || "à valider"}</span></td><td className="row-actions">{canPromote && model.statut === "sandbox" && <button className="btn-shell small" data-testid="model-promote" onClick={() => promote(model)}><IconArrowUpRight size={13} /> Promouvoir</button>}</td></tr>)}
+                {!loading && models.map((model) => <tr key={model.id} data-testid="model-row"><td><div className="ai-model-identity"><span className="ai-model-icon"><IconSparkles size={15} /></span><span><strong data-testid="model-name">{model.nom}</strong><small>{model.tache} · v{model.version}</small></span></div></td><td><div className="ai-category-chips">{(model.category_ids || []).map((id) => <span key={id}>{cats.find((cat) => cat.id === id)?.label || id}</span>)}{!model.category_ids?.length && <small>Non classé</small>}</div></td><td><strong className="ai-runtime-name">{model.runtime || model.framework}</strong><small>{formatBytes(model.artifact_size)}</small></td><td><span className={`status-chip ${MODEL_CHIP[model.statut] || "neutral"}`}>{model.statut}</span></td><td><span className={`status-chip ${model.validation_status === "manifest_valid" ? "online" : "warning"}`}>{model.validation_status || "à valider"}</span></td><td className="row-actions">{canPromote && model.statut === "sandbox" && <button className="btn-shell small" data-testid="model-promote" onClick={() => promote(model)}><IconArrowUpRight size={13} /> Promouvoir</button>}{canModelDelete && <button className="btn-shell small danger" data-testid="model-delete" onClick={() => removeModel(model)} title="Retirer du catalogue"><IconTrash size={12} /></button>}</td></tr>)}
                 {!loading && models.length === 0 && <tr><td colSpan={6} className="ai-empty">Aucun modèle chargé pour cette organisation.</td></tr>}
               </tbody></table>
             </div>
