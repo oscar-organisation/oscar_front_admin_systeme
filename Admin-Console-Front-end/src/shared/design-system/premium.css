@@ -50,6 +50,7 @@ body {
 
 .auth-card-shell {
   width: min(100%, 380px);
+  align-self: flex-start;
   margin: auto 0;
   padding: clamp(42px, 7vh, 72px) 0;
   border: 0;
@@ -64,25 +65,25 @@ body {
   align-items: center;
   flex-direction: row;
   justify-content: flex-start;
-  gap: 18px;
+  gap: 13px;
   text-align: left;
 }
 .auth-brand-header .auth-oscar-brand { width: 148px; height: 35px; margin: 0; }
 
-.auth-brand-header span {
-  padding-left: 18px;
-  border-left: 1px solid rgba(255, 255, 255, 0.18);
-  color: rgba(255, 255, 255, 0.48);
-  font: 600 10px/1 var(--font-mono);
-  letter-spacing: 0.1em;
+.auth-brand-header .auth-brand-tag {
+  padding-left: 13px;
+  border-left: 1px solid rgba(255, 255, 255, 0.22);
+  color: rgba(255, 255, 255, 0.62);
+  font: 600 11px/1 var(--font-mono);
+  letter-spacing: 0.09em;
   text-transform: uppercase;
 }
 
 .auth-login-heading { margin-bottom: 30px; }
-.auth-login-heading h1 { margin: 0 0 9px; color: #f5f6f8; font-size: 30px; font-weight: 590; letter-spacing: -0.025em; }
-.auth-login-heading p { max-width: 38ch; margin: 0; color: rgba(255, 255, 255, 0.43); font-size: 12px; line-height: 1.6; }
+.auth-login-heading h1 { margin: 0 0 10px; color: #f5f6f8; font-size: 24px; font-weight: 600; letter-spacing: -0.02em; }
+.auth-login-heading p { max-width: 40ch; margin: 0; color: rgba(255, 255, 255, 0.5); font-size: 13px; line-height: 1.55; }
 .auth-form { gap: 18px; }
-.auth-label { margin: 0 0 9px; color: rgba(255, 255, 255, 0.66); font-size: 11px; font-weight: 560; }
+.auth-label { margin: 0 0 8px; color: rgba(255, 255, 255, 0.7); font-size: 12px; font-weight: 560; }
 .auth-form .field-shell {
   min-height: 48px;
   padding: 10px 14px;
@@ -90,15 +91,16 @@ body {
   border-radius: 7px;
   background: rgba(255, 255, 255, 0.018);
   color: #f5f6f8;
+  font-size: 14px;
 }
 .auth-form .field-shell:hover { border-color: rgba(255, 255, 255, 0.26); }
 .auth-form .field-shell:focus { border-color: rgba(216, 88, 16, 0.75); box-shadow: 0 0 0 3px rgba(216, 88, 16, 0.11); }
 .auth-form .btn-shell.primary {
   min-height: 48px;
-  margin-top: 6px;
+  margin-top: 10px;
   border-radius: 7px;
-  font-size: 11px;
-  letter-spacing: 0.04em;
+  font-size: 13px;
+  letter-spacing: 0.01em;
 }
 .password-field { position: relative; }
 .password-field .field-shell { padding-right: 44px; }
