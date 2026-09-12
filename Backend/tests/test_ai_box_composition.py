@@ -114,3 +114,66 @@ def test_une_box_de_modeles_executables_se_compose_et_se_publie(client, contexte
                          headers=contexte["entetes"])
     assert publie.status_code == 200, publie.text
     assert publie.json()["statut"] == "published"
+
+
+# --------------------------------------------------------------------------- #
+#  Sortie du catalogue : un import rate doit pouvoir etre retire
+# --------------------------------------------------------------------------- #
+def test_un_modele_libre_se_supprime_avec_ses_poids(client, contexte, tmp_path):
+    from pathlib import Path
+
+    from app.database import SessionLocal
+    from app.models import AiModel
+
+    modele = _televerse(client, contexte["entetes"], promouvoir=False)
+    db = SessionLocal()
+    chemin = Path(db.get(AiModel, modele["id"]).fichier)
+    db.close()
+    assert chemin.is_file()
+
+    r = client.delete(f"/api/ai/models/{modele['id']}", headers=contexte["entetes"])
+    assert r.status_code == 204, r.text
+    assert not chemin.exists(), "les poids doivent partir avec l'enregistrement"
+    ids = {m["id"] for m in client.get("/api/ai/models", headers=contexte["entetes"]).json()}
+    assert modele["id"] not in ids
+
+
+def test_un_modele_utilise_par_une_box_ne_se_supprime_pas(client, contexte):
+    """Casser une composition en silence serait pire que refuser."""
+    a = _televerse(client, contexte["entetes"], tache="product_detection")
+    box = client.post("/api/ai/model-boxes", headers=contexte["entetes"],
+                      json=_corps_box([a["id"]]))
+    assert box.status_code == 201, box.text
+
+    r = client.delete(f"/api/ai/models/{a['id']}", headers=contexte["entetes"])
+    assert r.status_code == 409, r.text
+    assert box.json()["nom"] in r.json()["detail"]
+
+
+def test_apres_retrait_de_la_box_le_modele_se_supprime(client, contexte):
+    a = _televerse(client, contexte["entetes"], tache="product_detection")
+    b = _televerse(client, contexte["entetes"], tache="incident_detection")
+    box = client.post("/api/ai/model-boxes", headers=contexte["entetes"],
+                      json=_corps_box([a["id"], b["id"]])).json()
+
+    maj = client.patch(f"/api/ai/model-boxes/{box['id']}", headers=contexte["entetes"],
+                       json={"nom": box["nom"], "version": box["version"],
+                             "items": [{"model_id": b["id"], "position": 0}]})
+    assert maj.status_code == 200, maj.text
+    assert client.delete(f"/api/ai/models/{a['id']}",
+                         headers=contexte["entetes"]).status_code == 204
+
+
+def test_modifier_une_box_en_gardant_un_modele(client, contexte):
+    """Regression : la contrainte d'unicite des items sautait au remplacement."""
+    a = _televerse(client, contexte["entetes"], tache="product_detection")
+    b = _televerse(client, contexte["entetes"], tache="incident_detection")
+    box = client.post("/api/ai/model-boxes", headers=contexte["entetes"],
+                      json=_corps_box([a["id"], b["id"]])).json()
+
+    # Meme nom, meme version, meme premier modele : seul le second disparait.
+    maj = client.patch(f"/api/ai/model-boxes/{box['id']}", headers=contexte["entetes"],
+                       json={"nom": box["nom"], "version": box["version"],
+                             "items": [{"model_id": a["id"], "position": 0}]})
+    assert maj.status_code == 200, maj.text
+    assert [item["model_id"] for item in maj.json()["items"]] == [a["id"]]

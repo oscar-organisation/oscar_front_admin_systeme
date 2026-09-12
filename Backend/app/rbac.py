@@ -53,6 +53,9 @@ FEATURE_CATALOG: list[tuple[str, str, str, str, list[str]]] = [
     # --- Sandbox IA ---
     ("api:ai.model.read", "Lire les modèles IA", "api", "sandbox", VIEW),
     ("api:ai.model.upload", "Importer un modèle IA", "api", "sandbox", EXEC),
+    # Retirer un modele est destructif (poids compris) : capacite distincte de
+    # l'import, pour pouvoir l'accorder separement.
+    ("api:ai.model.delete", "Supprimer un modèle IA", "api", "sandbox", EXEC),
     ("api:ai.model.promote", "Promouvoir / archiver un modèle", "api", "sandbox", EXEC),
     ("api:ai.model.deploy", "Activer un modèle sur un robot", "api", "sandbox", EXEC),
     ("api:ai.category.write", "Gérer les catégories de détection", "api", "sandbox", CRUD),
