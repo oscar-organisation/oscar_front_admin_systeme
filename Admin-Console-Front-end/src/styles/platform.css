@@ -1837,3 +1837,36 @@ input[type="color"].field-shell { padding: 5px; }
   padding: 2px 8px;
 }
 .role-chip-row .role-chip-more { flex: none; max-width: none; font-variant-numeric: tabular-nums; }
+
+/* --- Mon compte --- */
+.account-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  gap: 16px;
+  margin-bottom: 16px;
+}
+.account-form { display: flex; flex-direction: column; gap: 16px; }
+.account-actions { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.account-confirm {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--shell-green);
+  font-size: 12.5px;
+}
+.account-readonly {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 18px 26px;
+  margin: 0;
+}
+.account-readonly dt {
+  margin-bottom: 7px;
+  color: var(--shell-dim);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.account-readonly dd { margin: 0; color: var(--shell-text); font-size: 13.5px; }
+.account-empty { color: var(--shell-dim); font-size: 13px; }

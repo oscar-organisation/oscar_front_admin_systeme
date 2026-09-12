@@ -599,3 +599,44 @@ body {
   border-color: #bf4b0b;
   background: linear-gradient(180deg, #d2540d, #bf4b0b);
 }
+
+/* --- Pages d'identite : liens secondaires, avis, indications --- */
+.auth-secondary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  margin-top: 20px;
+  padding-top: 18px;
+  border-top: 1px solid rgba(16, 18, 20, 0.1);
+  font-size: 13px;
+}
+.auth-link {
+  color: #b34308;
+  font-weight: 560;
+  text-decoration: none;
+  border-bottom: 1px solid rgba(179, 67, 8, 0.28);
+}
+.auth-link:hover { border-bottom-color: #b34308; }
+
+.auth-hint {
+  display: block;
+  margin-top: 7px;
+  color: rgba(16, 18, 20, 0.55);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.auth-hint.warn { color: #a5251f; }
+
+.auth-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 13px 15px;
+  border: 1px solid rgba(28, 142, 90, 0.26);
+  border-radius: 8px;
+  background: rgba(28, 142, 90, 0.06);
+  color: #1b6e48;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.auth-notice svg { flex: none; margin-top: 2px; }
