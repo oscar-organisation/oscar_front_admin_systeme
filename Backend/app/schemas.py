@@ -37,6 +37,11 @@ class MeOut(BaseModel):
     is_superadmin: bool
     features: list[str]            # codes accordés (api:* + ui:*)
     permissions: dict[str, list[str]]  # code -> actions
+    # Ajoutés pour la page de compte personnel : sans eux, elle affichait
+    # « Aucun rôle attribué » et un statut vide quel que soit l'utilisateur.
+    statut: str
+    roles: list[str] = Field(default_factory=list)
+    active_org_nom: str | None = None
 
 
 # ---- Organisations ---------------------------------------------------------

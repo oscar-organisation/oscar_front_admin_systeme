@@ -92,6 +92,13 @@ def me(request: Request, user: User = Depends(get_current_user), db: Session = D
             for org in organisations
         ],
         is_superadmin=user.is_superadmin, features=sorted(perms.keys()), permissions=perms,
+        statut=user.statut,
+        # Roles effectifs dans le perimetre actif, pas la liste brute des
+        # attributions : c'est ce dont l'utilisateur dispose reellement ici.
+        roles=compute_role_names(db, user, active_org_id),
+        active_org_nom=next(
+            (org.nom for org in organisations if org.id == active_org_id), None
+        ),
     )
 
 

@@ -1869,3 +1869,15 @@ input[type="color"].field-shell { padding: 5px; }
 }
 .account-readonly dd { margin: 0; color: var(--shell-text); font-size: 13.5px; }
 .account-empty { color: var(--shell-dim); font-size: 13px; }
+
+/* --- Pastille utilisateur devenue lien vers « Mon compte » --- */
+.user-chip-link {
+  text-decoration: none;
+  border-radius: var(--radius-md);
+  transition: background 120ms ease, border-color 120ms ease;
+}
+.user-chip-link:hover { background: var(--shell-card-hover); }
+.user-chip-link.active {
+  background: var(--shell-blue-soft);
+  box-shadow: inset 0 0 0 1px var(--shell-blue-border);
+}
