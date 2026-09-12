@@ -18,7 +18,6 @@ import {
   IconActivity,
   IconGrid,
   IconLogOut,
-  IconUser,
   IconMenu,
   IconPanelLeftClose,
   IconPanelLeftOpen,
@@ -136,14 +135,14 @@ export default function AdminLayout() {
         </nav>
 
         <div className="sidebar-footer">
-          {/* La pastille est cliquable : c'est la que l'on cherche
-              instinctivement son propre compte. L'entree libellee juste en
-              dessous existe pour la decouverte, une pastille seule ne
-              s'annoncant pas comme un lien. */}
+          {/* La pastille porte le compte : c'est la qu'on le cherche
+              instinctivement, et le survol l'annonce comme un lien. Une entree
+              « Mon compte » juste en dessous doublait la meme destination. */}
           <NavLink
             to="/admin/compte"
             className={({ isActive }) => `user-chip user-chip-link${isActive ? " active" : ""}`}
             title="Mon compte"
+            data-testid="nav-account"
             onClick={close}
           >
             <div className="avatar">{initials(user?.nom)}</div>
@@ -151,17 +150,6 @@ export default function AdminLayout() {
               <strong>{user?.nom || "Opérateur"}</strong>
               <small>{user?.email || "Compte local"}</small>
             </div>
-          </NavLink>
-          <NavLink
-            to="/admin/compte"
-            className={({ isActive }) => `nav-link${isActive ? " active" : ""}`}
-            data-testid="nav-account"
-            title="Mon compte"
-            aria-label="Mon compte"
-            onClick={close}
-          >
-            <span className="nav-icon"><IconUser size={16} /></span>
-            <span className="nav-label">Mon compte</span>
           </NavLink>
           <button className="nav-link" data-testid="logout" title="Déconnexion" aria-label="Déconnexion" onClick={() => { close(); logout(); }}>
             <span className="nav-icon"><IconLogOut size={16} /></span>
