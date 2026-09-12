@@ -1107,6 +1107,13 @@ input[type="color"].field-shell { padding: 5px; }
 /* Le registre passe pleine largeur : son tableau a six colonnes et debordait
    horizontalement dans la colonne etroite, coupant la colonne Actions. */
 .ai-models-card { grid-column: 1 / -1; min-width: 0; }
+/* Les affectations forment leur propre rangee pleine largeur. Elles vivaient
+   dans une colonne etroite et collante dont le contenu, une liste sans borne,
+   depassait la hauteur de sa rangee et se peignait par-dessus la carte
+   suivante. Une Box pouvant viser autant de robots, flottes et sites qu'on
+   veut, cette liste a besoin d'un tableau, d'un filtre et d'une pagination. */
+.ai-assignments-card { grid-column: 1 / -1; min-width: 0; }
+.ai-assign-card { min-width: 0; }
 /* Categories et contrat constructeur se partagent la derniere rangee : ce sont
    deux blocs de reference, consultes rarement, qui n'ont pas a occuper une
    colonne au-dessus des cartes de travail. */
@@ -1142,8 +1149,15 @@ input[type="color"].field-shell { padding: 5px; }
 }
 
 .ai-runtime-name { color: var(--shell-text); font-size: 11px; font-family: var(--font-mono); }
-.ai-deploy-card { position: sticky; top: 16px; }
-.ai-deploy-card .field-shell { width: 100%; }
+.ai-assign-card .field-shell { width: 100%; }
+.ai-assign-note {
+  margin: 14px 0 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--shell-line);
+  color: var(--shell-dim);
+  font-size: 10.5px;
+  line-height: 1.6;
+}
 
 .ai-deployment-list {
   margin-top: 14px;
@@ -1300,12 +1314,35 @@ input[type="color"].field-shell { padding: 5px; }
 .ai-scope-switch button:hover { color: var(--shell-text); }
 .ai-scope-switch button.active { background: var(--shell-blue-soft); color: var(--shell-blue-strong); box-shadow: inset 0 0 0 1px var(--shell-blue-border); }
 .ai-assign-button { width: 100%; margin-top: 6px; }
-.ai-assignment-list { max-height: 310px; margin-top: 18px; border-top: 1px solid var(--shell-line); overflow-y: auto; }
-.ai-assignment-row { min-height: 58px; padding: 9px 0; border-bottom: 1px solid var(--shell-line); display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.ai-assignment-row > span { min-width: 0; display: flex; flex-direction: column; }
-.ai-assignment-row strong { overflow: hidden; color: var(--shell-text); font-size: 10.5px; text-overflow: ellipsis; white-space: nowrap; }
-.ai-assignment-row small { color: var(--shell-dim); font-size: 9.5px; }
-.ai-assignment-row.muted { opacity: 0.5; }
+.ai-assignments-tools { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.ai-assignments-search { width: 210px; min-height: 32px; font-size: 11px; }
+.ai-scope-switch.compact { grid-template-columns: repeat(4, auto); }
+.ai-scope-switch.compact button { padding: 0 10px; white-space: nowrap; }
+.ai-assignments-table td { vertical-align: middle; }
+.ai-assignments-table tr.muted { opacity: 0.55; }
+.ai-assignment-box { display: flex; flex-direction: column; }
+.ai-assignment-box strong { color: var(--shell-text-strong); font-size: 12px; }
+.ai-assignment-box small { color: var(--shell-dim); font: 10px/1.5 var(--font-mono); }
+.ai-assignment-target { color: var(--shell-text); font-size: 12px; }
+.ai-assignments-foot {
+  padding: 11px 18px;
+  border-top: 1px solid var(--shell-line);
+  color: var(--shell-dim);
+  font-size: 10.5px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+/* Artefact : le runtime et le poids se suivaient sur la meme ligne sans
+   separation, donnant « ultralytics5.1 Mo ». */
+.ai-artifact-cell { display: flex; flex-direction: column; gap: 2px; }
+.ai-artifact-cell small { color: var(--shell-dim); font-size: 10.5px; }
+
+/* Les actions d'une ligne de tableau tiennent sur une ligne : elles passaient
+   a la ligne des que la cellule se resserrait, decalant la hauteur des rangees. */
+.data-table .row-actions { flex-wrap: nowrap; white-space: nowrap; }
 
 .ai-category-chips { min-width: 125px; display: flex; flex-wrap: wrap; gap: 4px; }
 .ai-category-chips span { padding: 3px 6px; border: 1px solid var(--shell-line); border-radius: 5px; color: var(--shell-muted); background: rgba(255, 255, 255, 0.02); font-size: 9px; }
@@ -1365,8 +1402,9 @@ input[type="color"].field-shell { padding: 5px; }
 
 @media (max-width: 1020px) {
   .ai-vision-grid { grid-template-columns: 1fr; }
-  .ai-deploy-card { position: static; }
   .ai-categories-card { grid-column: auto; }
+  .ai-assignments-tools { width: 100%; }
+  .ai-assignments-search { width: 100%; }
   .ai-studio-summary { grid-template-columns: 1fr; }
 }
 

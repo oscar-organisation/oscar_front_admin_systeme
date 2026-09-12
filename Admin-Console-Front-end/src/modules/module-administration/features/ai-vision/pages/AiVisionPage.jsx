@@ -88,6 +88,11 @@ export default function AiVisionPage() {
   const [assignmentDraft, setAssignmentDraft] = useState({ targetType: "robot", targetId: "", boxId: "" });
   const [loading, setLoading] = useState(true);
   const [savingAssignment, setSavingAssignment] = useState("");
+  // Une Box s'affecte a autant de robots, flottes et sites qu'on veut : la liste
+  // doit donc se filtrer et se paginer, pas s'empiler indefiniment.
+  const [assignmentQuery, setAssignmentQuery] = useState("");
+  const [assignmentScope, setAssignmentScope] = useState("all");
+  const [assignmentPage, setAssignmentPage] = useState(0);
   const [modelModal, setModelModal] = useState(null);
   const [boxModal, setBoxModal] = useState(null);
   const [catModal, setCatModal] = useState(null);
@@ -107,6 +112,42 @@ export default function AiVisionPage() {
   const targetOptions = assignmentDraft.targetType === "site"
     ? sites
     : assignmentDraft.targetType === "fleet" ? fleets : robots;
+
+  const PAR_PAGE = 12;
+
+  const assignmentRows = useMemo(() => assignments.map((assignment) => {
+    const type = assignment.robot_id ? "robot" : assignment.fleet_id ? "fleet" : "site";
+    const targetId = assignment.robot_id || assignment.fleet_id || assignment.site_id;
+    const source = type === "robot" ? robots : type === "fleet" ? fleets : sites;
+    return {
+      assignment,
+      type,
+      targetId,
+      scopeLabel: type === "robot" ? "Robot" : type === "fleet" ? "Flotte" : "Site",
+      targetLabel: source.find((item) => item.id === targetId)?.nom || targetId,
+    };
+  }), [assignments, robots, fleets, sites]);
+
+  const assignmentCounts = useMemo(() => assignmentRows.reduce((acc, row) => {
+    acc[row.type] = (acc[row.type] || 0) + 1;
+    return acc;
+  }, {}), [assignmentRows]);
+
+  const filteredAssignments = useMemo(() => {
+    const terme = assignmentQuery.trim().toLowerCase();
+    return assignmentRows.filter((row) => {
+      if (assignmentScope !== "all" && row.type !== assignmentScope) return false;
+      if (!terme) return true;
+      return `${row.assignment.box_name} v${row.assignment.box_version} ${row.targetLabel}`
+        .toLowerCase().includes(terme);
+    });
+  }, [assignmentRows, assignmentQuery, assignmentScope]);
+
+  const pagesAssignments = Math.max(1, Math.ceil(filteredAssignments.length / PAR_PAGE));
+  const pageAssignments = Math.min(assignmentPage, pagesAssignments - 1);
+  const assignmentsVisibles = filteredAssignments.slice(
+    pageAssignments * PAR_PAGE, pageAssignments * PAR_PAGE + PAR_PAGE,
+  );
 
   const loadStudio = useCallback(async () => {
     setLoading(true);
@@ -392,7 +433,7 @@ export default function AiVisionPage() {
             <div className="card-body flush table-wrap">
               <table className="data-table ai-model-table"><thead><tr><th>Modèle</th><th>Catégories</th><th>Artefact</th><th>Cycle</th><th>Validation</th><th>Actions</th></tr></thead><tbody>
                 {loading && <tr><td colSpan={6} className="ai-empty">Chargement des modèles...</td></tr>}
-                {!loading && models.map((model) => <tr key={model.id} data-testid="model-row"><td><div className="ai-model-identity"><span className="ai-model-icon"><IconSparkles size={15} /></span><span><strong data-testid="model-name">{model.nom}</strong><small>{model.tache} · v{model.version}</small></span></div></td><td><div className="ai-category-chips">{(model.category_ids || []).map((id) => <span key={id}>{cats.find((cat) => cat.id === id)?.label || id}</span>)}{!model.category_ids?.length && <small>Non classé</small>}</div></td><td><strong className="ai-runtime-name">{model.runtime || model.framework}</strong><small>{formatBytes(model.artifact_size)}</small></td><td><span className={`status-chip ${MODEL_CHIP[model.statut] || "neutral"}`}>{model.statut}</span></td><td><span className={`status-chip ${model.validation_status === "manifest_valid" ? "online" : "warning"}`}>{model.validation_status || "à valider"}</span></td><td className="row-actions">{canPromote && model.statut === "sandbox" && <button className="btn-shell small" data-testid="model-promote" onClick={() => promote(model)}><IconArrowUpRight size={13} /> Promouvoir</button>}{canModelDelete && <button className="btn-shell small danger" data-testid="model-delete" onClick={() => removeModel(model)} title="Retirer du catalogue"><IconTrash size={12} /></button>}</td></tr>)}
+                {!loading && models.map((model) => <tr key={model.id} data-testid="model-row"><td><div className="ai-model-identity"><span className="ai-model-icon"><IconSparkles size={15} /></span><span><strong data-testid="model-name">{model.nom}</strong><small>{model.tache} · v{model.version}</small></span></div></td><td><div className="ai-category-chips">{(model.category_ids || []).map((id) => <span key={id}>{cats.find((cat) => cat.id === id)?.label || id}</span>)}{!model.category_ids?.length && <small>Non classé</small>}</div></td><td><div className="ai-artifact-cell"><strong className="ai-runtime-name">{model.runtime || model.framework}</strong><small>{formatBytes(model.artifact_size)}</small></div></td><td><span className={`status-chip ${MODEL_CHIP[model.statut] || "neutral"}`}>{model.statut}</span></td><td><span className={`status-chip ${model.validation_status === "manifest_valid" ? "online" : "warning"}`}>{model.validation_status || "à valider"}</span></td><td className="row-actions">{canPromote && model.statut === "sandbox" && <button className="btn-shell small" data-testid="model-promote" onClick={() => promote(model)}><IconArrowUpRight size={13} /> Promouvoir</button>}{canModelDelete && <button className="btn-shell small danger" data-testid="model-delete" onClick={() => removeModel(model)} title="Retirer du catalogue"><IconTrash size={12} /></button>}</td></tr>)}
                 {!loading && models.length === 0 && <tr><td colSpan={6} className="ai-empty">Aucun modèle chargé pour cette organisation.</td></tr>}
               </tbody></table>
             </div>
@@ -424,8 +465,8 @@ export default function AiVisionPage() {
             </div>
           </section>
 
-          <aside className="card-shell ai-deploy-card">
-            <div className="card-head"><div><h3><IconRobot size={16} /> Affectations</h3><small>La priorité est robot, puis flotte, puis site.</small></div></div>
+          <aside className="card-shell ai-assign-card">
+            <div className="card-head"><div><h3><IconRobot size={16} /> Affecter une Box</h3><small>La priorité est robot, puis flotte, puis site.</small></div></div>
             <div className="card-body">
               <div className="ai-assignment-form">
                 <label className="auth-label" htmlFor="ai-box-target-type">Portée</label>
@@ -436,17 +477,62 @@ export default function AiVisionPage() {
                 <select id="ai-box-select" className="field-shell" value={assignmentDraft.boxId} onChange={(event) => setAssignmentDraft({ ...assignmentDraft, boxId: event.target.value })}>{publishedBoxes.length === 0 && <option value="">Aucune Box publiée</option>}{publishedBoxes.map((box) => <option key={box.id} value={box.id}>{box.nom} · v{box.version}</option>)}</select>
                 <button className="btn-shell primary ai-assign-button" disabled={!canDeploy || !assignmentDraft.targetId || !assignmentDraft.boxId || savingAssignment} onClick={() => saveAssignment(assignmentDraft.boxId, assignmentDraft.targetType, assignmentDraft.targetId)}><IconCheck size={14} /> Affecter la Box</button>
               </div>
-              <div className="ai-assignment-list">
-                {assignments.map((assignment) => {
-                  const type = assignment.robot_id ? "robot" : assignment.fleet_id ? "fleet" : "site";
-                  const targetId = assignment.robot_id || assignment.fleet_id || assignment.site_id;
-                  const key = `${assignment.box_id}:${type}:${targetId}`;
-                  return <div className={`ai-assignment-row${assignment.enabled ? "" : " muted"}`} key={assignment.id}><span><strong>{assignment.box_name} · v{assignment.box_version}</strong><small>{targetName(assignment)}</small></span>{canDeploy && <button className="btn-shell small" disabled={savingAssignment === key} onClick={() => saveAssignment(assignment.box_id, type, targetId, !assignment.enabled)}>{assignment.enabled ? "Désactiver" : "Réactiver"}</button>}</div>;
-                })}
-                {assignments.length === 0 && <p className="ai-empty compact">Aucune affectation enregistrée.</p>}
-              </div>
+              <p className="ai-assign-note">
+                Une même Box peut couvrir plusieurs robots, flottes et sites.
+                Les affectations en vigueur sont listées ci-dessous.
+              </p>
             </div>
           </aside>
+
+          <section className="card-shell ai-assignments-card">
+            <div className="card-head">
+              <div><h3><IconLayers size={16} /> Affectations en vigueur ({assignments.length})</h3><small>Une ligne par couple Box / cible. Le robot l'emporte sur la flotte, la flotte sur le site.</small></div>
+              <div className="ai-assignments-tools">
+                <div className="ai-scope-switch compact">
+                  {[["all", `Tout ${assignments.length}`], ["robot", `Robots ${assignmentCounts.robot || 0}`],
+                    ["fleet", `Flottes ${assignmentCounts.fleet || 0}`], ["site", `Sites ${assignmentCounts.site || 0}`]]
+                    .map(([value, label]) => (
+                      <button type="button" key={value} className={assignmentScope === value ? "active" : ""}
+                              onClick={() => { setAssignmentScope(value); setAssignmentPage(0); }}>{label}</button>
+                    ))}
+                </div>
+                <input className="field-shell ai-assignments-search" type="search" value={assignmentQuery}
+                       placeholder="Filtrer par Box ou cible"
+                       onChange={(event) => { setAssignmentQuery(event.target.value); setAssignmentPage(0); }} />
+              </div>
+            </div>
+            <div className="card-body flush table-wrap">
+              <table className="data-table ai-assignments-table">
+                <thead><tr><th>Box</th><th>Portée</th><th>Cible</th><th>État</th><th>Actions</th></tr></thead>
+                <tbody>
+                  {assignmentsVisibles.map(({ assignment, type, targetId, scopeLabel, targetLabel }) => {
+                    const key = `${assignment.box_id}:${type}:${targetId}`;
+                    return (
+                      <tr key={assignment.id} className={assignment.enabled ? "" : "muted"} data-testid="assignment-row">
+                        <td><div className="ai-assignment-box"><strong>{assignment.box_name}</strong><small>v{assignment.box_version}</small></div></td>
+                        <td><span className="status-chip neutral">{scopeLabel}</span></td>
+                        <td><span className="ai-assignment-target">{targetLabel}</span></td>
+                        <td><span className={`status-chip ${assignment.enabled ? "online" : "neutral"}`}>{assignment.enabled ? "active" : "suspendue"}</span></td>
+                        <td className="row-actions">{canDeploy && <button className="btn-shell small" disabled={savingAssignment === key} onClick={() => saveAssignment(assignment.box_id, type, targetId, !assignment.enabled)}>{assignment.enabled ? "Désactiver" : "Réactiver"}</button>}</td>
+                      </tr>
+                    );
+                  })}
+                  {filteredAssignments.length === 0 && <tr><td colSpan={5} className="ai-empty">{assignments.length === 0 ? "Aucune affectation enregistrée." : "Aucune affectation ne correspond au filtre."}</td></tr>}
+                </tbody>
+              </table>
+            </div>
+            {pagesAssignments > 1 && (
+              <div className="ai-assignments-foot">
+                <span>{filteredAssignments.length} affectation{filteredAssignments.length > 1 ? "s" : ""} · page {pageAssignments + 1} sur {pagesAssignments}</span>
+                <span className="row-actions">
+                  <button className="btn-shell small" disabled={pageAssignments === 0}
+                          onClick={() => setAssignmentPage(pageAssignments - 1)}>Précédent</button>
+                  <button className="btn-shell small" disabled={pageAssignments >= pagesAssignments - 1}
+                          onClick={() => setAssignmentPage(pageAssignments + 1)}>Suivant</button>
+                </span>
+              </div>
+            )}
+          </section>
 
           <section className="card-shell ai-categories-card">
             <div className="card-head"><div><h3><IconGrid size={16} /> Catégories</h3><small>Taxonomie transverse utilisée pour retrouver et documenter les modèles.</small></div>{canCatCreate && <button className="btn-shell small" data-testid="category-add" onClick={() => openCat()}><IconPlus size={13} /> Ajouter</button>}</div>
