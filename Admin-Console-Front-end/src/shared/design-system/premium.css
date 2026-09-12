@@ -33,7 +33,7 @@ body {
 .auth-page-wrap {
   min-height: 100vh;
   display: grid;
-  grid-template-columns: minmax(430px, 0.78fr) minmax(0, 1.22fr);
+  grid-template-columns: minmax(0, 1.22fr) minmax(430px, 0.78fr);
   background: #08090b;
   color-scheme: dark;
 }
@@ -41,6 +41,8 @@ body {
 .auth-page-wrap::before { display: none; }
 
 .auth-login-panel {
+  grid-column: 2;
+  grid-row: 1;
   min-height: 100vh;
   padding: clamp(28px, 4vh, 48px) clamp(34px, 4.5vw, 68px) 28px;
   background: #08090b;
@@ -94,7 +96,7 @@ body {
   font-size: 14px;
 }
 .auth-form .field-shell:hover { border-color: rgba(255, 255, 255, 0.26); }
-.auth-form .field-shell:focus { border-color: rgba(216, 88, 16, 0.75); box-shadow: 0 0 0 3px rgba(216, 88, 16, 0.11); }
+.auth-form .field-shell:focus { border-color: #d85810; box-shadow: none; }
 .auth-form .btn-shell.primary {
   min-height: 48px;
   margin-top: 10px;
@@ -127,12 +129,14 @@ body {
 .auth-login-footer small { font-size: 9px; }
 
 .auth-visual-panel {
+  grid-column: 1;
+  grid-row: 1;
   position: relative;
   min-height: 100vh;
   padding: clamp(42px, 7vw, 96px);
   background-color: #151719;
-  background-image: url("/brand/oscar-login-architecture.jpg");
-  background-position: center;
+  background-image: url("/brand/oscar-login-robots.jpg");
+  background-position: 50% 46%;
   background-size: cover;
   overflow: hidden;
 }
@@ -393,7 +397,7 @@ body {
   color: var(--shell-text);
 }
 .field-shell:hover { border-color: rgba(255, 255, 255, 0.16); }
-.field-shell:focus { border-color: rgba(216, 88, 16, 0.72); box-shadow: 0 0 0 3px rgba(216, 88, 16, 0.12); }
+.field-shell:focus { border-color: #d85810; box-shadow: none; }
 .status-chip {
   min-height: 22px;
   padding: 2px 8px;
@@ -518,6 +522,7 @@ body {
 
 @media (max-width: 760px) {
   .auth-page-wrap { grid-template-columns: 1fr; }
+  .auth-login-panel { grid-column: 1; }
   .auth-login-panel { min-height: 100vh; padding: 26px 24px 22px; }
   .auth-card-shell { width: min(100%, 380px); margin: auto; padding: 52px 0; }
   .auth-login-footer { width: min(100%, 380px); margin: 0 auto; }

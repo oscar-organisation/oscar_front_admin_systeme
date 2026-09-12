@@ -14,6 +14,7 @@ import {
   IconPlus,
   IconRefresh,
   IconRobot,
+  IconGrid,
   IconSparkles,
   IconTrash,
   IconUpload,
@@ -353,12 +354,7 @@ export default function AiVisionPage() {
       <div className="platform-content ai-vision-page" data-testid="sandbox-page">
         {err && !modelModal && !boxModal && !catModal && <div className="auth-error" role="alert"><IconAlertCircle size={15} /> {err}</div>}
 
-        <section className="ai-studio-summary" aria-label="Résumé de la Sandbox IA & Vision">
-          <div className="ai-studio-intro">
-            <span className="ai-eyebrow"><IconSparkles size={13} /> Chaîne de perception modulaire</span>
-            <h2>Un catalogue de modèles, des Boxes prêtes à déployer.</h2>
-            <p>Chaque constructeur apporte ses artefacts et leur manifeste. OSCAR les compose ensuite sans dépendance codée en dur.</p>
-          </div>
+        <section className="ai-studio-summary" aria-label="État de la Sandbox IA & Vision">
           <div className="ai-studio-metrics">
             <div><strong>{models.length}</strong><span>modèles</span></div>
             <div><strong>{productionModels.length}</strong><span>en production</span></div>
@@ -442,7 +438,7 @@ export default function AiVisionPage() {
           </aside>
 
           <section className="card-shell ai-categories-card">
-            <div className="card-head"><div><h3><IconSparkles size={16} /> Catégories</h3><small>Taxonomie transverse utilisée pour retrouver et documenter les modèles.</small></div>{canCatCreate && <button className="btn-shell small" data-testid="category-add" onClick={() => openCat()}><IconPlus size={13} /> Ajouter</button>}</div>
+            <div className="card-head"><div><h3><IconGrid size={16} /> Catégories</h3><small>Taxonomie transverse utilisée pour retrouver et documenter les modèles.</small></div>{canCatCreate && <button className="btn-shell small" data-testid="category-add" onClick={() => openCat()}><IconPlus size={13} /> Ajouter</button>}</div>
             <div className="card-body"><div className="legend-list">{cats.map((category) => <div className="legend-item" key={category.id} data-testid="category-item"><span className="ai-category-name"><i style={{ "--legend-color": category.couleur || "var(--shell-blue)" }} /><strong>{category.label}</strong><small>{category.code}</small></span><span className="row-actions"><span className="status-chip neutral">{category.type || "retail"}</span>{canCatUpdate && <button className="btn-shell small" data-testid="category-edit" onClick={() => openCat(category)} title="Modifier"><IconEdit size={12} /></button>}{canCatDelete && <button className="btn-shell small danger" data-testid="category-delete" onClick={() => removeCat(category)} title="Supprimer"><IconTrash size={12} /></button>}</span></div>)}{cats.length === 0 && <p className="ai-empty compact">Aucune catégorie configurée.</p>}</div><div className="ai-privacy-note"><IconInfo size={15} /><small>La détection de personnes reste non nominative : présence et trajectoire uniquement.</small></div></div>
           </section>
         </div>
