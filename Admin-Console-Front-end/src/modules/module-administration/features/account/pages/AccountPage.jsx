@@ -212,7 +212,7 @@ export default function AccountPage() {
             <dl className="account-readonly">
               <div>
                 <dt>Organisation active</dt>
-                <dd>{moi?.organisation?.nom || moi?.org_nom || "Organisation globale"}</dd>
+                <dd>{moi?.active_org_nom || (moi?.is_superadmin ? "Toutes les organisations" : "Non rattaché")}</dd>
               </div>
               <div>
                 <dt>Rôles</dt>
@@ -232,8 +232,11 @@ export default function AccountPage() {
               <div>
                 <dt>Statut</dt>
                 <dd>
-                  <span className={`status-chip ${moi?.statut === "active" ? "online" : "neutral"}`}>
-                    {moi?.statut === "active" ? "Actif" : moi?.statut || "—"}
+                  <span className={`status-chip ${moi?.statut === "active" ? "online" : moi?.statut === "disabled" ? "danger" : "neutral"}`}>
+                    {moi?.statut === "active" ? "Actif"
+                      : moi?.statut === "disabled" ? "Désactivé"
+                      : moi?.statut === "invited" ? "Invité"
+                      : "—"}
                   </span>
                 </dd>
               </div>

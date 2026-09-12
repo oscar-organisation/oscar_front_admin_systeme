@@ -276,3 +276,12 @@ def test_sans_smtp_le_garde_fou_ne_bloque_pas(monkeypatch):
     monkeypatch.setattr(settings, "smtp_user", "")
     monkeypatch.setattr(settings, "public_app_url", "http://localhost:5173")
     main._verifier_configuration_courriel()
+
+
+def test_me_expose_ce_dont_la_page_de_compte_a_besoin(client, compte_actif):
+    """La page de compte affichait des valeurs vides faute de ces champs."""
+    me = client.get("/api/auth/me", headers=compte_actif).json()
+    for champ in ("statut", "roles", "active_org_nom"):
+        assert champ in me, f"{champ} absent de /auth/me"
+    assert me["statut"] == "active"
+    assert isinstance(me["roles"], list)
