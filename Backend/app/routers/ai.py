@@ -9,14 +9,21 @@ from fastapi import APIRouter, Depends, File, Form, Header, HTTPException, Reque
 from fastapi.responses import FileResponse
 from sqlalchemy import or_, select
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from ..config import settings
 from ..database import get_db
 from ..deps import request_organisation_id, require, write_audit
 from ..livekit_rooms import robot_room
-from ..models import AiModel, AiModelDeployment, DetectionCategory, Organisation, Robot
-from ..schemas import CategoryIn, CategoryOut, ModelDeploymentIn, ModelDeploymentOut, ModelOut, ModelPromoteIn
+from ..models import (
+    AiModel, AiModelBox, AiModelBoxAssignment, AiModelBoxItem, AiModelDeployment,
+    DetectionCategory, Fleet, FleetRobot, ModelCategory, Organisation, Robot, Site,
+)
+from ..schemas import (
+    CategoryIn, CategoryOut, ModelBoxAssignmentIn, ModelBoxAssignmentOut,
+    ModelBoxCloneIn, ModelBoxIn, ModelBoxOut, ModelDeploymentIn,
+    ModelDeploymentOut, ModelOut, ModelPromoteIn,
+)
 from ..security import create_livekit_token
 
 router = APIRouter(prefix="/ai", tags=["sandbox-ia"])
@@ -80,6 +87,80 @@ def _parse_labels(raw: str) -> list[str]:
     return [item.strip() for item in value if item.strip()]
 
 
+def _parse_ids(raw: str, field: str) -> list[str]:
+    try:
+        value = json.loads(raw or "[]")
+    except json.JSONDecodeError as exc:
+        raise HTTPException(400, f"{field} doit être un tableau JSON") from exc
+    if not isinstance(value, list) or any(not isinstance(item, str) for item in value):
+        raise HTTPException(400, f"{field} doit contenir uniquement des identifiants")
+    return list(dict.fromkeys(item for item in value if item))
+
+
+def _parse_metrics(raw: str) -> dict:
+    try:
+        value = json.loads(raw or "{}")
+    except json.JSONDecodeError as exc:
+        raise HTTPException(400, "metrics_json doit être un objet JSON") from exc
+    if not isinstance(value, dict) or len(value) > 50:
+        raise HTTPException(400, "metrics_json doit être un objet de 50 métriques maximum")
+    if any(not isinstance(key, str) or not isinstance(metric, (int, float, str, bool, type(None)))
+           for key, metric in value.items()):
+        raise HTTPException(400, "Les métriques doivent être des valeurs JSON simples")
+    return value
+
+
+def _scoped_box(db: Session, box_id: str, org_id: str | None) -> AiModelBox:
+    box = db.execute(
+        select(AiModelBox).where(AiModelBox.id == box_id).options(
+            selectinload(AiModelBox.items).selectinload(AiModelBoxItem.model),
+            selectinload(AiModelBox.assignments),
+        )
+    ).scalar_one_or_none()
+    if not box or (org_id and box.org_id != org_id):
+        raise HTTPException(404, "Model Box introuvable")
+    return box
+
+
+def _box_out(box: AiModelBox) -> dict:
+    return {
+        "id": box.id, "org_id": box.org_id, "nom": box.nom, "version": box.version,
+        "description": box.description, "statut": box.statut,
+        "created_at": box.created_at, "updated_at": box.updated_at,
+        "assignment_count": sum(1 for item in box.assignments if item.enabled),
+        "items": [{
+            "id": item.id, "model_id": item.model_id, "position": item.position,
+            "inference_fps": item.inference_fps, "confidence": item.confidence,
+            "iou_threshold": item.iou_threshold, "overlay_enabled": item.overlay_enabled,
+            "incident_enabled": item.incident_enabled, "camera": item.camera,
+            "config": item.config, "model_name": item.model.nom,
+            "model_version": item.model.version, "model_runtime": item.model.runtime,
+            "model_status": item.model.statut,
+        } for item in box.items],
+    }
+
+
+def _validate_box_models(db: Session, body: ModelBoxIn, org_id: str) -> list[AiModel]:
+    ids = [item.model_id for item in body.items]
+    if len(ids) != len(set(ids)):
+        raise HTTPException(400, "Un modèle ne peut apparaître qu'une fois dans une Box")
+    models = db.execute(select(AiModel).where(AiModel.id.in_(ids))).scalars().all() if ids else []
+    by_id = {model.id: model for model in models}
+    if len(by_id) != len(ids):
+        raise HTTPException(400, "Un modèle sélectionné est introuvable")
+    if any(model.org_id not in (None, org_id) for model in models):
+        raise HTTPException(409, "Tous les modèles doivent appartenir à l'organisation de la Box")
+    return [by_id[model_id] for model_id in ids]
+
+
+def _replace_box_items(box: AiModelBox, body: ModelBoxIn) -> None:
+    box.items.clear()
+    for index, item in enumerate(body.items):
+        data = item.model_dump()
+        data["position"] = item.position if item.position else index
+        box.items.append(AiModelBoxItem(**data))
+
+
 @router.get("/models", response_model=list[ModelOut])
 def list_models(request: Request, db: Session = Depends(get_db), _=Depends(require("api:ai.model.read"))):
     org_id = request_organisation_id(request)
@@ -102,6 +183,8 @@ def upload_model(
     input_height: int = Form(640),
     color_space: str = Form("RGB"),
     labels_json: str = Form("[]"),
+    category_ids_json: str = Form("[]"),
+    metrics_json: str = Form("{}"),
     trusted_artifact: bool = Form(False),
     org_id: str | None = Form(None),
     file: UploadFile = File(...),
@@ -131,6 +214,12 @@ def upload_model(
         raise HTTPException(400, "Dimensions d'entrée invalides")
 
     labels = _parse_labels(labels_json)
+    category_ids = _parse_ids(category_ids_json, "category_ids_json")
+    metrics = _parse_metrics(metrics_json)
+    if category_ids:
+        categories = db.execute(select(DetectionCategory).where(DetectionCategory.id.in_(category_ids))).scalars().all()
+        if len(categories) != len(category_ids) or any(cat.org_id not in (None, target_org_id) for cat in categories):
+            raise HTTPException(400, "Une catégorie sélectionnée est inconnue dans cette organisation")
     model_id = uuid.uuid4().hex
     artifact_dir = Path(settings.model_storage_dir) / target_org_id / model_id
     artifact_dir.mkdir(parents=True, exist_ok=False)
@@ -159,9 +248,12 @@ def upload_model(
             statut="sandbox", validation_status="manifest_valid", validation_errors=[],
             input_spec={"width": input_width, "height": input_height, "color_space": color_space.upper()},
             output_spec={"coordinates": "normalized_xyxy", "topic": "oscar.vision.overlay"},
-            labels=labels, metrics={},
+            labels=labels, metrics=metrics,
         )
         db.add(model)
+        db.flush()
+        for category_id in category_ids:
+            db.add(ModelCategory(model_id=model.id, category_id=category_id))
         db.commit()
     except HTTPException:
         artifact_path.unlink(missing_ok=True)
@@ -193,6 +285,167 @@ def promote_model(request: Request, model_id: str, body: ModelPromoteIn, db: Ses
     db.refresh(model)
     write_audit(db, actor=user, action="MODEL_PROMOTE", resource=f"{model.nom}->{body.statut}")
     return model
+
+
+@router.get("/model-boxes", response_model=list[ModelBoxOut])
+def list_model_boxes(request: Request, db: Session = Depends(get_db),
+                     _=Depends(require("api:ai.model.read"))):
+    query = select(AiModelBox).options(
+        selectinload(AiModelBox.items).selectinload(AiModelBoxItem.model),
+        selectinload(AiModelBox.assignments),
+    ).order_by(AiModelBox.created_at.desc())
+    org_id = request_organisation_id(request)
+    if org_id:
+        query = query.where(AiModelBox.org_id == org_id)
+    return [_box_out(box) for box in db.execute(query).scalars().unique().all()]
+
+
+@router.post("/model-boxes", response_model=ModelBoxOut, status_code=201)
+def create_model_box(request: Request, body: ModelBoxIn, db: Session = Depends(get_db),
+                     user=Depends(require("api:ai.model.deploy", "execute"))):
+    org_id = request_organisation_id(request)
+    if not org_id:
+        raise HTTPException(400, "Sélectionnez une organisation avant de créer une Box")
+    _validate_box_models(db, body, org_id)
+    box = AiModelBox(
+        org_id=org_id, nom=body.nom.strip(), version=body.version.strip(),
+        description=body.description.strip() if body.description else None,
+    )
+    _replace_box_items(box, body)
+    db.add(box)
+    try:
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(409, "Cette version de Model Box existe déjà") from exc
+    box = _scoped_box(db, box.id, org_id)
+    write_audit(db, actor=user, action="MODEL_BOX_CREATE", resource=f"{box.nom} {box.version}")
+    return _box_out(box)
+
+
+@router.patch("/model-boxes/{box_id}", response_model=ModelBoxOut)
+def update_model_box(request: Request, box_id: str, body: ModelBoxIn, db: Session = Depends(get_db),
+                     user=Depends(require("api:ai.model.deploy", "execute"))):
+    org_id = request_organisation_id(request)
+    box = _scoped_box(db, box_id, org_id)
+    if box.statut != "draft":
+        raise HTTPException(409, "Une Box publiée est immuable. Clonez-la pour créer une nouvelle version")
+    _validate_box_models(db, body, box.org_id)
+    box.nom, box.version = body.nom.strip(), body.version.strip()
+    box.description = body.description.strip() if body.description else None
+    _replace_box_items(box, body)
+    try:
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(409, "Cette version de Model Box existe déjà") from exc
+    box = _scoped_box(db, box.id, org_id)
+    write_audit(db, actor=user, action="MODEL_BOX_UPDATE", resource=f"{box.nom} {box.version}")
+    return _box_out(box)
+
+
+@router.post("/model-boxes/{box_id}/publish", response_model=ModelBoxOut)
+def publish_model_box(request: Request, box_id: str, db: Session = Depends(get_db),
+                      user=Depends(require("api:ai.model.deploy", "execute"))):
+    box = _scoped_box(db, box_id, request_organisation_id(request))
+    if box.statut != "draft":
+        raise HTTPException(409, "Seule une Box en brouillon peut être publiée")
+    if not box.items:
+        raise HTTPException(409, "Ajoutez au moins un modèle à la Box")
+    unavailable = [item.model.nom for item in box.items if (
+        item.model.statut != "production" or item.model.validation_status != "manifest_valid"
+        or not item.model.fichier or not _is_deployable(item.model)
+    )]
+    if unavailable:
+        raise HTTPException(409, "Modèles non déployables : " + ", ".join(unavailable))
+    box.statut = "published"
+    db.commit()
+    box = _scoped_box(db, box.id, box.org_id)
+    write_audit(db, actor=user, action="MODEL_BOX_PUBLISH", resource=f"{box.nom} {box.version}")
+    return _box_out(box)
+
+
+@router.post("/model-boxes/{box_id}/clone", response_model=ModelBoxOut, status_code=201)
+def clone_model_box(request: Request, box_id: str, body: ModelBoxCloneIn,
+                    db: Session = Depends(get_db),
+                    user=Depends(require("api:ai.model.deploy", "execute"))):
+    source = _scoped_box(db, box_id, request_organisation_id(request))
+    clone = AiModelBox(
+        org_id=source.org_id, nom=source.nom, version=body.version.strip(),
+        description=source.description, statut="draft",
+    )
+    for item in source.items:
+        clone.items.append(AiModelBoxItem(
+            model_id=item.model_id, position=item.position, inference_fps=item.inference_fps,
+            confidence=item.confidence, iou_threshold=item.iou_threshold,
+            overlay_enabled=item.overlay_enabled, incident_enabled=item.incident_enabled,
+            camera=item.camera, config=item.config,
+        ))
+    db.add(clone)
+    try:
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(409, "Cette version de Model Box existe déjà") from exc
+    clone = _scoped_box(db, clone.id, clone.org_id)
+    write_audit(db, actor=user, action="MODEL_BOX_CLONE", resource=f"{source.version}->{clone.version}")
+    return _box_out(clone)
+
+
+def _assignment_out(assignment: AiModelBoxAssignment, box: AiModelBox) -> dict:
+    return {
+        "id": assignment.id, "org_id": assignment.org_id, "box_id": assignment.box_id,
+        "box_name": box.nom, "box_version": box.version,
+        "robot_id": assignment.robot_id, "fleet_id": assignment.fleet_id,
+        "site_id": assignment.site_id, "enabled": assignment.enabled,
+        "created_at": assignment.created_at, "updated_at": assignment.updated_at,
+    }
+
+
+@router.get("/model-box-assignments", response_model=list[ModelBoxAssignmentOut])
+def list_model_box_assignments(request: Request, db: Session = Depends(get_db),
+                               _=Depends(require("api:ai.model.read"))):
+    query = select(AiModelBoxAssignment, AiModelBox).join(
+        AiModelBox, AiModelBox.id == AiModelBoxAssignment.box_id
+    ).order_by(AiModelBoxAssignment.created_at.desc())
+    org_id = request_organisation_id(request)
+    if org_id:
+        query = query.where(AiModelBoxAssignment.org_id == org_id)
+    return [_assignment_out(assignment, box) for assignment, box in db.execute(query).all()]
+
+
+@router.put(
+    "/model-boxes/{box_id}/assignments/{target_type}/{target_id}",
+    response_model=ModelBoxAssignmentOut,
+)
+def configure_model_box_assignment(request: Request, box_id: str, target_type: str, target_id: str,
+                                   body: ModelBoxAssignmentIn, db: Session = Depends(get_db),
+                                   user=Depends(require("api:ai.model.deploy", "execute"))):
+    box = _scoped_box(db, box_id, request_organisation_id(request))
+    if box.statut != "published":
+        raise HTTPException(409, "Publiez la Box avant de l'affecter")
+    targets = {"robot": Robot, "fleet": Fleet, "site": Site}
+    target_model = targets.get(target_type)
+    if not target_model:
+        raise HTTPException(400, "Cible attendue : robot, fleet ou site")
+    target = db.get(target_model, target_id)
+    if not target or target.org_id != box.org_id:
+        raise HTTPException(404, "Cible introuvable dans l'organisation de la Box")
+    target_column = getattr(AiModelBoxAssignment, f"{target_type}_id")
+    assignment = db.execute(select(AiModelBoxAssignment).where(
+        AiModelBoxAssignment.box_id == box.id, target_column == target_id,
+    )).scalar_one_or_none()
+    if not assignment:
+        assignment = AiModelBoxAssignment(
+            org_id=box.org_id, box_id=box.id, **{f"{target_type}_id": target_id}
+        )
+        db.add(assignment)
+    assignment.enabled = body.enabled
+    db.commit()
+    db.refresh(assignment)
+    write_audit(db, actor=user, action="MODEL_BOX_ASSIGNMENT_UPDATE",
+                resource=f"{box.nom}@{target_type}:{target_id}:{'on' if body.enabled else 'off'}")
+    return _assignment_out(assignment, box)
 
 
 @router.get("/deployments", response_model=list[ModelDeploymentOut])
@@ -248,7 +501,60 @@ def runtime_manifest(robot_id: str, db: Session = Depends(get_db), _=Depends(_wo
     robot = db.get(Robot, robot_id)
     if not robot:
         raise HTTPException(404, "Robot introuvable")
-    rows = db.execute(
+
+    fleet_ids = set(db.execute(
+        select(FleetRobot.fleet_id).where(FleetRobot.robot_id == robot.id)
+    ).scalars())
+    target_conditions = [AiModelBoxAssignment.robot_id == robot.id]
+    if robot.site_id:
+        target_conditions.append(AiModelBoxAssignment.site_id == robot.site_id)
+    if fleet_ids:
+        target_conditions.append(AiModelBoxAssignment.fleet_id.in_(fleet_ids))
+    assignments = db.execute(
+        select(AiModelBoxAssignment).where(
+            AiModelBoxAssignment.org_id == robot.org_id,
+            AiModelBoxAssignment.enabled.is_(True),
+            or_(*target_conditions),
+        )
+    ).scalars().all()
+    assignments.sort(
+        key=lambda item: (3 if item.robot_id else 2 if item.fleet_id else 1, item.created_at),
+        reverse=True,
+    )
+
+    selected: dict[str, dict] = {}
+    active_boxes = []
+    active_box_ids: set[str] = set()
+    for assignment in assignments:
+        box = db.execute(select(AiModelBox).where(
+            AiModelBox.id == assignment.box_id, AiModelBox.statut == "published",
+        ).options(selectinload(AiModelBox.items).selectinload(AiModelBoxItem.model))).scalar_one_or_none()
+        if not box:
+            continue
+        if box.id not in active_box_ids:
+            active_boxes.append({"id": box.id, "name": box.nom, "version": box.version})
+            active_box_ids.add(box.id)
+        for item in box.items:
+            model = item.model
+            if model.id in selected or model.statut != "production" or model.validation_status != "manifest_valid":
+                continue
+            if not model.fichier or not _is_deployable(model):
+                continue
+            selected[model.id] = {
+                "id": model.id, "name": model.nom, "version": model.version, "task": model.tache,
+                "runtime": model.runtime, "sha256": model.artifact_sha256,
+                "artifact_name": model.artifact_name,
+                "artifact_path": f"/api/ai/runtime/models/{model.id}/artifact",
+                "input": model.input_spec, "output": model.output_spec, "labels": model.labels,
+                "inference_fps": item.inference_fps, "confidence": item.confidence / 100,
+                "iou_threshold": item.iou_threshold / 100,
+                "overlay_enabled": item.overlay_enabled, "incident_enabled": item.incident_enabled,
+                "camera": item.camera, "config": item.config,
+                "box": {"id": box.id, "name": box.nom, "version": box.version},
+            }
+
+    # Backward compatibility for pre-Box assignments. New Studio flows only use Boxes.
+    legacy_rows = db.execute(
         select(AiModelDeployment, AiModel).join(AiModel, AiModel.id == AiModelDeployment.model_id).where(
             AiModelDeployment.robot_id == robot_id,
             AiModelDeployment.enabled.is_(True),
@@ -258,11 +564,10 @@ def runtime_manifest(robot_id: str, db: Session = Depends(get_db), _=Depends(_wo
             AiModel.tache.in_(EXECUTABLE_TASKS),
         )
     ).all()
-    return {
-        "schema_version": "1.0", "robot_id": robot.id,
-        "room": robot_room(robot),
-        "overlay_topic": "oscar.vision.overlay",
-        "models": [{
+    for deployment, model in legacy_rows:
+        if model.id in selected:
+            continue
+        selected[model.id] = {
             "id": model.id, "name": model.nom, "version": model.version, "task": model.tache,
             "runtime": model.runtime, "sha256": model.artifact_sha256,
             "artifact_name": model.artifact_name,
@@ -271,8 +576,14 @@ def runtime_manifest(robot_id: str, db: Session = Depends(get_db), _=Depends(_wo
             "inference_fps": deployment.inference_fps, "confidence": deployment.confidence / 100,
             "iou_threshold": deployment.iou_threshold / 100,
             "overlay_enabled": deployment.overlay_enabled, "incident_enabled": deployment.incident_enabled,
-            "config": deployment.config,
-        } for deployment, model in rows],
+            "camera": "primary", "config": deployment.config, "legacy_direct_assignment": True,
+        }
+    return {
+        "schema_version": "1.1", "robot_id": robot.id,
+        "room": robot_room(robot),
+        "overlay_topic": "oscar.vision.overlay",
+        "active_boxes": active_boxes,
+        "models": list(selected.values()),
     }
 
 

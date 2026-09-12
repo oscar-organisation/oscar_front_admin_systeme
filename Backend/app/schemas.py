@@ -358,6 +358,7 @@ class ModelOut(BaseModel):
     input_spec: dict = Field(default_factory=dict)
     output_spec: dict = Field(default_factory=dict)
     labels: list[str] = Field(default_factory=list)
+    category_ids: list[str] = Field(default_factory=list)
     metrics: dict
     created_at: datetime | None = None
 
@@ -382,6 +383,68 @@ class ModelDeploymentOut(ModelDeploymentIn):
     org_id: str
     model_id: str
     robot_id: str
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+
+
+class ModelBoxItemIn(BaseModel):
+    model_id: str
+    position: int = Field(default=0, ge=0, le=1000)
+    inference_fps: int = Field(default=5, ge=1, le=30)
+    confidence: int = Field(default=25, ge=0, le=100)
+    iou_threshold: int = Field(default=45, ge=0, le=100)
+    overlay_enabled: bool = True
+    incident_enabled: bool = False
+    camera: str = Field(default="primary", min_length=1, max_length=80)
+    config: dict = Field(default_factory=dict)
+
+
+class ModelBoxIn(BaseModel):
+    nom: str = Field(min_length=2, max_length=160)
+    version: str = Field(min_length=1, max_length=40)
+    description: str | None = None
+    items: list[ModelBoxItemIn] = Field(default_factory=list, max_length=50)
+
+
+class ModelBoxItemOut(ModelBoxItemIn):
+    id: str
+    model_name: str
+    model_version: str
+    model_runtime: str
+    model_status: str
+
+
+class ModelBoxOut(BaseModel):
+    id: str
+    org_id: str
+    nom: str
+    version: str
+    description: str | None = None
+    statut: str
+    items: list[ModelBoxItemOut] = Field(default_factory=list)
+    assignment_count: int = 0
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+
+
+class ModelBoxCloneIn(BaseModel):
+    version: str = Field(min_length=1, max_length=40)
+
+
+class ModelBoxAssignmentIn(BaseModel):
+    enabled: bool = True
+
+
+class ModelBoxAssignmentOut(BaseModel):
+    id: str
+    org_id: str
+    box_id: str
+    box_name: str
+    box_version: str
+    robot_id: str | None = None
+    fleet_id: str | None = None
+    site_id: str | None = None
+    enabled: bool
     created_at: datetime | None = None
     updated_at: datetime | None = None
 

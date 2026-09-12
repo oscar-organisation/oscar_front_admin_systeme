@@ -3,6 +3,7 @@ from datetime import datetime
 
 from sqlalchemy import (
     Boolean,
+    CheckConstraint,
     DateTime,
     ForeignKey,
     Integer,
@@ -431,6 +432,14 @@ class AiModel(Base, TimestampMixin):
     labels: Mapped[list] = mapped_column(JSON, default=list)
     metrics: Mapped[dict] = mapped_column(JSON, default=dict)  # {precision, recall}
 
+    category_links: Mapped[list["ModelCategory"]] = relationship(
+        cascade="all, delete-orphan"
+    )
+
+    @property
+    def category_ids(self) -> list[str]:
+        return [link.category_id for link in self.category_links]
+
 
 class AiModelDeployment(Base, TimestampMixin):
     __tablename__ = "ai_model_deployments"
@@ -448,6 +457,73 @@ class AiModelDeployment(Base, TimestampMixin):
     overlay_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     incident_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
     config: Mapped[dict] = mapped_column(JSON, default=dict)
+
+
+class AiModelBox(Base, TimestampMixin):
+    """Versioned, immutable-on-publication deployment unit for AI models."""
+
+    __tablename__ = "ai_model_boxes"
+    __table_args__ = (
+        UniqueConstraint("org_id", "nom", "version", name="uq_ai_model_box_org_name_version"),
+    )
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_uuid)
+    org_id: Mapped[str] = mapped_column(ForeignKey("organisations.id", ondelete="CASCADE"))
+    nom: Mapped[str] = mapped_column(String(160), nullable=False)
+    version: Mapped[str] = mapped_column(String(40), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text)
+    statut: Mapped[str] = mapped_column(String(20), default="draft")  # draft|published|archive
+
+    items: Mapped[list["AiModelBoxItem"]] = relationship(
+        back_populates="box", cascade="all, delete-orphan", order_by="AiModelBoxItem.position"
+    )
+    assignments: Mapped[list["AiModelBoxAssignment"]] = relationship(
+        back_populates="box", cascade="all, delete-orphan"
+    )
+
+
+class AiModelBoxItem(Base):
+    __tablename__ = "ai_model_box_items"
+    __table_args__ = (
+        UniqueConstraint("box_id", "model_id", name="uq_ai_model_box_item_model"),
+    )
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_uuid)
+    box_id: Mapped[str] = mapped_column(ForeignKey("ai_model_boxes.id", ondelete="CASCADE"))
+    model_id: Mapped[str] = mapped_column(ForeignKey("ai_models.id", ondelete="RESTRICT"))
+    position: Mapped[int] = mapped_column(Integer, default=0)
+    inference_fps: Mapped[int] = mapped_column(Integer, default=5)
+    confidence: Mapped[int] = mapped_column(Integer, default=25)
+    iou_threshold: Mapped[int] = mapped_column(Integer, default=45)
+    overlay_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    incident_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    camera: Mapped[str] = mapped_column(String(80), default="primary")
+    config: Mapped[dict] = mapped_column(JSON, default=dict)
+
+    box: Mapped[AiModelBox] = relationship(back_populates="items")
+    model: Mapped[AiModel] = relationship()
+
+
+class AiModelBoxAssignment(Base, TimestampMixin):
+    __tablename__ = "ai_model_box_assignments"
+    __table_args__ = (
+        CheckConstraint(
+            "(CASE WHEN robot_id IS NOT NULL THEN 1 ELSE 0 END + "
+            "CASE WHEN fleet_id IS NOT NULL THEN 1 ELSE 0 END + "
+            "CASE WHEN site_id IS NOT NULL THEN 1 ELSE 0 END) = 1",
+            name="ck_ai_model_box_assignment_one_target",
+        ),
+        UniqueConstraint("box_id", "robot_id", name="uq_ai_model_box_assignment_robot"),
+        UniqueConstraint("box_id", "fleet_id", name="uq_ai_model_box_assignment_fleet"),
+        UniqueConstraint("box_id", "site_id", name="uq_ai_model_box_assignment_site"),
+    )
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_uuid)
+    org_id: Mapped[str] = mapped_column(ForeignKey("organisations.id", ondelete="CASCADE"))
+    box_id: Mapped[str] = mapped_column(ForeignKey("ai_model_boxes.id", ondelete="CASCADE"))
+    robot_id: Mapped[str | None] = mapped_column(ForeignKey("robots.id", ondelete="CASCADE"))
+    fleet_id: Mapped[str | None] = mapped_column(ForeignKey("fleets.id", ondelete="CASCADE"))
+    site_id: Mapped[str | None] = mapped_column(ForeignKey("sites.id", ondelete="CASCADE"))
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    box: Mapped[AiModelBox] = relationship(back_populates="assignments")
 
 
 class DetectionCategory(Base, TimestampMixin):
