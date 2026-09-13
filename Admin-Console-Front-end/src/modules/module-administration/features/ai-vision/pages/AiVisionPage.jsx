@@ -444,7 +444,7 @@ export default function AiVisionPage() {
               <div><h3><IconLayers size={16} /> Model Boxes ({boxes.length})</h3><small>Une version publiée est immuable et devient l'unité de déploiement.</small></div>
               <div className="row-actions"><button className="btn-shell small" onClick={loadStudio} title="Actualiser"><IconRefresh size={13} /></button>{canDeploy && <button className="btn-shell small primary" onClick={() => openBox()}><IconPlus size={13} /> Composer</button>}</div>
             </div>
-            <div className="card-body">
+            <div className="card-body ai-boxes-scroll" role="region" aria-label="Liste des Model Boxes" tabIndex={0}>
               <div className="ai-box-grid">
                 {loading && <p className="ai-empty compact">Chargement des Boxes...</p>}
                 {!loading && boxes.map((box) => (
