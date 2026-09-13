@@ -37,11 +37,14 @@ SUPPORTED_ARTIFACTS = {
 }
 SUPPORTED_TASKS = {
     "object_detection", "product_detection", "person_detection", "incident_detection",
-    "classification", "segmentation", "pose", "anomaly_detection",
+    "classification", "segmentation", "pose", "anomaly_detection", "product_identification",
 }
 EXECUTABLE_RUNTIMES = {"ultralytics", "pytorch"}
 EXECUTABLE_TASKS = {
     "object_detection", "product_detection", "person_detection", "incident_detection",
+    # Second etage : ne regarde pas l'image entiere mais les produits deja
+    # detectes par un autre modele de la meme Box, et leur donne un nom.
+    "product_identification",
 }
 
 

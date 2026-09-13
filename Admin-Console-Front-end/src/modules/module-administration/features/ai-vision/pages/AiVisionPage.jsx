@@ -42,10 +42,12 @@ const TASKS = [
   ["segmentation", "Segmentation"],
   ["pose", "Estimation de pose"],
   ["anomaly_detection", "Détection d'anomalies"],
+  ["product_identification", "Identification de produits (galerie de référence)"],
 ];
 
 const RUNTIMES = [
   ["ultralytics", "Ultralytics / PyTorch (.pt)"],
+  ["pytorch", "PyTorch natif (.pt)"],
   ["onnxruntime", "ONNX Runtime (.onnx)"],
   ["tensorrt", "TensorRT (.engine)"],
   ["torchscript", "TorchScript (.torchscript)"],
