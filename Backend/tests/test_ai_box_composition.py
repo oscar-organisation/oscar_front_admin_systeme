@@ -202,3 +202,26 @@ def test_limport_et_la_promotion_annoncent_le_verdict(client, contexte):
     assert promu.status_code == 200, promu.text
     assert promu.json()["deployable"] is True
     assert promu.json()["blocage"] is None
+
+
+def test_un_modele_didentification_se_compose_avec_un_detecteur(client, contexte):
+    """Le second etage s'importe en PyTorch natif et vit dans la meme Box que
+    le detecteur dont il nomme les produits."""
+    detecteur = _televerse(client, contexte["entetes"], tache="product_detection")
+    nom = uniq("identification")
+    r = client.post(
+        "/api/ai/models", headers=contexte["entetes"],
+        data={"nom": nom, "version": "1.0.0", "tache": "product_identification",
+              "framework": "pytorch", "runtime": "pytorch", "trusted_artifact": "true",
+              "labels_json": "[]"},
+        files={"file": (f"{nom}.pt", b"GALERIE", "application/octet-stream")},
+    )
+    assert r.status_code == 201, r.text
+    ident = r.json()
+    assert client.post(f"/api/ai/models/{ident['id']}/promote", headers=contexte["entetes"],
+                       json={"statut": "production"}).json()["deployable"] is True
+    box = client.post("/api/ai/model-boxes", headers=contexte["entetes"],
+                      json=_corps_box([detecteur["id"], ident["id"]]))
+    assert box.status_code == 201, box.text
+    assert client.post(f"/api/ai/model-boxes/{box.json()['id']}/publish",
+                       headers=contexte["entetes"]).status_code == 200
