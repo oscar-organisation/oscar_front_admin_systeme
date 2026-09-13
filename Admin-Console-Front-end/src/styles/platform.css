@@ -1280,7 +1280,7 @@ input[type="color"].field-shell { padding: 5px; }
   max-height: min(560px, 60vh);
   max-height: min(560px, 60dvh);
   overflow-y: auto;
-  overscroll-behavior-y: contain;
+  overscroll-behavior-y: auto;
   scrollbar-gutter: stable;
   scrollbar-width: thin;
   scrollbar-color: var(--shell-line-strong) transparent;
