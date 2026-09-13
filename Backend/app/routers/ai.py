@@ -313,7 +313,7 @@ def upload_model(
 
     db.refresh(model)
     write_audit(db, actor=user, action="MODEL_UPLOAD", resource=f"{nom} {version}", result="sandbox")
-    return model
+    return _model_out(model)
 
 
 @router.post("/models/{model_id}/promote", response_model=ModelOut)
@@ -330,7 +330,7 @@ def promote_model(request: Request, model_id: str, body: ModelPromoteIn, db: Ses
     db.commit()
     db.refresh(model)
     write_audit(db, actor=user, action="MODEL_PROMOTE", resource=f"{model.nom}->{body.statut}")
-    return model
+    return _model_out(model)
 
 
 @router.delete("/models/{model_id}", status_code=204)

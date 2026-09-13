@@ -177,3 +177,28 @@ def test_modifier_une_box_en_gardant_un_modele(client, contexte):
                              "items": [{"model_id": a["id"], "position": 0}]})
     assert maj.status_code == 200, maj.text
     assert [item["model_id"] for item in maj.json()["items"]] == [a["id"]]
+
+
+def test_limport_et_la_promotion_annoncent_le_verdict(client, contexte):
+    """Regression : ces deux reponses renvoyaient `deployable=False` sans motif.
+
+    Le verdict n'etait calcule que dans la liste ; juste apres un import reussi,
+    l'interface voyait donc un modele « non deployable » sans explication.
+    """
+    nom = uniq("modele")
+    r = client.post(
+        "/api/ai/models", headers=contexte["entetes"],
+        data={"nom": nom, "version": "1.0.0", "tache": "object_detection",
+              "framework": "ultralytics", "runtime": "ultralytics",
+              "trusted_artifact": "true", "labels_json": '["bottle"]'},
+        files={"file": (f"{nom}.pt", b"WEIGHTS", "application/octet-stream")},
+    )
+    assert r.status_code == 201, r.text
+    assert r.json()["deployable"] is False
+    assert "production" in r.json()["blocage"]
+
+    promu = client.post(f"/api/ai/models/{r.json()['id']}/promote", headers=contexte["entetes"],
+                        json={"statut": "production"})
+    assert promu.status_code == 200, promu.text
+    assert promu.json()["deployable"] is True
+    assert promu.json()["blocage"] is None
