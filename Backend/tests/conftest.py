@@ -25,6 +25,16 @@ os.environ.setdefault("LIVEKIT_API_SECRET", "oscar_super_secret_prod_key")
 os.environ.setdefault("MODEL_STORAGE_DIR", str(HERE / "_storage"))
 os.environ.setdefault("PERCEPTION_WORKER_API_KEY", "test-perception-worker-key")
 os.environ.setdefault("EDGE_AGENT_API_KEY", "test-edge-agent-key")
+os.environ.setdefault("EDGE_RELEASE_DIR", str(HERE / "_releases"))
+
+
+def _purge_stockage():
+    # Les archives de paquets survivent au fichier de base : sans purge, une
+    # session heritait des versions de la precedente et refusait de les
+    # reimporter.
+    import shutil
+
+    shutil.rmtree(HERE / "_releases", ignore_errors=True)
 
 
 def _purge_test_db():
@@ -39,8 +49,10 @@ def _purge_test_db():
 def _env():
     # Base de test repartie de zero a chaque session (idempotence des tests).
     _purge_test_db()
+    _purge_stockage()
     yield
     _purge_test_db()
+    _purge_stockage()
 
 
 @pytest.fixture(scope="session")

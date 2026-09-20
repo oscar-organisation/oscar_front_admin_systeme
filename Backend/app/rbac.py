@@ -76,6 +76,13 @@ FEATURE_CATALOG: list[tuple[str, str, str, str, list[str]]] = [
     ("api:deployment.execute", "Déployer un bundle sur un robot ou une flotte", "api", "studio", EXEC),
     ("ui:studio.page", "Page Studio de déploiement", "ui", "studio", VIEW),
     ("ui:studio.publish_button", "Bouton Publier un bundle", "ui", "studio", VIEW),
+    # --- Paquet embarque ---
+    # Distribuer du code executable a une flotte n'est pas publier une
+    # composition : la capacite est separee, et seule la publication sur un
+    # canal met des robots a jour.
+    ("api:edge_release.read", "Lire les paquets embarqués", "api", "studio", VIEW),
+    ("api:edge_release.write", "Importer et publier un paquet embarqué", "api", "studio", EXEC),
+    ("ui:studio.releases", "Onglet Paquets embarqués", "ui", "studio", VIEW),
     # --- Audit ---
     ("api:audit.read", "Lire le journal d'audit", "api", "audit", VIEW),
     ("ui:audit.page", "Page Audit", "ui", "audit", VIEW),

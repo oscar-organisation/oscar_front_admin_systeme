@@ -305,6 +305,8 @@ class RobotOut(RobotIn):
     id: str
     # Identifiant terrain, derive du nom : c'est celui que porte l'agent embarque.
     slug: str | None = None
+    edge_channel: str = "stable"
+    edge_version: str | None = None
 
 
 class TokenIssueIn(BaseModel):
@@ -604,3 +606,27 @@ class DeploymentReportIn(BaseModel):
     checksum: str | None = None
     message: str | None = None
     report: dict = Field(default_factory=dict)
+
+
+# ---- Paquet embarqué -------------------------------------------------------
+class EdgeReleaseOut(BaseModel):
+    model_config = ORM
+    id: str
+    version: str
+    canal: str
+    statut: str
+    sha256: str
+    taille: int
+    archive_nom: str
+    notes: str | None = None
+    published_at: datetime | None = None
+    created_at: datetime | None = None
+
+
+class EdgeReleaseReportIn(BaseModel):
+    """Compte rendu d'installation renvoyé par le robot."""
+
+    version: str
+    statut: str = Field(pattern="^(installed|failed|rolled_back)$")
+    message: str | None = None
+    sha256: str | None = None

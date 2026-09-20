@@ -15,9 +15,11 @@ Trois idées structurent ce module.
 import hashlib
 import hmac
 import re
+from pathlib import Path
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
+from fastapi.responses import FileResponse
 from sqlalchemy import case, func, select
 from sqlalchemy.orm import Session, selectinload
 
@@ -33,6 +35,7 @@ from ..database import get_db
 from ..deps import request_organisation_id, require, sans_perimetre, write_audit
 from ..models import (
     AiModelBox,
+    EdgeRelease,
     AiModelBoxAssignment,
     BundleDeployment,
     BundleVersion,
@@ -43,6 +46,7 @@ from ..models import (
 )
 from ..schemas import (
     BundleDraftIn,
+    EdgeReleaseReportIn,
     BundleIn,
     BundleOut,
     BundlePublishIn,
@@ -609,3 +613,77 @@ def runtime_report(reference: str, body: DeploymentReportIn, db: Session = Depen
     deployment.applied_at = _maintenant() if body.statut == "active" else None
     db.commit()
     return {"deployment": deployment.id, "statut": deployment.statut}
+
+
+# --------------------------------------------------------------------------- #
+#  Runtime : le paquet embarqué lui-même
+# --------------------------------------------------------------------------- #
+def _release_attendue(db: Session, robot: Robot) -> EdgeRelease | None:
+    from .releases import _release_du_canal
+
+    return _release_du_canal(db, robot.edge_channel or "stable")
+
+
+@router.get("/runtime/robots/{reference}/release")
+def runtime_release(reference: str, version: str = "", db: Session = Depends(get_db),
+                    cle: str = Depends(_cle_presentee)):
+    """Version du paquet embarqué que ce robot devrait exécuter.
+
+    Le robot annonce celle qu'il a ; la console répond ce qu'elle attend, avec
+    l'empreinte de l'archive et une signature de cette empreinte par la clé du
+    robot. Sans cette signature, un intermédiaire pourrait annoncer une archive
+    qu'il aurait lui-même fabriquée.
+    """
+    from .releases import _empreinte_signee
+
+    robot = _robot_authentifie(db, reference, cle)
+    if version and robot.edge_version != version:
+        robot.edge_version = version
+        db.commit()
+
+    release = _release_attendue(db, robot)
+    if release is None or release.version == version:
+        return {"canal": robot.edge_channel, "installee": version or None, "release": None}
+    return {
+        "canal": robot.edge_channel,
+        "installee": version or None,
+        "release": {
+            "version": release.version,
+            "sha256": release.sha256,
+            "taille": release.taille,
+            "notes": release.notes,
+            "empreinte_signee": _empreinte_signee(release.sha256, robot.agent_key_hash or ""),
+        },
+    }
+
+
+@router.get("/runtime/robots/{reference}/release/archive")
+def runtime_release_archive(reference: str, db: Session = Depends(get_db),
+                            cle: str = Depends(_cle_presentee)):
+    """Sert l'archive attendue pour ce robot, et rien d'autre."""
+    robot = _robot_authentifie(db, reference, cle)
+    release = _release_attendue(db, robot)
+    if release is None:
+        raise HTTPException(404, "Aucun paquet publié sur ce canal")
+    chemin = Path(release.fichier)
+    if not chemin.exists():
+        raise HTTPException(410, "Archive absente du stockage")
+    return FileResponse(chemin, filename=f"oscar-edge-{release.version}.tar.gz",
+                        media_type="application/gzip")
+
+
+@router.post("/runtime/robots/{reference}/release/report")
+def runtime_release_report(reference: str, body: EdgeReleaseReportIn,
+                           db: Session = Depends(get_db), cle: str = Depends(_cle_presentee)):
+    """Résultat de l'installation, y compris un retour arrière assumé.
+
+    C'est le robot qui sait si la version démarre ; la console enregistre ce
+    qu'il déclare tourner, pas ce qu'elle espérait.
+    """
+    robot = _robot_authentifie(db, reference, cle)
+    robot.edge_version = body.version
+    db.commit()
+    write_audit(db, actor=None, action="EDGE_RELEASE_" + body.statut.upper(),
+                resource=f"{robot.nom} → {body.version}" + (f" : {body.message}" if body.message else ""),
+                org_id=robot.org_id)
+    return {"robot": robot.slug or robot.id, "version": body.version, "statut": body.statut}

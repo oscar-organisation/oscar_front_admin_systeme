@@ -81,6 +81,10 @@ class Settings(BaseSettings):
     # deux secrets fuit.
     edge_agent_api_key: str = ""
 
+    # Paquets embarques distribues aux robots.
+    edge_release_dir: str = "./storage/edge-releases"
+    edge_release_max_mb: int = 64
+
     # ------------------------------------------------------------------ #
     #  Keycloak / OIDC (IAM) - piloté par variables d'environnement.
     #  En Lot 0 rien n'est activé par défaut (auth_mode="legacy") afin de
