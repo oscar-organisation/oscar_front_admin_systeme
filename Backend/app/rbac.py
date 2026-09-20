@@ -42,6 +42,9 @@ FEATURE_CATALOG: list[tuple[str, str, str, str, list[str]]] = [
     ("api:robot.write", "Gérer les robots", "api", "robots", CRUD),
     ("api:robot.assign", "Associer un robot (org/site/opérateur)", "api", "robots", EXEC),
     ("api:robot.token.issue", "Émettre des jetons LiveKit", "api", "robots", EXEC),
+    # Emettre une cle d'agent donne a un robot le droit de tirer ses bundles :
+    # c'est une capacite de deploiement, pas de supervision.
+    ("api:robot.agent_key", "Émettre la clé d'agent embarqué d'un robot", "api", "robots", EXEC),
     ("ui:robots.page", "Page Robots", "ui", "robots", VIEW),
     ("ui:robots.tokens", "Onglet Jetons LiveKit", "ui", "robots", VIEW),
     ("api:robot.integration", "Voir les détails d'intégration SDK d'un robot", "api", "robots", VIEW),

@@ -12,6 +12,7 @@ Trois idées structurent ce module.
    le partage de connexion d'un téléphone.
 """
 
+import hashlib
 import hmac
 import re
 from datetime import datetime, timezone
@@ -437,12 +438,11 @@ def cancel_deployment(request: Request, deployment_id: str, db: Session = Depend
 # --------------------------------------------------------------------------- #
 #  Runtime : l'agent embarqué tire sa configuration
 # --------------------------------------------------------------------------- #
-def _agent_authorized(x_oscar_agent_key: str | None = Header(default=None)) -> None:
-    attendue = settings.edge_agent_api_key
-    if not attendue:
-        raise HTTPException(503, "Accès agent embarqué non configuré")
-    if not x_oscar_agent_key or not hmac.compare_digest(x_oscar_agent_key, attendue):
-        raise HTTPException(401, "Clé agent embarqué invalide")
+def _cle_presentee(x_oscar_agent_key: str | None = Header(default=None)) -> str:
+    """Clé portée par l'agent embarqué, exigée avant toute résolution de robot."""
+    if not x_oscar_agent_key:
+        raise HTTPException(401, "Clé agent embarqué absente")
+    return x_oscar_agent_key
 
 
 def _robot_par_reference(db: Session, reference: str) -> Robot:
@@ -460,10 +460,37 @@ def _robot_par_reference(db: Session, reference: str) -> Robot:
     return robot
 
 
-@router.get("/runtime/robots/{reference}/bundle")
-def runtime_bundle(reference: str, db: Session = Depends(get_db), _=Depends(_agent_authorized)):
-    """Manifeste que ce robot doit appliquer, ou rien s'il est à jour."""
+def _robot_authentifie(db: Session, reference: str, cle: str) -> Robot:
+    """Le robot désigné, à condition que la clé présentée soit la sienne.
+
+    Une clé unique pour toute la flotte laissait un robot compromis lire les
+    déploiements de ses voisins et rendre compte à leur place. Chaque robot
+    porte donc sa propre clé, dont le serveur ne connaît que l'empreinte.
+
+    Transition : un robot qui n'a pas encore reçu la sienne accepte encore la
+    clé de flotte, pour qu'un parc en cours de migration continue de
+    fonctionner. Dès qu'un robot a sa clé, celle de flotte ne vaut plus rien
+    pour lui.
+    """
     robot = _robot_par_reference(db, reference)
+    if robot.agent_key_hash:
+        empreinte = hashlib.sha256(cle.encode("utf-8")).hexdigest()
+        if not hmac.compare_digest(empreinte, robot.agent_key_hash):
+            raise HTTPException(401, "Clé agent embarqué invalide pour ce robot")
+        return robot
+    flotte = settings.edge_agent_api_key
+    if not flotte:
+        raise HTTPException(503, "Aucune clé d'agent émise pour ce robot")
+    if not hmac.compare_digest(cle, flotte):
+        raise HTTPException(401, "Clé agent embarqué invalide")
+    return robot
+
+
+@router.get("/runtime/robots/{reference}/bundle")
+def runtime_bundle(reference: str, db: Session = Depends(get_db),
+                   cle: str = Depends(_cle_presentee)):
+    """Manifeste que ce robot doit appliquer, ou rien s'il est à jour."""
+    robot = _robot_authentifie(db, reference, cle)
     deployment = db.execute(
         select(BundleDeployment)
         .where(BundleDeployment.robot_id == robot.id)
@@ -496,9 +523,9 @@ def runtime_bundle(reference: str, db: Session = Depends(get_db), _=Depends(_age
 
 @router.post("/runtime/robots/{reference}/bundle/report")
 def runtime_report(reference: str, body: DeploymentReportIn, db: Session = Depends(get_db),
-                   _=Depends(_agent_authorized)):
+                   cle: str = Depends(_cle_presentee)):
     """Compte rendu de l'agent : appliqué, ou échoué avec sa raison."""
-    robot = _robot_par_reference(db, reference)
+    robot = _robot_authentifie(db, reference, cle)
     deployment = db.get(BundleDeployment, body.deployment_id)
     if not deployment or deployment.robot_id != robot.id:
         raise HTTPException(404, "Déploiement introuvable pour ce robot")

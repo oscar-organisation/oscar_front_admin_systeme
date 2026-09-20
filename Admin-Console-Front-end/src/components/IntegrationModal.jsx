@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../api/client.js";
 import ConnInfo from "./ConnInfo.jsx";
-import { IconX, IconCpu, IconRefresh, IconCheck, IconCopy } from "./Icons.jsx";
+import { IconX, IconCpu, IconRefresh, IconCheck, IconCopy, IconKey } from "./Icons.jsx";
 import { captureError } from "@/shared/kernel/observability";
 
 export default function IntegrationModal({ robot, onClose }) {
@@ -11,6 +11,11 @@ export default function IntegrationModal({ robot, onClose }) {
   const [customForm, setCustomForm] = useState({ ttl_hours: 24, identity_suffix: "agent" });
   const [generating, setGenerating] = useState(false);
   const [copied, setCopied] = useState(false);
+  // La cle d'agent n'est lisible qu'a l'instant de son emission : le serveur
+  // n'en garde que l'empreinte. Elle vit donc dans l'etat de cette fenetre,
+  // et nulle part ailleurs.
+  const [agentKey, setAgentKey] = useState(null);
+  const [issuingKey, setIssuingKey] = useState(false);
 
   useEffect(() => {
     setLoading(true);
@@ -31,6 +36,18 @@ export default function IntegrationModal({ robot, onClose }) {
       setError(captureError(cause, { feature: "robot-integration", action: "generate-token" }));
     } finally {
       setGenerating(false);
+    }
+  }
+
+  async function issueAgentKey() {
+    setIssuingKey(true);
+    setError("");
+    try {
+      setAgentKey(await api.post(`/robots/${robot.id}/agent-key`));
+    } catch (cause) {
+      setError(captureError(cause, { feature: "robot-integration", action: "issue-agent-key" }));
+    } finally {
+      setIssuingKey(false);
     }
   }
 
@@ -70,6 +87,43 @@ export default function IntegrationModal({ robot, onClose }) {
               </div>
 
               <ConnInfo data={data} />
+
+              <div className="card-shell" style={{ background: "rgba(0,0,0,0.25)" }}>
+                <div className="card-head" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <h4 style={{ margin: 0, fontSize: 13, color: "#fff" }}>Clé d'agent embarqué</h4>
+                  <button type="button" className="btn-shell small" onClick={issueAgentKey} disabled={issuingKey}>
+                    <IconKey size={14} /> {issuingKey ? "..." : agentKey ? "Réémettre" : "Émettre"}
+                  </button>
+                </div>
+                <div className="card-body" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  <p style={{ margin: 0, color: "var(--shell-muted)", fontSize: 12.5 }}>
+                    Elle autorise ce robot — et lui seul — à récupérer les bundles qui lui sont
+                    destinés. Réémettre révoque la précédente.
+                  </p>
+                  {agentKey && (
+                    <>
+                      <code
+                        data-testid="agent-key"
+                        style={{ fontSize: 12, wordBreak: "break-all", padding: "8px 10px", borderRadius: 6, background: "rgba(0,0,0,0.35)" }}
+                      >
+                        {agentKey.agent_key}
+                      </code>
+                      <p style={{ margin: 0, color: "var(--shell-dim)", fontSize: 12 }}>
+                        Affichée une seule fois : installez-la maintenant dans{" "}
+                        <code>{agentKey.installation?.fichier}</code> en mode{" "}
+                        <code>{agentKey.installation?.mode}</code>. La perdre coûte une réémission.
+                      </p>
+                      <button
+                        type="button"
+                        className="btn-shell small"
+                        onClick={() => navigator.clipboard?.writeText(agentKey.installation?.commande || agentKey.agent_key)}
+                      >
+                        <IconCopy size={14} /> Copier la commande d'installation
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
 
               <div className="card-shell" style={{ background: "rgba(0,0,0,0.25)" }}>
                 <div className="card-head">

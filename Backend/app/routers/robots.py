@@ -1,4 +1,6 @@
+import hashlib
 import re
+import secrets
 import uuid
 from datetime import datetime, timedelta, timezone
 
@@ -378,6 +380,37 @@ def integration(robot_id: str, request: Request, db: Session = Depends(get_db),
             "OSCAR_LIVEKIT_ROOM": room,
             "OSCAR_ROBOT_IDENTITY": identity,
             "OSCAR_LIVEKIT_TOKEN": token,
+        },
+    }
+
+
+@router.post("/robots/{robot_id}/agent-key")
+def issue_agent_key(robot_id: str, request: Request, db: Session = Depends(get_db),
+                    user=Depends(require("api:robot.agent_key", "execute"))):
+    """Émet la clé d'agent embarqué de ce robot, affichée une seule fois.
+
+    Le serveur ne conserve que l'empreinte : personne, pas même un
+    administrateur, ne peut relire la clé plus tard. La perdre coûte une
+    réémission, ce qui est le bon prix ; pouvoir la relire coûterait
+    l'étanchéité de toute la flotte.
+
+    Réémettre remplace l'ancienne : un robot volé se révoque en émettant une
+    nouvelle clé, sans toucher aux autres.
+    """
+    robot = _robot_du_perimetre(db, request, robot_id)
+    cle = secrets.token_hex(24)
+    robot.agent_key_hash = hashlib.sha256(cle.encode("utf-8")).hexdigest()
+    robot.agent_key_issued_at = datetime.now(timezone.utc)
+    db.commit()
+    write_audit(db, actor=user, action="ROBOT_AGENT_KEY_ISSUE", resource=robot.nom)
+    return {
+        "robot": {"id": robot.id, "nom": robot.nom, "slug": robot.slug},
+        "agent_key": cle,
+        "issued_at": robot.agent_key_issued_at,
+        "installation": {
+            "fichier": "/etc/oscar/credentials/agent.key",
+            "mode": "0600",
+            "commande": f"sudo install -m 600 /dev/stdin /etc/oscar/credentials/agent.key <<< '{cle}'",
         },
     }
 
