@@ -98,7 +98,10 @@ def valider_specification(spec: dict) -> tuple[list[str], list[str]]:
         else:
             codes[code] = codes.get(code, 0) + 1
         agents = _agents(noeud)
-        if donnees.get("kind") != KIND_BUNDLE and not agents:
+        # Un composant qui ne fait que reveiller le chassis n'a pas d'agent, et
+        # c'est normal : le signaler en permanence apprendrait a ignorer les
+        # avertissements.
+        if donnees.get("kind") != KIND_BUNDLE and not agents and not donnees.get("bringupKey"):
             avertissements.append(f"{donnees.get('name') or code} ne contient aucun agent.")
         for agent in agents:
             code_agent = agent.get("technicalCode")
