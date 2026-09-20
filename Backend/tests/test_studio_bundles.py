@@ -256,3 +256,62 @@ def test_un_bundle_deja_deploye_ne_se_supprime_pas(client, contexte):
     r = client.delete(f"/api/studio/bundles/{contexte['bundle']['id']}", headers=contexte["entetes"])
     assert r.status_code == 409
     assert "archivez" in r.json()["detail"]
+
+
+def test_configuration_preparee_nest_pas_execution_active(client, contexte):
+    version = _publier(client, contexte)
+    robot = contexte["robot"]
+    deployment = client.post("/api/studio/deployments", headers=contexte["entetes"],
+        json={"version_id": version["id"], "robot_ids": [robot["id"]]}).json()[0]
+    r = client.post(f"/api/studio/runtime/robots/{robot['slug']}/bundle/report", headers=CLE_AGENT,
+        json={"deployment_id": deployment["id"], "statut": "prepared", "checksum": version["checksum"]})
+    assert r.status_code == 200, r.text
+    actuel = client.get(f"/api/studio/deployments?robot_id={robot['id']}", headers=contexte["entetes"]).json()[0]
+    assert actuel["statut"] == "prepared"
+    assert actuel["applied_at"] is None
+    desired = client.get(f"/api/studio/runtime/robots/{robot['slug']}/bundle", headers=CLE_AGENT).json()
+    assert desired["deployment"]["id"] == deployment["id"]
+
+
+def test_un_rapport_ne_ressuscite_pas_un_deploiement_remplace(client, contexte):
+    version = _publier(client, contexte)
+    robot = contexte["robot"]
+    body = {"version_id": version["id"], "robot_ids": [robot["id"]]}
+    ancien = client.post("/api/studio/deployments", headers=contexte["entetes"], json=body).json()[0]
+    client.post("/api/studio/deployments", headers=contexte["entetes"], json=body)
+    r = client.post(f"/api/studio/runtime/robots/{robot['slug']}/bundle/report", headers=CLE_AGENT,
+        json={"deployment_id": ancien["id"], "statut": "active", "checksum": version["checksum"]})
+    assert r.status_code == 409
+
+
+def test_un_rapport_sans_empreinte_est_refuse(client, contexte):
+    version = _publier(client, contexte)
+    robot = contexte["robot"]
+    deployment = client.post("/api/studio/deployments", headers=contexte["entetes"],
+        json={"version_id": version["id"], "robot_ids": [robot["id"]]}).json()[0]
+    r = client.post(f"/api/studio/runtime/robots/{robot['slug']}/bundle/report", headers=CLE_AGENT,
+        json={"deployment_id": deployment["id"], "statut": "active"})
+    assert r.status_code == 409
+
+
+def test_revision_edition_protege_aussi_les_positions(client, contexte):
+    url = f"/api/studio/bundles/{contexte['bundle']['id']}"
+    initial = client.put(url + "/draft", headers=contexte["entetes"], json={"spec": spec()}).json()
+    change = spec()
+    change["nodes"][0]["position"]["x"] = 100
+    suivant = client.put(url + "/draft", headers=contexte["entetes"],
+        json={"spec": change, "expected_revision": initial["editing_revision"]}).json()
+    assert suivant["checksum"] == initial["checksum"]
+    assert suivant["editing_revision"] != initial["editing_revision"]
+    assert client.put(url + "/draft", headers=contexte["entetes"],
+        json={"spec": spec(), "expected_revision": initial["editing_revision"]}).status_code == 409
+    assert client.post(url + "/publish", headers=contexte["entetes"],
+        json={"expected_revision": initial["editing_revision"]}).status_code == 409
+
+
+def test_structure_malformee_refusee_sans_erreur_serveur(client, contexte):
+    invalide = spec()
+    invalide["nodes"][1]["data"]["technicalCode"] = {"invalide": True}
+    r = client.put(f"/api/studio/bundles/{contexte['bundle']['id']}/draft",
+        headers=contexte["entetes"], json={"spec": invalide})
+    assert r.status_code == 422
