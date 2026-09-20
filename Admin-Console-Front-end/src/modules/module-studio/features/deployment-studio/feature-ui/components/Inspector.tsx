@@ -1,4 +1,6 @@
+import { useEffect, useState } from 'react';
 import {
+  Boxes,
   Cable,
   CheckCircle2,
   ChevronRight,
@@ -12,6 +14,7 @@ import {
   X,
 } from 'lucide-react';
 import { INPUT_TYPES, OUTPUT_TYPES, TARGETS } from '../../feature-domain/catalogue';
+import { listerBoxIA, type BoxIA } from '../../feature-data/studioApi';
 import type {
   AgentConfig,
   ArchitectureNode,
@@ -75,6 +78,17 @@ export default function Inspector({
   onAddChannel,
   onDelete,
 }: InspectorProps) {
+  // Chargees une fois : la liste des Box publiees bouge rarement, alors que
+  // l'inspecteur se remonte a chaque changement de selection.
+  const [boxes, setBoxes] = useState<BoxIA[]>([]);
+  useEffect(() => {
+    let vivant = true;
+    listerBoxIA()
+      .then((liste) => { if (vivant) setBoxes(liste); })
+      .catch(() => { /* Hors ligne : on n'en propose aucune plutot que d'echouer. */ });
+    return () => { vivant = false; };
+  }, []);
+
   if (!selection) {
     return <aside className="inspector"><EmptyInspector /></aside>;
   }
@@ -125,6 +139,28 @@ export default function Inspector({
                 <option value="PRET">Prêt</option>
               </select>
             </Field>
+            {node.data.kind !== 'BUNDLE_DEPLOIEMENT' && (
+              <>
+                <div className="section-label"><Boxes size={15} /> Perception</div>
+                <Field
+                  label="Box IA appliquée"
+                  hint="Publiée avec la version : déployer ce bundle active cette Box sur les robots ciblés, et désactive les autres."
+                >
+                  <select
+                    value={node.data.aiBoxId ?? ''}
+                    onChange={(event) => onUpdateNode(node.id, { aiBoxId: event.target.value || undefined })}
+                  >
+                    <option value="">Aucune</option>
+                    {boxes.map((box) => (
+                      <option key={box.id} value={box.id}>{box.nom} — v{box.version}</option>
+                    ))}
+                    {node.data.aiBoxId && !boxes.some((box) => box.id === node.data.aiBoxId) && (
+                      <option value={node.data.aiBoxId}>Box retirée ou non publiée</option>
+                    )}
+                  </select>
+                </Field>
+              </>
+            )}
           </>
         )}
 

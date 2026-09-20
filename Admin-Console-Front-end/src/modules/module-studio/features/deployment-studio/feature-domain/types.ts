@@ -59,6 +59,8 @@ export interface ArchitectureNodeData extends Record<string, unknown> {
   description: string;
   target: ProjectTarget;
   status: 'BROUILLON' | 'PRET';
+  /** Box IA appliquee par ce composant, si sa mission comporte de la perception. */
+  aiBoxId?: string | undefined;
   agents: AgentConfig[];
   onSelect?: (selection: Selection) => void;
   onAddAgent?: (nodeId: string) => void;
