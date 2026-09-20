@@ -418,3 +418,26 @@ def test_lenrolement_dun_robot_voisin_est_refuse(client, admin_headers, contexte
     r = client.post(f"/api/robots/{contexte['robot']['id']}/edge-credentials",
                     headers={**admin_headers, "X-Organization-ID": voisine["id"]})
     assert r.status_code == 404
+
+
+def test_un_composant_peut_declarer_une_mise_en_route(client, contexte):
+    """Le plan doit pouvoir montrer tout ce qui tourne, pilotes compris."""
+    composition = spec()
+    composition["nodes"].append({
+        "id": "base", "position": {"x": 400, "y": 700},
+        "data": {"kind": "INSTANCE_SERVICE", "name": "Pilotage bas niveau",
+                 "technicalCode": "INSTANCE_SERVICE_PILOTAGE_BAS_NIVEAU",
+                 "target": "ENVIRONNEMENT_EXECUTION_ROBOT",
+                 "bringupKey": "base", "bringupOrder": 10, "agents": []},
+    })
+    bundle_id = contexte["bundle"]["id"]
+    client.put(f"/api/studio/bundles/{bundle_id}/draft", headers=contexte["entetes"],
+               json={"spec": composition})
+    version = client.post(f"/api/studio/bundles/{bundle_id}/publish",
+                          headers=contexte["entetes"], json={}).json()
+
+    manifeste = client.get(f"/api/studio/versions/{version['id']}/manifest",
+                           headers=contexte["entetes"]).json()["manifest"]
+    besoins = {c["code"]: (c.get("mise_en_route"), c.get("ordre"))
+               for c in manifeste["composants"] if c.get("mise_en_route")}
+    assert besoins == {"INSTANCE_SERVICE_PILOTAGE_BAS_NIVEAU": ("base", 10)}

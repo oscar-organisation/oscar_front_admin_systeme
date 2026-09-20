@@ -8,6 +8,7 @@ import {
   Info,
   Mic,
   Plus,
+  Power,
   Settings2,
   Trash2,
   Video,
@@ -141,6 +142,28 @@ export default function Inspector({
             </Field>
             {node.data.kind !== 'BUNDLE_DEPLOIEMENT' && (
               <>
+                <div className="section-label"><Power size={15} /> Mise en route du châssis</div>
+                <Field
+                  label="Besoin déclaré"
+                  hint="Le plan nomme le besoin ; la commande vit dans le profil du robot. Un châssis qui ne sait pas le satisfaire refuse le déploiement."
+                >
+                  <input
+                    value={node.data.bringupKey ?? ''}
+                    onChange={(event) => onUpdateNode(node.id, { bringupKey: event.target.value.trim().toLowerCase() || undefined })}
+                    placeholder="ex : base, camera"
+                  />
+                </Field>
+                {node.data.bringupKey && (
+                  <Field label="Rang de démarrage" hint="Plus petit démarre en premier.">
+                    <input
+                      type="number"
+                      min={1}
+                      max={999}
+                      value={node.data.bringupOrder ?? 100}
+                      onChange={(event) => onUpdateNode(node.id, { bringupOrder: Number(event.target.value) || 100 })}
+                    />
+                  </Field>
+                )}
                 <div className="section-label"><Boxes size={15} /> Perception</div>
                 <Field
                   label="Box IA appliquée"
