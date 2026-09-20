@@ -11,6 +11,7 @@ interface RequestOptions {
   signal?: AbortSignal;
   timeoutMs?: number;
   skipRefresh?: boolean;
+  scope?: ApiScope;
 }
 
 interface TokenResponse {
@@ -60,13 +61,13 @@ function requestId(): string {
     : `web-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
-function buildHeaders(hasBody: boolean, form: boolean): Headers {
+function buildHeaders(hasBody: boolean, form: boolean, scope: ApiScope): Headers {
   const headers = new Headers({ Accept: "application/json", "X-Request-ID": requestId() });
   const token = getAccess();
   if (token) headers.set("Authorization", `Bearer ${token}`);
   if (hasBody && !form) headers.set("Content-Type", "application/json");
-  if (activeScope.tenantId) headers.set("X-Tenant-ID", activeScope.tenantId);
-  if (activeScope.organizationId) headers.set("X-Organization-ID", activeScope.organizationId);
+  if (scope.tenantId) headers.set("X-Tenant-ID", scope.tenantId);
+  if (scope.organizationId) headers.set("X-Organization-ID", scope.organizationId);
   return headers;
 }
 
@@ -143,6 +144,7 @@ async function refreshSession(): Promise<void> {
 }
 
 async function request<T>(method: string, path: string, options: RequestOptions = {}): Promise<T> {
+  const scope = options.scope ?? { ...activeScope };
   const { body, form, signal: externalSignal, timeoutMs = runtimeConfig.requestTimeoutMs } = options;
   const { signal, cleanup } = createSignal(externalSignal, timeoutMs);
   const hasBody = body !== undefined || form !== undefined;
@@ -150,7 +152,7 @@ async function request<T>(method: string, path: string, options: RequestOptions 
   try {
     const requestInit: RequestInit = {
       method,
-      headers: buildHeaders(hasBody, Boolean(form)),
+      headers: buildHeaders(hasBody, Boolean(form), scope),
       signal,
     };
     const requestBody = form || (body !== undefined ? JSON.stringify(body) : undefined);
@@ -163,7 +165,7 @@ async function request<T>(method: string, path: string, options: RequestOptions 
       cleanup();
       try {
         await refreshSession();
-        return request<T>(method, path, { ...options, skipRefresh: true });
+        return request<T>(method, path, { ...options, scope, skipRefresh: true });
       } catch (error) {
         clearTokens();
         window.dispatchEvent(new CustomEvent(SESSION_EXPIRED_EVENT));

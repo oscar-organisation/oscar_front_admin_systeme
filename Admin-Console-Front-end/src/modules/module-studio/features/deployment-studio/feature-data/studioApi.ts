@@ -111,6 +111,7 @@ export function projetDepuisBundle(bundle: BundleServeur, detail: VersionDetail 
     // `exactOptionalPropertyTypes` : une propriete optionnelle est absente ou
     // porte une valeur, jamais `undefined` explicite.
     ...(bundle.draft_version ? { draftVersionId: bundle.draft_version.id } : {}),
+    ...(version ? { sourceVersionId: version.id } : {}),
     name: bundle.nom,
     description: bundle.description ?? "",
     target: bundle.target as ProjectTarget,

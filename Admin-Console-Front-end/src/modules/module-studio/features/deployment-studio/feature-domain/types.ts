@@ -88,6 +88,7 @@ export interface OscarProject {
   bundleId?: string;
   /** Version brouillon cote serveur, cible des enregistrements automatiques. */
   draftVersionId?: string;
+  sourceVersionId?: string;
   /** Horodatage du dernier accord avec le serveur ; absent tant qu'il n'y en a pas eu. */
   syncedAt?: string;
   /** Compteurs servis par la liste, quand la composition n'est pas encore chargee. */

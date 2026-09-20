@@ -11,8 +11,6 @@ import type {
   ValidationIssue,
 } from './types';
 
-export const STORAGE_KEY = 'oscar.studio.configuration.v1.projects';
-
 export function makeId(prefix: string): string {
   const suffix = typeof crypto !== 'undefined' && 'randomUUID' in crypto
     ? crypto.randomUUID().slice(0, 8)
@@ -270,25 +268,6 @@ export function createProject(
     nodes,
     edges,
   };
-}
-
-export function initialProjects(): OscarProject[] {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) return JSON.parse(stored) as OscarProject[];
-  } catch {
-    // La démonstration reste disponible si le stockage du navigateur est indisponible.
-  }
-  return [demoProject()];
-}
-
-export function saveProjects(projects: OscarProject[]): void {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(projects));
-  } catch {
-    // Navigation privee ou stockage sature : le brouillon reste en memoire
-    // pour la session en cours plutot que de faire echouer la saisie.
-  }
 }
 
 export function findChannel(
