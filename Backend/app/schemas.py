@@ -303,6 +303,8 @@ class RobotAssignIn(BaseModel):
 class RobotOut(RobotIn):
     model_config = ORM
     id: str
+    # Identifiant terrain, derive du nom : c'est celui que porte l'agent embarque.
+    slug: str | None = None
 
 
 class TokenIssueIn(BaseModel):
@@ -503,3 +505,99 @@ class PasswordChangeIn(BaseModel):
 
 class PasswordPolicyOut(BaseModel):
     min_length: int
+
+
+# ---- Studio de déploiement -------------------------------------------------
+class BundleIn(BaseModel):
+    nom: str = Field(min_length=2, max_length=160)
+    description: str | None = None
+    target: str = Field(default="ENVIRONNEMENT_EXECUTION_ROBOT", max_length=60)
+
+
+class BundleDraftIn(BaseModel):
+    """Composition en cours d'édition, telle que le Studio l'envoie."""
+
+    spec: dict = Field(default_factory=dict)
+    notes: str | None = None
+
+
+class BundlePublishIn(BaseModel):
+    notes: str | None = None
+
+
+class BundleVersionOut(BaseModel):
+    model_config = ORM
+    id: str
+    bundle_id: str
+    numero: int
+    statut: str
+    checksum: str | None = None
+    notes: str | None = None
+    published_at: datetime | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+
+
+class BundleVersionDetailOut(BundleVersionOut):
+    spec: dict = Field(default_factory=dict)
+
+
+class BundleOut(BaseModel):
+    model_config = ORM
+    id: str
+    org_id: str
+    nom: str
+    slug: str
+    description: str | None = None
+    target: str
+    statut: str
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+    draft_version: BundleVersionOut | None = None
+    published_version: BundleVersionOut | None = None
+    version_count: int = 0
+    robot_count: int = 0
+    # De quoi remplir une liste sans télécharger chaque composition.
+    component_count: int = 0
+    agent_count: int = 0
+
+
+class BundleValidationOut(BaseModel):
+    valide: bool
+    erreurs: list[str] = Field(default_factory=list)
+    avertissements: list[str] = Field(default_factory=list)
+
+
+class DeploymentIn(BaseModel):
+    version_id: str
+    robot_ids: list[str] = Field(default_factory=list, max_length=200)
+    fleet_id: str | None = None
+    message: str | None = None
+
+
+class DeploymentOut(BaseModel):
+    model_config = ORM
+    id: str
+    org_id: str
+    version_id: str
+    robot_id: str
+    statut: str
+    message: str | None = None
+    report: dict = Field(default_factory=dict)
+    delivered_at: datetime | None = None
+    applied_at: datetime | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+    bundle_id: str | None = None
+    bundle_nom: str | None = None
+    version_numero: int | None = None
+    robot_nom: str | None = None
+    robot_slug: str | None = None
+
+
+class DeploymentReportIn(BaseModel):
+    deployment_id: str
+    statut: str = Field(pattern="^(active|failed)$")
+    checksum: str | None = None
+    message: str | None = None
+    report: dict = Field(default_factory=dict)

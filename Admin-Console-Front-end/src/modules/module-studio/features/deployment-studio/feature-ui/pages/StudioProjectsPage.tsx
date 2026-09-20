@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Blocks,
@@ -6,15 +6,23 @@ import {
   CalendarClock,
   Check,
   ChevronRight,
+  CloudOff,
   Layers3,
   Plus,
+  Server,
   Sparkles,
   X,
 } from "lucide-react";
 import "@xyflow/react/dist/style.css";
 import { TARGETS } from "../../feature-domain/catalogue";
 import { createProject } from "../../feature-domain/model";
-import { ajouterProjet, useStudioProjects } from "../../feature-domain/projectStore";
+import {
+  creerProjet,
+  etatSync,
+  rafraichir,
+  useStudioEtat,
+  useStudioProjects,
+} from "../../feature-domain/projectStore";
 import type { ProjectTarget } from "../../feature-domain/types";
 import "../../feature-styles/studio.css";
 
@@ -33,6 +41,7 @@ function formatDate(date: string): string {
 
 export default function StudioProjectsPage() {
   const projects = useStudioProjects();
+  const { horsLigne, chargement } = useStudioEtat();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("Nouveau projet robot");
@@ -40,11 +49,15 @@ export default function StudioProjectsPage() {
   const [target, setTarget] = useState<ProjectTarget>("ENVIRONNEMENT_EXECUTION_ROBOT");
   const [template, setTemplate] = useState<Template>("ROBOT_MINIMAL");
 
-  const submit = (event: React.FormEvent) => {
+  // Le serveur fait foi pour la liste ; le cache local prend le relais s'il
+  // ne repond pas.
+  useEffect(() => { void rafraichir(); }, []);
+
+  const submit = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!name.trim()) return;
-    const project = createProject(name.trim(), description.trim(), target, template);
-    ajouterProjet(project);
+    const brouillon = createProject(name.trim(), description.trim(), target, template);
+    const project = await creerProjet(brouillon, target);
     setOpen(false);
     navigate(`/studio/${project.id}`);
   };
@@ -63,13 +76,25 @@ export default function StudioProjectsPage() {
             </button>
           </div>
 
+          {horsLigne && (
+            <p className="studio-offline">
+              <CloudOff size={14} /> Serveur injoignable : voici les projets conservés dans ce navigateur.
+            </p>
+          )}
+
           {projects.length === 0 ? (
-            <p>Aucun projet pour l’instant. Créez-en un pour composer un bundle de déploiement.</p>
+            <p>{chargement ? "Chargement des projets…" : "Aucun projet pour l’instant. Créez-en un pour composer un bundle de déploiement."}</p>
           ) : (
             <div className="project-grid">
               {projects.map((project) => {
                 const targetLabel = TARGETS.find((item) => item.value === project.target)?.label;
-                const agents = project.nodes.reduce((sum, node) => sum + node.data.agents.length, 0);
+                // La liste sert des compteurs : on evite de telecharger chaque
+                // composition pour afficher une vignette.
+                const blocs = project.nodes.length || project.summary?.composants || 0;
+                const agents = project.nodes.length
+                  ? project.nodes.reduce((sum, node) => sum + node.data.agents.length, 0)
+                  : project.summary?.agents || 0;
+                const local = etatSync(project) === "LOCAL";
                 return (
                   <button
                     className="project-card"
@@ -86,17 +111,26 @@ export default function StudioProjectsPage() {
                     <div className="project-card__body">
                       <div className="project-card__title">
                         <div>
-                          <span>{project.status === "PRET_A_DEPLOYER" ? "Prêt à déployer" : "Brouillon"}</span>
+                          <span>
+                            {local
+                              ? "Local"
+                              : project.status === "PRET_A_DEPLOYER" ? "Publié" : "Brouillon"}
+                          </span>
                           <h3>{project.name}</h3>
                         </div>
                         <ChevronRight size={18} />
                       </div>
                       <p>{project.description}</p>
                       <div className="project-card__meta">
-                        <span><Blocks size={14} /> {project.nodes.length} blocs · {agents} agents</span>
+                        <span><Blocks size={14} /> {blocs} blocs · {agents} agents</span>
                         <span><CalendarClock size={14} /> {formatDate(project.updatedAt)}</span>
                       </div>
-                      <small>{targetLabel}</small>
+                      <small>
+                        {targetLabel}
+                        {project.summary?.robots
+                          ? <> · <Server size={12} /> {project.summary.robots} robot{project.summary.robots > 1 ? "s" : ""}</>
+                          : null}
+                      </small>
                     </div>
                   </button>
                 );
@@ -108,7 +142,7 @@ export default function StudioProjectsPage() {
 
       {open && (
         <div className="modal-backdrop">
-          <form className="project-dialog" onSubmit={submit}>
+          <form className="project-dialog" onSubmit={(event) => void submit(event)}>
             <header className="dialog-header">
               <div className="dialog-icon"><Plus size={21} /></div>
               <div><span>Nouveau</span><h2>Créer un projet OSCAR</h2></div>

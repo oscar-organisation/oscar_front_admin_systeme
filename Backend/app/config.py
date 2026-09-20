@@ -75,6 +75,12 @@ class Settings(BaseSettings):
     model_max_upload_mb: int = 512
     perception_worker_api_key: str = ""
 
+    # Agent embarqué (installation et application des bundles sur le robot).
+    # Clé distincte de celle du worker de perception : les deux composants ne
+    # vivent pas au même endroit et ne doivent pas tomber ensemble si l'un des
+    # deux secrets fuit.
+    edge_agent_api_key: str = ""
+
     # ------------------------------------------------------------------ #
     #  Keycloak / OIDC (IAM) - piloté par variables d'environnement.
     #  En Lot 0 rien n'est activé par défaut (auth_mode="legacy") afin de
