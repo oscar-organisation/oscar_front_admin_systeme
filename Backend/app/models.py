@@ -335,6 +335,11 @@ class Robot(Base, TimestampMixin):
     # porte dans son enrolement et dans ses chemins d'installation, la ou l'UUID
     # reste la cle interne. Deux identites pour deux usages, jamais melangees.
     slug: Mapped[str | None] = mapped_column(String(64), unique=True)
+    # Cle d'agent propre a ce robot : on garde l'empreinte, jamais la cle. Une
+    # cle partagee par la flotte laisse un robot compromis parler au nom des
+    # autres ; ici, chaque robot ne peut plus qu'etre lui-meme.
+    agent_key_hash: Mapped[str | None] = mapped_column(String(64))
+    agent_key_issued_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     serial: Mapped[str | None] = mapped_column(String(120), unique=True)
     firmware: Mapped[str | None] = mapped_column(String(40))
     statut: Mapped[str] = mapped_column(String(20), default="offline")  # online|offline|maintenance

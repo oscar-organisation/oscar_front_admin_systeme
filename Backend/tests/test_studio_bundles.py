@@ -315,3 +315,79 @@ def test_structure_malformee_refusee_sans_erreur_serveur(client, contexte):
     r = client.put(f"/api/studio/bundles/{contexte['bundle']['id']}/draft",
         headers=contexte["entetes"], json={"spec": invalide})
     assert r.status_code == 422
+
+
+# --------------------------------------------------------------------------- #
+#  Clés d'agent propres à chaque robot
+# --------------------------------------------------------------------------- #
+def _emettre_cle(client, entetes, robot_id):
+    r = client.post(f"/api/robots/{robot_id}/agent-key", headers=entetes)
+    assert r.status_code == 200, r.text
+    return r.json()["agent_key"]
+
+
+def test_la_cle_dun_robot_ne_vaut_que_pour_lui(client, admin_headers, contexte):
+    """Un robot compromis ne doit pas pouvoir parler au nom de ses voisins."""
+    voisin = client.post("/api/robots", headers=contexte["entetes"],
+                         json={"nom": uniq("OSCAR"), "org_id": contexte["org"]["id"]}).json()
+    cle_voisin = _emettre_cle(client, contexte["entetes"], voisin["id"])
+    cible = contexte["robot"]
+    _emettre_cle(client, contexte["entetes"], cible["id"])
+
+    r = client.get(f"/api/studio/runtime/robots/{cible['slug']}/bundle",
+                   headers={"X-Oscar-Agent-Key": cle_voisin})
+    assert r.status_code == 401
+
+    r = client.get(f"/api/studio/runtime/robots/{voisin['slug']}/bundle",
+                   headers={"X-Oscar-Agent-Key": cle_voisin})
+    assert r.status_code == 200
+
+
+def test_une_cle_emise_rend_la_cle_de_flotte_inoperante(client, contexte):
+    """La transition s'arrête pour un robot dès qu'il a la sienne."""
+    robot = contexte["robot"]
+    assert client.get(f"/api/studio/runtime/robots/{robot['slug']}/bundle",
+                      headers=CLE_AGENT).status_code == 200  # cle de flotte, encore acceptee
+
+    cle = _emettre_cle(client, contexte["entetes"], robot["id"])
+    assert client.get(f"/api/studio/runtime/robots/{robot['slug']}/bundle",
+                      headers=CLE_AGENT).status_code == 401
+    assert client.get(f"/api/studio/runtime/robots/{robot['slug']}/bundle",
+                      headers={"X-Oscar-Agent-Key": cle}).status_code == 200
+
+
+def test_reemettre_revoque_la_cle_precedente(client, contexte):
+    robot = contexte["robot"]
+    ancienne = _emettre_cle(client, contexte["entetes"], robot["id"])
+    nouvelle = _emettre_cle(client, contexte["entetes"], robot["id"])
+    assert ancienne != nouvelle
+    assert client.get(f"/api/studio/runtime/robots/{robot['slug']}/bundle",
+                      headers={"X-Oscar-Agent-Key": ancienne}).status_code == 401
+    assert client.get(f"/api/studio/runtime/robots/{robot['slug']}/bundle",
+                      headers={"X-Oscar-Agent-Key": nouvelle}).status_code == 200
+
+
+def test_sans_cle_aucune_resolution_de_robot(client, contexte):
+    """Sans clé, l'API ne dit même pas si ce robot existe."""
+    r = client.get(f"/api/studio/runtime/robots/{contexte['robot']['slug']}/bundle")
+    assert r.status_code == 401
+    r = client.get("/api/studio/runtime/robots/robot-qui-nexiste-pas/bundle")
+    assert r.status_code == 401
+
+
+def test_la_cle_nest_jamais_relisible(client, contexte):
+    """Le serveur ne garde que l'empreinte : la clé ne se relit pas."""
+    robot = contexte["robot"]
+    cle = _emettre_cle(client, contexte["entetes"], robot["id"])
+    detail = client.get(f"/api/robots/{robot['id']}", headers=contexte["entetes"])
+    assert detail.status_code == 200
+    assert cle not in detail.text
+    assert "agent_key" not in detail.json()
+
+
+def test_un_robot_dune_autre_organisation_ne_recoit_pas_de_cle(client, admin_headers, contexte):
+    voisine = client.post("/api/organisations", headers=admin_headers,
+                          json={"nom": uniq("Voisine"), "slug": uniq("voisine")}).json()
+    entetes_voisins = {**admin_headers, "X-Organization-ID": voisine["id"]}
+    r = client.post(f"/api/robots/{contexte['robot']['id']}/agent-key", headers=entetes_voisins)
+    assert r.status_code == 404
