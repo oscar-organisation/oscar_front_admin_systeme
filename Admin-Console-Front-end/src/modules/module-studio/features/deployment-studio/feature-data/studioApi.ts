@@ -86,6 +86,19 @@ export function publier(bundleId: string, notes?: string): Promise<VersionServeu
   return api.post<VersionServeur>(`/studio/bundles/${bundleId}/publish`, { notes: notes || null });
 }
 
+export interface BoxIA {
+  id: string;
+  nom: string;
+  version: string;
+  statut: string;
+}
+
+/** Box IA publiees : seules celles-la sont deployables avec un bundle. */
+export async function listerBoxIA(): Promise<BoxIA[]> {
+  const boxes = await api.get<BoxIA[]>("/ai/model-boxes");
+  return boxes.filter((box) => box.statut === "published");
+}
+
 export function listerRobots(): Promise<RobotCible[]> {
   return api.get<RobotCible[]>("/robots");
 }

@@ -134,6 +134,21 @@ def valider_specification(spec: dict) -> tuple[list[str], list[str]]:
     return erreurs, avertissements
 
 
+def boites_ia(spec: dict) -> list[str]:
+    """Identifiants des Box IA declarees par les composants robot.
+
+    Une composition qui embarque de la perception nomme la Box a appliquer :
+    modeles, seuils et cameras voyagent alors avec la version du bundle, au
+    lieu d'etre accroches au robot par un geste separe qu'on oublie.
+    """
+    trouvees = []
+    for noeud in _noeuds(spec):
+        identifiant = _donnees(noeud).get("aiBoxId")
+        if isinstance(identifiant, str) and identifiant and identifiant not in trouvees:
+            trouvees.append(identifiant)
+    return trouvees
+
+
 def manifeste_runtime(spec: dict) -> dict:
     """Projette la composition en manifeste exécutable, trié et sans mise en page."""
     noeuds = _noeuds(spec)
@@ -177,13 +192,16 @@ def manifeste_runtime(spec: dict) -> dict:
                     key=lambda canal: canal["code"] or "",
                 ),
             })
-        composants.append({
+        composant = {
             "code": donnees.get("technicalCode"),
             "nom": donnees.get("name"),
             "kind": donnees.get("kind"),
             "cible": donnees.get("target"),
             "agents": sorted(agents, key=lambda agent: agent["code"] or ""),
-        })
+        }
+        if donnees.get("aiBoxId"):
+            composant["box_ia"] = donnees["aiBoxId"]
+        composants.append(composant)
 
     liaisons = []
     for lien in _liens(spec):

@@ -21,11 +21,19 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from sqlalchemy import case, func, select
 from sqlalchemy.orm import Session, selectinload
 
-from ..bundle_spec import RUNTIME_FORMAT, empreinte, manifeste_runtime, valider_specification
+from ..bundle_spec import (
+    RUNTIME_FORMAT,
+    boites_ia,
+    empreinte,
+    manifeste_runtime,
+    valider_specification,
+)
 from ..config import settings
 from ..database import get_db
 from ..deps import request_organisation_id, require, sans_perimetre, write_audit
 from ..models import (
+    AiModelBox,
+    AiModelBoxAssignment,
     BundleDeployment,
     BundleVersion,
     DeploymentBundle,
@@ -103,6 +111,55 @@ def _robot_du_perimetre(db: Session, robot_id: str, org_id: str | None) -> Robot
     if not robot.org_id:
         raise HTTPException(409, "Le robot doit être rattaché à une organisation")
     return robot
+
+
+def _verifier_boites(db: Session, spec: dict, org_id: str) -> list[AiModelBox]:
+    """Une Box citee par une composition doit etre deployable, et a nous.
+
+    Publier une version qui nomme une Box en brouillon reviendrait a promettre
+    au robot une perception qui n'existe pas encore.
+    """
+    identifiants = boites_ia(spec)
+    if not identifiants:
+        return []
+    boites = db.execute(select(AiModelBox).where(AiModelBox.id.in_(identifiants))).scalars().all()
+    par_id = {boite.id: boite for boite in boites}
+    manquantes = [identifiant for identifiant in identifiants if identifiant not in par_id]
+    if manquantes:
+        raise HTTPException(409, "Box IA introuvable : " + ", ".join(manquantes))
+    etrangeres = [boite.nom for boite in boites if boite.org_id != org_id]
+    if etrangeres:
+        raise HTTPException(409, "Box IA d'une autre organisation : " + ", ".join(etrangeres))
+    brouillons = [f"{boite.nom} v{boite.version}" for boite in boites if boite.statut != "published"]
+    if brouillons:
+        raise HTTPException(409, "Box IA non publiée : " + " ; ".join(brouillons))
+    return [par_id[identifiant] for identifiant in identifiants]
+
+
+def _appliquer_boites(db: Session, version: BundleVersion, robot: Robot, org_id: str) -> list[str]:
+    """Aligne les Box IA du robot sur ce que declare la version deployee.
+
+    Le bundle devient la seule source de verite pour ce robot : ce qu'il
+    declare est active, ce qu'il ne declare pas est desactive. Sans cela, une
+    Box oubliee continuerait de tourner a cote d'une composition qui ne la
+    mentionne plus.
+    """
+    voulues = set(boites_ia(version.spec))
+    existantes = db.execute(
+        select(AiModelBoxAssignment).where(AiModelBoxAssignment.robot_id == robot.id)
+    ).scalars().all()
+    appliquees = []
+    for assignation in existantes:
+        actif = assignation.box_id in voulues
+        if assignation.enabled != actif:
+            assignation.enabled = actif
+        if actif:
+            appliquees.append(assignation.box_id)
+    for box_id in voulues:
+        if box_id not in {assignation.box_id for assignation in existantes}:
+            db.add(AiModelBoxAssignment(org_id=org_id, box_id=box_id, robot_id=robot.id, enabled=True))
+            appliquees.append(box_id)
+    return appliquees
 
 
 def _brouillon(bundle: DeploymentBundle) -> BundleVersion | None:
@@ -311,6 +368,7 @@ def publish_bundle(request: Request, bundle_id: str, body: BundlePublishIn,
     erreurs, _avertissements = valider_specification(version.spec)
     if erreurs:
         raise HTTPException(409, "Composition non publiable : " + " ; ".join(erreurs))
+    _verifier_boites(db, version.spec, bundle.org_id)
     version.statut = "published"
     version.checksum = empreinte(manifeste_runtime(version.spec))
     version.notes = body.notes or version.notes
@@ -391,6 +449,7 @@ def create_deployment(request: Request, body: DeploymentIn, db: Session = Depend
         raise HTTPException(409, "Un robot ciblé n'appartient pas à l'organisation du bundle")
 
     crees: list[BundleDeployment] = []
+    boites_appliquees: list[str] = []
     for robot in robots:
         precedents = db.execute(
             select(BundleDeployment)
@@ -405,10 +464,12 @@ def create_deployment(request: Request, body: DeploymentIn, db: Session = Depend
         )
         db.add(deployment)
         crees.append(deployment)
+        boites_appliquees += _appliquer_boites(db, version, robot, bundle.org_id)
     db.commit()
 
+    detail_boites = f", {len(set(boites_appliquees))} Box IA" if boites_appliquees else ""
     write_audit(db, actor=user, action="BUNDLE_DEPLOY",
-                resource=f"{bundle.nom} v{version.numero} → {len(robots)} robot(s)",
+                resource=f"{bundle.nom} v{version.numero} → {len(robots)} robot(s){detail_boites}",
                 org_id=bundle.org_id)
     par_id = {robot.id: robot for robot in robots}
     return [_deployment_out(deployment, version, bundle, par_id.get(deployment.robot_id))
