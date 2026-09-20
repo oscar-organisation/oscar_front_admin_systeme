@@ -24,6 +24,7 @@ os.environ.setdefault("LIVEKIT_API_KEY", "oscar_prod_key")
 os.environ.setdefault("LIVEKIT_API_SECRET", "oscar_super_secret_prod_key")
 os.environ.setdefault("MODEL_STORAGE_DIR", str(HERE / "_storage"))
 os.environ.setdefault("PERCEPTION_WORKER_API_KEY", "test-perception-worker-key")
+os.environ.setdefault("EDGE_AGENT_API_KEY", "test-edge-agent-key")
 
 
 def _purge_test_db():

@@ -37,10 +37,49 @@ class Settings(BaseSettings):
     seed_user_password: str = "oscar-demo"  # mot de passe des comptes de démo (jamais en dur dans le code)
     seed_data_dir: str = ""                # vide => app/seed_data (embarqué)
 
+    # ------------------------------------------------------------------ #
+    #  Courrier sortant (SMTP OVH, messagerie Zimbra).
+    #  Rien n'est envoyé tant que `smtp_host` et `smtp_user` sont vides :
+    #  l'API journalise alors le message au lieu de le transmettre, ce qui
+    #  permet de dérouler les parcours en développement sans serveur.
+    #
+    #  Le serveur exact dépend de l'offre OVH souscrite, à lire dans l'espace
+    #  client plutôt qu'à deviner : `ssl0.ovh.net` pour la messagerie mutualisée
+    #  (MX Plan, désormais sur Zimbra), `pro#.mail.ovh.net` pour Email Pro.
+    # ------------------------------------------------------------------ #
+    smtp_host: str = ""                      # ex. ssl0.ovh.net
+    smtp_port: int = 465                     # 465 = SSL implicite, 587 = STARTTLS
+    smtp_user: str = ""                      # ex. no-reply@oscar-bot.com
+    smtp_password: str = ""
+    smtp_from_name: str = "OSCAR Control Plane"
+    smtp_timeout_seconds: int = 15
+
+    # Base publique de la console, utilisée pour fabriquer les liens envoyés
+    # par courriel. Doit correspondre au domaine réellement servi.
+    public_app_url: str = "http://localhost:5173"
+
+    # Durées de validité des jetons à usage unique.
+    invite_ttl_hours: int = 168              # 7 jours
+    password_reset_ttl_minutes: int = 60
+
+    # Longueur minimale d'un mot de passe. Source unique : l'API l'impose et
+    # l'expose via /auth/password-policy, pour que l'interface n'ait pas sa
+    # propre copie qui diverge au premier changement de politique.
+    password_min_length: int = 12
+
+    # Garde-fous anti-abus sur les points d'entrée non authentifiés.
+    password_reset_max_per_hour: int = 5
+
     # Stockage des modèles IA (sandbox)
     model_storage_dir: str = "./storage/models"
     model_max_upload_mb: int = 512
     perception_worker_api_key: str = ""
+
+    # Agent embarqué (installation et application des bundles sur le robot).
+    # Clé distincte de celle du worker de perception : les deux composants ne
+    # vivent pas au même endroit et ne doivent pas tomber ensemble si l'un des
+    # deux secrets fuit.
+    edge_agent_api_key: str = ""
 
     # ------------------------------------------------------------------ #
     #  Keycloak / OIDC (IAM) - piloté par variables d'environnement.

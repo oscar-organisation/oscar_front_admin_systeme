@@ -34,6 +34,50 @@ pytest                          # 13 tests : auth, RBAC 401/403, CRUD, jetons Li
 - Admin technique : `admin@oscar.fr` / `oscar-admin` (superadmin).
 - Comptes métier (Melissa, Joel, Marc, Alice) : mot de passe = `SEED_USER_PASSWORD` (défaut `oscar-demo`).
 
+## Deux profils d'administrateur
+
+Le rôle « Administrateur » et l'indicateur `is_superadmin` ne sont pas la même
+chose, et la console n'expose que le premier.
+
+| | Super administrateur | Administrateur d'organisation |
+|---|---|---|
+| Comment il est créé | `seed.py` uniquement : `is_superadmin` n'est dans aucun schéma d'entrée de l'API | rôle « Administrateur » + rattachement à une ou plusieurs organisations |
+| Permissions | toutes les `Feature` sans calcul (`compute_permissions` court-circuite) | les mêmes, mais résolues dans l'organisation active |
+| Périmètre | `accessible_organisation_ids` renvoie `None`, c'est-à-dire aucune borne | ses organisations **et leurs descendantes** (`_descendant_ids`) |
+| Vue globale (`X-Organization-ID: *`) | autorisée | 403 |
+| Journal d'audit | toute la plateforme | les lignes de son sous-arbre |
+
+Un administrateur borné a donc les mêmes pouvoirs qu'un super administrateur,
+appliqués à un sous-arbre. Deux mécanismes portent cette limite :
+
+- `resolve_active_organisation_id` refuse une organisation hors périmètre, donc
+  les listes filtrées par organisation active ne peuvent pas déborder ;
+- `verifier_perimetre` garde chaque accès par identifiant, sinon connaître un
+  identifiant suffirait à contourner le filtre des listes. Le refus est un 404
+  et non un 403, pour ne pas confirmer l'existence de la ressource.
+
+`tests/test_admin_scoping.py` démontre l'égalité des permissions et la
+séparation des périmètres ; `tests/test_tenant_isolation.py` vérifie
+l'étanchéité endpoint par endpoint, jetons LiveKit compris.
+
+Trois règles séparent en plus le compte plateforme du compte locataire :
+
+- un compte `is_superadmin` n'apparaît pas dans la liste servie à un
+  administrateur d'organisation, même s'il est rattaché à cette organisation ;
+- `verifier_hierarchie` interdit à un non-superadmin toute écriture sur un tel
+  compte : déplacement, rôles, rattachements, suppression ;
+- `roles_hors_portee` refuse d'attribuer un rôle conférant des droits que
+  l'attributeur ne détient pas lui-même, ce qui fermerait l'escalade en deux
+  étapes (fabriquer un complice plus puissant, puis se faire promouvoir).
+
+Enfin, un compte non superadmin rattaché à aucune organisation n'a aucun
+périmètre : `sans_perimetre` fait alors répondre « rien », là où l'absence
+d'organisation active valait auparavant « tout ».
+
+Un cran plus fin existe dans le modèle sans être exposé par l'interface :
+`UserRole.scope_type` (`all|org|site`) permet de n'accorder un rôle que dans une
+organisation donnée, via `POST /users/{id}/roles`.
+
 ## Structure
 `app/{config,database,security,rbac,models,schemas,deps,seed}.py` · `app/routers/*` · `app/seed_data/*.json` · `tests/`.
 Catalogue des permissions : `app/rbac.py`. Voir aussi `../ETAT-PROJET.md`.

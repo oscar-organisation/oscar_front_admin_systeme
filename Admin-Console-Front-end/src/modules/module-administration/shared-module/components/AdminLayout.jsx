@@ -2,7 +2,7 @@ import { useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 
 import { useAuth } from "@/auth/AuthContext.jsx";
-import { ADMINISTRATION_NAVIGATION } from "@/modules/module-administration/module.manifest";
+import { consoleNavigation } from "@/app/module-registry";
 import { useTheme } from "@/shared/design-system/themes";
 import { evaluatePolicy } from "@/shared/kernel/permissions";
 import OrganisationSwitcher from "@/components/OrganisationSwitcher.jsx";
@@ -22,6 +22,7 @@ import {
   IconPanelLeftClose,
   IconPanelLeftOpen,
   IconLayers,
+  IconBlocks,
   IconX,
 } from "@/components/Icons.jsx";
 
@@ -35,6 +36,7 @@ const ICONS = {
   cpu: IconCpu,
   activity: IconActivity,
   layers: IconLayers,
+  blocks: IconBlocks,
 };
 
 function initials(name = "") {
@@ -53,7 +55,7 @@ export default function AdminLayout() {
       return false;
     }
   });
-  const items = ADMINISTRATION_NAVIGATION.filter((item) => evaluatePolicy(permissions, item.policy));
+  const items = consoleNavigation.filter((item) => evaluatePolicy(permissions, item.policy));
   const close = () => setOpen(false);
   const toggleCollapsed = () => {
     setCollapsed((current) => {
@@ -135,13 +137,22 @@ export default function AdminLayout() {
         </nav>
 
         <div className="sidebar-footer">
-          <div className="user-chip">
+          {/* La pastille porte le compte : c'est la qu'on le cherche
+              instinctivement, et le survol l'annonce comme un lien. Une entree
+              « Mon compte » juste en dessous doublait la meme destination. */}
+          <NavLink
+            to="/admin/compte"
+            className={({ isActive }) => `user-chip user-chip-link${isActive ? " active" : ""}`}
+            title="Mon compte"
+            data-testid="nav-account"
+            onClick={close}
+          >
             <div className="avatar">{initials(user?.nom)}</div>
             <div className="user-chip-copy">
               <strong>{user?.nom || "Opérateur"}</strong>
               <small>{user?.email || "Compte local"}</small>
             </div>
-          </div>
+          </NavLink>
           <button className="nav-link" data-testid="logout" title="Déconnexion" aria-label="Déconnexion" onClick={() => { close(); logout(); }}>
             <span className="nav-icon"><IconLogOut size={16} /></span>
             <span className="nav-label">Déconnexion</span>

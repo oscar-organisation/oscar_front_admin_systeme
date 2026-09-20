@@ -1,8 +1,9 @@
 import { administrationModuleManifest } from "@/modules/module-administration";
 import { operationsModuleManifest } from "@/modules/module-operations";
-import type { ApplicationModuleManifest } from "./module.types";
+import { studioModuleManifest } from "@/modules/module-studio";
+import type { ApplicationModuleManifest, ModuleNavigationItem } from "./module.types";
 
-const manifests = [administrationModuleManifest, operationsModuleManifest] as const;
+const manifests = [administrationModuleManifest, studioModuleManifest, operationsModuleManifest] as const;
 
 function validateModules(modules: readonly ApplicationModuleManifest[]): void {
   const ids = new Set<string>();
@@ -28,4 +29,15 @@ validateModules(manifests);
 
 export const applicationModules: readonly ApplicationModuleManifest[] = manifests.filter(
   (module) => module.defaultEnabled,
+);
+
+/**
+ * Navigation de la coquille, composee par les modules eux-memes.
+ *
+ * La barre laterale n'appartient a aucun module en particulier : chaque module
+ * declare ses entrees, et celui qui n'en declare aucune (le cockpit, lance
+ * depuis un autre espace) n'y apparait pas.
+ */
+export const consoleNavigation: readonly ModuleNavigationItem[] = applicationModules.flatMap(
+  (module) => module.navigation,
 );

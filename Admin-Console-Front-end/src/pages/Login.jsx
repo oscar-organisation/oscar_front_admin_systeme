@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Navigate, useLocation, useNavigate } from "react-router-dom";
+import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext.jsx";
 import { useTheme } from "@/shared/design-system/themes";
 import { getUserErrorMessage } from "@/shared/kernel/errors";
@@ -112,6 +112,12 @@ export default function Login() {
               {loading ? "Authentification..." : "Se connecter"} <IconArrowRight size={15} />
             </button>
           </form>
+
+          <div className="auth-secondary">
+            <Link to="/forgot-password" className="auth-link" data-testid="login-forgot">
+              Mot de passe oublié
+            </Link>
+          </div>
         </div>
 
         <footer className="auth-login-footer">

@@ -1,0 +1,245 @@
+import { useEffect, useMemo, useState } from 'react';
+import {
+  AlertTriangle,
+  Box,
+  Check,
+  CheckCircle2,
+  CloudOff,
+  CloudUpload,
+  Cpu,
+  LoaderCircle,
+  Rocket,
+  Server,
+  X,
+} from 'lucide-react';
+import { deployer, listerRobots, publier, verifier } from '../../feature-data/studioApi';
+import type { DeploiementServeur, OscarProject, RobotCible, ValidationIssue } from '../../feature-domain/types';
+
+interface PublishDialogProps {
+  project: OscarProject;
+  issues: ValidationIssue[];
+  canDeploy: boolean;
+  onClose: () => void;
+  onPublished: (numero: number) => void;
+}
+
+type Etape = 'VERIFICATION' | 'PRET' | 'PUBLICATION' | 'CIBLES' | 'DEPLOIEMENT' | 'TERMINE';
+
+export default function PublishDialog({ project, issues, canDeploy, onClose, onPublished }: PublishDialogProps) {
+  const [etape, setEtape] = useState<Etape>('VERIFICATION');
+  const [erreurs, setErreurs] = useState<string[]>([]);
+  const [panne, setPanne] = useState<string | null>(null);
+  const [versionPubliee, setVersionPubliee] = useState<{ id: string; numero: number } | null>(null);
+  const [robots, setRobots] = useState<RobotCible[]>([]);
+  const [selection, setSelection] = useState<string[]>([]);
+  const [deploiements, setDeploiements] = useState<DeploiementServeur[]>([]);
+
+  const bloquantsLocaux = useMemo(
+    () => issues.filter((issue) => issue.level === 'ERREUR').map((issue) => issue.title),
+    [issues],
+  );
+
+  // Verification serveur a l'ouverture : c'est le serveur qui decide si une
+  // composition est publiable, pas le plan affiche.
+  useEffect(() => {
+    let vivant = true;
+    if (!project.bundleId) {
+      setEtape('PRET');
+      return () => { vivant = false; };
+    }
+    verifier(project.bundleId)
+      .then((resultat) => {
+        if (!vivant) return;
+        setErreurs(resultat.erreurs);
+        setEtape('PRET');
+      })
+      .catch(() => {
+        if (!vivant) return;
+        setPanne("Le serveur n'a pas répondu : la publication reste impossible hors ligne.");
+        setEtape('PRET');
+      });
+    return () => { vivant = false; };
+  }, [project.bundleId]);
+
+  const lancerPublication = async () => {
+    if (!project.bundleId) return;
+    setEtape('PUBLICATION');
+    setPanne(null);
+    try {
+      const version = await publier(project.bundleId, project.description);
+      setVersionPubliee({ id: version.id, numero: version.numero });
+      onPublished(version.numero);
+      if (!canDeploy) {
+        setEtape('TERMINE');
+        return;
+      }
+      const liste = await listerRobots();
+      setRobots(liste);
+      setEtape('CIBLES');
+    } catch (erreur) {
+      setPanne(erreur instanceof Error ? erreur.message : 'Publication refusée par le serveur.');
+      setEtape('PRET');
+    }
+  };
+
+  const lancerDeploiement = async () => {
+    if (!versionPubliee || selection.length === 0) return;
+    setEtape('DEPLOIEMENT');
+    setPanne(null);
+    try {
+      setDeploiements(await deployer(versionPubliee.id, selection, project.name));
+      setEtape('TERMINE');
+    } catch (erreur) {
+      setPanne(erreur instanceof Error ? erreur.message : 'Déploiement refusé par le serveur.');
+      setEtape('CIBLES');
+    }
+  };
+
+  const basculer = (robotId: string) => {
+    setSelection((current) => current.includes(robotId)
+      ? current.filter((item) => item !== robotId)
+      : [...current, robotId]);
+  };
+
+  const bloquants = [...bloquantsLocaux, ...erreurs];
+  const enCours = etape === 'VERIFICATION' || etape === 'PUBLICATION' || etape === 'DEPLOIEMENT';
+
+  return (
+    <div className="modal-backdrop" role="presentation">
+      <section className="publish-dialog" role="dialog" aria-modal="true" aria-labelledby="publish-title">
+        <header className="dialog-header">
+          <div className="dialog-icon dialog-icon--blue"><Rocket size={21} /></div>
+          <div>
+            <span>Publication</span>
+            <h2 id="publish-title">Publier la version et la déployer</h2>
+          </div>
+          <button className="icon-button" onClick={onClose} type="button"><X size={18} /></button>
+        </header>
+
+        <div className="publish-summary">
+          <div><Box size={17} /><span><small>Projet</small><strong>{project.name}</strong></span></div>
+          <div>
+            <CloudUpload size={17} />
+            <span>
+              <small>Version</small>
+              <strong>{versionPubliee ? `version ${versionPubliee.numero} publiée` : `version ${project.version}`}</strong>
+            </span>
+          </div>
+          <div>
+            <Cpu size={17} />
+            <span>
+              <small>Composants</small>
+              <strong>
+                {project.nodes.length} blocs · {project.nodes.reduce((somme, noeud) => somme + noeud.data.agents.length, 0)} agents
+              </strong>
+            </span>
+          </div>
+        </div>
+
+        {!project.bundleId && (
+          <div className="publish-blocked">
+            <span>Projet local</span>
+            <strong>Ce projet n’existe que dans ce navigateur.</strong>
+            <p>Il sera publiable dès que la console aura pu l’enregistrer sur le serveur.</p>
+          </div>
+        )}
+
+        {panne && (
+          <div className="publish-blocked">
+            <span><CloudOff size={12} /> Serveur</span>
+            <strong>{panne}</strong>
+          </div>
+        )}
+
+        {project.bundleId && bloquants.length > 0 && (
+          <div className="publish-blocked">
+            <span>Publication bloquée</span>
+            <strong>
+              {bloquants.length} erreur{bloquants.length > 1 ? 's' : ''} empêche{bloquants.length > 1 ? 'nt' : ''} de figer une version cohérente.
+            </strong>
+            {bloquants.slice(0, 4).map((erreur) => <p key={erreur}>{erreur}</p>)}
+          </div>
+        )}
+
+        {etape === 'CIBLES' && (
+          <>
+            <div className="deployment-targets">
+              {robots.length === 0 && (
+                <div className="deployment-target">
+                  <span><AlertTriangle size={18} /></span>
+                  <div><strong>Aucun robot disponible</strong><small>Rattachez un robot à cette organisation.</small></div>
+                </div>
+              )}
+              {robots.map((robot) => (
+                <label className="deployment-target" key={robot.id}>
+                  <span><Server size={18} /></span>
+                  <div>
+                    <strong>{robot.nom}</strong>
+                    <small>{robot.slug || robot.id} · {robot.statut}</small>
+                  </div>
+                  <input
+                    checked={selection.includes(robot.id)}
+                    onChange={() => basculer(robot.id)}
+                    type="checkbox"
+                  />
+                </label>
+              ))}
+            </div>
+            <div className="deployment-steps">
+              <div className="is-done"><Check size={15} /><span>Version {versionPubliee?.numero} publiée et figée</span></div>
+              <div className={selection.length ? 'is-current' : ''}>
+                <Server size={15} />
+                <span>{selection.length} robot{selection.length > 1 ? 's' : ''} sélectionné{selection.length > 1 ? 's' : ''}</span>
+              </div>
+            </div>
+          </>
+        )}
+
+        {etape === 'TERMINE' && (
+          <div className="simulation-success">
+            <CheckCircle2 size={20} />
+            <div>
+              <strong>Version {versionPubliee?.numero} publiée</strong>
+              <span>
+                {deploiements.length > 0
+                  ? `Demande transmise à ${deploiements.length} robot${deploiements.length > 1 ? 's' : ''} : elle s’applique au prochain contact de l’agent embarqué.`
+                  : 'Aucun déploiement demandé pour l’instant.'}
+              </span>
+            </div>
+          </div>
+        )}
+
+        <footer className="dialog-footer">
+          <button className="secondary-button" onClick={onClose} type="button">
+            {etape === 'TERMINE' ? 'Fermer' : 'Annuler'}
+          </button>
+          {etape === 'PRET' && (
+            <button
+              className="primary-button"
+              disabled={!project.bundleId || bloquants.length > 0 || Boolean(panne)}
+              onClick={() => void lancerPublication()}
+              type="button"
+            >
+              <Rocket size={16} /> Publier la version {project.version}
+            </button>
+          )}
+          {etape === 'CIBLES' && (
+            <button
+              className="primary-button"
+              disabled={selection.length === 0}
+              onClick={() => void lancerDeploiement()}
+              type="button"
+            >
+              <Server size={16} /> Déployer sur {selection.length} robot{selection.length > 1 ? 's' : ''}
+            </button>
+          )}
+          {enCours && (
+            <button className="primary-button" disabled type="button">
+              <LoaderCircle className="spin" size={16} /> En cours…
+            </button>
+          )}
+        </footer>
+      </section>
+    </div>
+  );
+}

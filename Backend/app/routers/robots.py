@@ -1,3 +1,6 @@
+import hashlib
+import re
+import secrets
 import uuid
 from datetime import datetime, timedelta, timezone
 
@@ -8,7 +11,13 @@ from sqlalchemy.orm import Session
 
 from ..config import settings
 from ..database import get_db
-from ..deps import request_organisation_id, require, write_audit
+from ..deps import (
+    request_organisation_id,
+    require,
+    sans_perimetre,
+    verifier_perimetre,
+    write_audit,
+)
 from ..livekit_admin import list_participants
 from ..livekit_rooms import robot_room, room_slug
 from ..models import LiveKitToken, Robot, RobotAssignment, Site, User
@@ -42,9 +51,20 @@ def _conn_info(room: str, identity: str, token: str) -> dict:
     }
 
 
+def _robot_du_perimetre(db: Session, request: Request, robot_id: str) -> Robot:
+    """Charge un robot en verifiant qu'il appartient a l'organisation active."""
+    robot = db.get(Robot, robot_id)
+    if not robot:
+        raise HTTPException(404, "Robot introuvable")
+    verifier_perimetre(request, robot.org_id, "Robot introuvable")
+    return robot
+
+
 @router.get("/robots", response_model=list[RobotOut])
 def list_robots(request: Request, org_id: str | None = None, site_id: str | None = None,
                 db: Session = Depends(get_db), _=Depends(require("api:robot.read"))):
+    if sans_perimetre(request):
+        return []
     q = select(Robot).order_by(Robot.nom)
     scoped_org_id = request_organisation_id(request)
     if scoped_org_id:
@@ -56,13 +76,31 @@ def list_robots(request: Request, org_id: str | None = None, site_id: str | None
     return db.execute(q).scalars().all()
 
 
+def _slug_robot(db: Session, nom: str) -> str:
+    """Identifiant terrain d'un robot, derive de son nom.
+
+    L'agent embarque n'attend pas un UUID mais un identifiant lisible
+    (`^[a-z0-9][a-z0-9-]{2,62}$`) : c'est ce qu'il inscrit dans son enrolement
+    et dans `/opt/oscar`. On le derive une fois, a la creation, et on le garde.
+    """
+    base = re.sub(r"[^a-z0-9]+", "-", (nom or "").lower()).strip("-")[:62]
+    if len(base) < 3:
+        base = f"robot-{uuid.uuid4().hex[:6]}"
+    candidat, suffixe = base, 2
+    while db.execute(select(Robot).where(Robot.slug == candidat)).first():
+        candidat = f"{base[:58]}-{suffixe}"
+        suffixe += 1
+    return candidat
+
+
 @router.post("/robots", response_model=RobotOut, status_code=201)
 def create_robot(body: RobotIn, db: Session = Depends(get_db),
                  user=Depends(require("api:robot.write", "create"))):
     data = body.model_dump()
     if not data.get("serial"):
         data["serial"] = None  # série vide -> NULL (pas de doublon sur chaîne vide)
-    robot = Robot(**data)
+    data.pop("slug", None)  # le slug est dérivé, jamais choisi par l'appelant
+    robot = Robot(**data, slug=_slug_robot(db, data.get("nom", "")))
     db.add(robot)
     try:
         db.commit()
@@ -78,6 +116,8 @@ def create_robot(body: RobotIn, db: Session = Depends(get_db),
 def assigned_robots(request: Request, db: Session = Depends(get_db),
                     user=Depends(require("api:robot.supervise", "execute"))):
     """Robots auxquels l'utilisateur courant est associé (tous si superadmin)."""
+    if sans_perimetre(request):
+        return []
     scoped_org_id = request_organisation_id(request)
     if user.is_superadmin:
         query = select(Robot).order_by(Robot.nom)
@@ -95,22 +135,23 @@ def assigned_robots(request: Request, db: Session = Depends(get_db),
 
 
 @router.get("/robots/{robot_id}", response_model=RobotOut)
-def get_robot(robot_id: str, db: Session = Depends(get_db), _=Depends(require("api:robot.read"))):
-    robot = db.get(Robot, robot_id)
-    if not robot:
-        raise HTTPException(404, "Robot introuvable")
+def get_robot(robot_id: str, request: Request, db: Session = Depends(get_db),
+              _=Depends(require("api:robot.read"))):
+    robot = _robot_du_perimetre(db, request, robot_id)
     return robot
 
 
 @router.patch("/robots/{robot_id}", response_model=RobotOut)
-def update_robot(robot_id: str, body: RobotIn, db: Session = Depends(get_db),
+def update_robot(robot_id: str, body: RobotIn, request: Request, db: Session = Depends(get_db),
                  user=Depends(require("api:robot.write", "update"))):
-    robot = db.get(Robot, robot_id)
-    if not robot:
-        raise HTTPException(404, "Robot introuvable")
+    robot = _robot_du_perimetre(db, request, robot_id)
     data = body.model_dump(exclude_unset=True)
     if "serial" in data and not data["serial"]:
         data["serial"] = None
+    # Renommer un robot ne renomme pas son identifiant terrain : l'agent
+    # embarque l'a inscrit dans ses chemins et son enrolement, et un robot qui
+    # change d'identite au milieu d'une flotte est un robot qu'on perd.
+    data.pop("slug", None)
     for k, v in data.items():
         setattr(robot, k, v)
     try:
@@ -124,22 +165,18 @@ def update_robot(robot_id: str, body: RobotIn, db: Session = Depends(get_db),
 
 
 @router.delete("/robots/{robot_id}", status_code=204)
-def delete_robot(robot_id: str, db: Session = Depends(get_db),
+def delete_robot(robot_id: str, request: Request, db: Session = Depends(get_db),
                  user=Depends(require("api:robot.write", "delete"))):
-    robot = db.get(Robot, robot_id)
-    if not robot:
-        raise HTTPException(404, "Robot introuvable")
+    robot = _robot_du_perimetre(db, request, robot_id)
     db.delete(robot)
     db.commit()
     write_audit(db, actor=user, action="ROBOT_DELETE", resource=robot.nom)
 
 
 @router.post("/robots/{robot_id}/assign", status_code=204)
-def assign_operator(robot_id: str, body: RobotAssignIn, db: Session = Depends(get_db),
+def assign_operator(robot_id: str, body: RobotAssignIn, request: Request, db: Session = Depends(get_db),
                     user=Depends(require("api:robot.assign", "execute"))):
-    robot = db.get(Robot, robot_id)
-    if not robot:
-        raise HTTPException(404, "Robot introuvable")
+    robot = _robot_du_perimetre(db, request, robot_id)
     if not db.get(User, body.user_id):
         raise HTTPException(404, "Utilisateur introuvable")
     existing = db.execute(
@@ -156,9 +193,10 @@ def assign_operator(robot_id: str, body: RobotAssignIn, db: Session = Depends(ge
 
 
 @router.delete("/robots/{robot_id}/assignments/{user_id}", status_code=204)
-def unassign_operator(robot_id: str, user_id: str, db: Session = Depends(get_db),
+def unassign_operator(robot_id: str, user_id: str, request: Request, db: Session = Depends(get_db),
                       user=Depends(require("api:robot.assign", "execute"))):
     """Dissocier un opérateur d'un robot."""
+    _robot_du_perimetre(db, request, robot_id)
     row = db.execute(select(RobotAssignment).where(
         RobotAssignment.robot_id == robot_id, RobotAssignment.user_id == user_id)).scalar_one_or_none()
     if not row:
@@ -169,11 +207,9 @@ def unassign_operator(robot_id: str, user_id: str, db: Session = Depends(get_db)
 
 
 @router.post("/robots/{robot_id}/tokens", response_model=TokenPairOut)
-def issue_tokens(robot_id: str, body: TokenIssueIn, db: Session = Depends(get_db),
+def issue_tokens(robot_id: str, body: TokenIssueIn, request: Request, db: Session = Depends(get_db),
                  user=Depends(require("api:robot.token.issue", "execute"))):
-    robot = db.get(Robot, robot_id)
-    if not robot:
-        raise HTTPException(404, "Robot introuvable")
+    robot = _robot_du_perimetre(db, request, robot_id)
     room = robot_room(robot)  # room stable : robot et opérateur rejoignent la même
     now = datetime.now(timezone.utc)
 
@@ -216,8 +252,61 @@ def issue_tokens(robot_id: str, body: TokenIssueIn, db: Session = Depends(get_db
     )
 
 
+@router.post("/robots/{robot_id}/edge-credentials")
+def issue_edge_credentials(robot_id: str, request: Request, db: Session = Depends(get_db),
+                           user=Depends(require("api:robot.token.issue", "execute"))):
+    """Identifiants LiveKit de l'agent embarqué, dans la forme qu'il attend.
+
+    Le runtime embarqué tient deux rôles dans la même room : il publie la vidéo
+    et il reçoit les commandes. LiveKit n'admet qu'un participant par identité —
+    leur en donner une seule ferait que le second évince le premier à chaque
+    connexion. D'où deux identités distinctes, émises ensemble.
+
+    Jusqu'ici ces deux fichiers étaient déposés à la main sur le robot ; c'est
+    la derniere etape manuelle de l'enrôlement, et elle disparaît ici.
+    """
+    robot = _robot_du_perimetre(db, request, robot_id)
+    room = robot_room(robot)
+    base = room_slug(robot.nom)
+    maintenant = datetime.now(timezone.utc)
+    heures = settings.livekit_sdk_ttl_hours
+
+    fichiers = {}
+    for role, identite, publie in (
+        ("media", f"robot-{base}", True),
+        ("command", f"robot-{base}-command", True),
+    ):
+        jeton = create_livekit_token(
+            identite, room, can_publish=publie, can_subscribe=True,
+            can_publish_data=True, ttl_hours=heures, name=robot.nom,
+        )
+        db.add(LiveKitToken(
+            robot_id=robot.id, room=room, subject="robot", identity=identite, token=jeton,
+            expires_at=maintenant + timedelta(hours=heures),
+        ))
+        fichiers[role] = {"livekit": {
+            "serverUrl": settings.livekit_url,
+            "roomName": room,
+            "identity": identite,
+            "token": jeton,
+        }}
+    db.commit()
+    write_audit(db, actor=user, action="EDGE_CREDENTIALS_ISSUE", resource=f"{robot.nom}:{room}")
+    return {
+        "robot": {"id": robot.id, "nom": robot.nom, "slug": robot.slug},
+        "room": room,
+        "ttl_hours": heures,
+        "fichiers": {
+            "/etc/oscar/credentials/media.json": fichiers["media"],
+            "/etc/oscar/credentials/command.json": fichiers["command"],
+        },
+    }
+
+
 @router.get("/robots/{robot_id}/tokens", response_model=list[LiveKitTokenOut])
-def list_tokens(robot_id: str, db: Session = Depends(get_db), _=Depends(require("api:robot.read"))):
+def list_tokens(robot_id: str, request: Request, db: Session = Depends(get_db),
+                _=Depends(require("api:robot.read"))):
+    _robot_du_perimetre(db, request, robot_id)
     return db.execute(
         select(LiveKitToken).where(LiveKitToken.robot_id == robot_id)
         .order_by(LiveKitToken.created_at.desc())
@@ -225,23 +314,23 @@ def list_tokens(robot_id: str, db: Session = Depends(get_db), _=Depends(require(
 
 
 @router.post("/tokens/{token_id}/revoke", status_code=204)
-def revoke_token(token_id: str, db: Session = Depends(get_db),
+def revoke_token(token_id: str, request: Request, db: Session = Depends(get_db),
                  user=Depends(require("api:robot.token.issue", "execute"))):
     tok = db.get(LiveKitToken, token_id)
     if not tok:
         raise HTTPException(404, "Jeton introuvable")
+    # Le jeton n'est qu'un detour vers le robot : le perimetre se verifie sur lui.
+    _robot_du_perimetre(db, request, tok.robot_id)
     tok.revoked = True
     db.commit()
     write_audit(db, actor=user, action="TOKEN_REVOKE", resource=tok.room)
 
 
 @router.get("/robots/{robot_id}/diagnostics")
-def robot_diagnostics(robot_id: str, db: Session = Depends(get_db),
+def robot_diagnostics(robot_id: str, request: Request, db: Session = Depends(get_db),
                       _=Depends(require("api:robot.read"))):
     """Santé + état LiveKit d'un robot : room stable, clients connectés, ce que chacun publie."""
-    robot = db.get(Robot, robot_id)
-    if not robot:
-        raise HTTPException(404, "Robot introuvable")
+    robot = _robot_du_perimetre(db, request, robot_id)
     room = robot_room(robot)
     reachable, parts = list_participants(room)
 
@@ -294,12 +383,7 @@ def robot_diagnostics(robot_id: str, db: Session = Depends(get_db),
 def supervise(robot_id: str, request: Request, db: Session = Depends(get_db),
               user=Depends(require("api:robot.supervise", "execute"))):
     """Jeton d'accès (opérateur) à la room du robot, si l'utilisateur y est associé."""
-    robot = db.get(Robot, robot_id)
-    if not robot:
-        raise HTTPException(404, "Robot introuvable")
-    scoped_org_id = request_organisation_id(request)
-    if scoped_org_id and robot.org_id != scoped_org_id:
-        raise HTTPException(404, "Robot introuvable dans cette organisation")
+    robot = _robot_du_perimetre(db, request, robot_id)
     if not user.is_superadmin:
         assigned = db.execute(select(RobotAssignment).where(
             RobotAssignment.robot_id == robot_id, RobotAssignment.user_id == user.id)).first()
@@ -324,12 +408,10 @@ def supervise(robot_id: str, request: Request, db: Session = Depends(get_db),
 
 
 @router.get("/robots/{robot_id}/integration")
-def integration(robot_id: str, db: Session = Depends(get_db),
+def integration(robot_id: str, request: Request, db: Session = Depends(get_db),
                 user=Depends(require("api:robot.integration"))):
     """Détails de connexion pour intégrer le SDK au robot (room realtime dédiée)."""
-    robot = db.get(Robot, robot_id)
-    if not robot:
-        raise HTTPException(404, "Robot introuvable")
+    robot = _robot_du_perimetre(db, request, robot_id)
     room = robot_room(robot)
     identity = f"robot-{room_slug(robot.nom)}"
     token = create_livekit_token(identity, room, can_publish=True, can_subscribe=True,
@@ -353,13 +435,42 @@ def integration(robot_id: str, db: Session = Depends(get_db),
     }
 
 
+@router.post("/robots/{robot_id}/agent-key")
+def issue_agent_key(robot_id: str, request: Request, db: Session = Depends(get_db),
+                    user=Depends(require("api:robot.agent_key", "execute"))):
+    """Émet la clé d'agent embarqué de ce robot, affichée une seule fois.
+
+    Le serveur ne conserve que l'empreinte : personne, pas même un
+    administrateur, ne peut relire la clé plus tard. La perdre coûte une
+    réémission, ce qui est le bon prix ; pouvoir la relire coûterait
+    l'étanchéité de toute la flotte.
+
+    Réémettre remplace l'ancienne : un robot volé se révoque en émettant une
+    nouvelle clé, sans toucher aux autres.
+    """
+    robot = _robot_du_perimetre(db, request, robot_id)
+    cle = secrets.token_hex(24)
+    robot.agent_key_hash = hashlib.sha256(cle.encode("utf-8")).hexdigest()
+    robot.agent_key_issued_at = datetime.now(timezone.utc)
+    db.commit()
+    write_audit(db, actor=user, action="ROBOT_AGENT_KEY_ISSUE", resource=robot.nom)
+    return {
+        "robot": {"id": robot.id, "nom": robot.nom, "slug": robot.slug},
+        "agent_key": cle,
+        "issued_at": robot.agent_key_issued_at,
+        "installation": {
+            "fichier": "/etc/oscar/credentials/agent.key",
+            "mode": "0600",
+            "commande": f"sudo install -m 600 /dev/stdin /etc/oscar/credentials/agent.key <<< '{cle}'",
+        },
+    }
+
+
 @router.get("/robots/{robot_id}/assignments")
-def robot_assignments(robot_id: str, db: Session = Depends(get_db),
+def robot_assignments(robot_id: str, request: Request, db: Session = Depends(get_db),
                       _=Depends(require("api:robot.read"))):
     """Utilisateurs (opérateurs) associés à un robot."""
-    robot = db.get(Robot, robot_id)
-    if not robot:
-        raise HTTPException(404, "Robot introuvable")
+    robot = _robot_du_perimetre(db, request, robot_id)
     rows = db.execute(
         select(RobotAssignment, User).join(User, User.id == RobotAssignment.user_id)
         .where(RobotAssignment.robot_id == robot_id)
@@ -368,12 +479,10 @@ def robot_assignments(robot_id: str, db: Session = Depends(get_db),
 
 
 @router.get("/robots/{robot_id}/integration/operator/{user_id}")
-def integration_operator(robot_id: str, user_id: str, db: Session = Depends(get_db),
+def integration_operator(robot_id: str, user_id: str, request: Request, db: Session = Depends(get_db),
                          actor=Depends(require("api:robot.integration"))):
     """Infos de connexion (opérateur) pour un utilisateur donné : à utiliser dans l'app casque/opérateur."""
-    robot = db.get(Robot, robot_id)
-    if not robot:
-        raise HTTPException(404, "Robot introuvable")
+    robot = _robot_du_perimetre(db, request, robot_id)
     user = db.get(User, user_id)
     if not user:
         raise HTTPException(404, "Utilisateur introuvable")
@@ -389,12 +498,10 @@ def integration_operator(robot_id: str, user_id: str, db: Session = Depends(get_
 
 
 @router.post("/robots/{robot_id}/integration/custom")
-def integration_custom(robot_id: str, body: dict, db: Session = Depends(get_db),
+def integration_custom(robot_id: str, body: dict, request: Request, db: Session = Depends(get_db),
                        actor=Depends(require("api:robot.integration"))):
     """Génère les infos de connexion pour un autre équipement/client qui rejoint la room du robot."""
-    robot = db.get(Robot, robot_id)
-    if not robot:
-        raise HTTPException(404, "Robot introuvable")
+    robot = _robot_du_perimetre(db, request, robot_id)
     name = (body.get("name") or "").strip()
     if not name:
         raise HTTPException(400, "Le nom de l'équipement est requis")

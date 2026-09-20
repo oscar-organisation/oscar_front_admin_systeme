@@ -3,6 +3,7 @@ import {
   ArrowRight,
   ArrowUpRight,
   BatteryMedium,
+  Blocks,
   Bot,
   Building2,
   Check,
@@ -19,9 +20,9 @@ import {
   House,
   Info,
   KeyRound,
-  LockKeyhole,
   Layers3,
   LayoutDashboard,
+  LockKeyhole,
   LogOut,
   Menu,
   PanelLeftClose,
@@ -53,6 +54,7 @@ export const IconArrowUpRight = ArrowUpRight;
 export function IconBattery({ level: _level, ...props }) {
   return <BatteryMedium {...props} />;
 }
+export const IconBlocks = Blocks;
 export const IconBuilding = Building2;
 export const IconCheck = Check;
 export const IconChevronDown = ChevronDown;

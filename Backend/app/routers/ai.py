@@ -37,16 +37,43 @@ SUPPORTED_ARTIFACTS = {
 }
 SUPPORTED_TASKS = {
     "object_detection", "product_detection", "person_detection", "incident_detection",
-    "classification", "segmentation", "pose", "anomaly_detection",
+    "classification", "segmentation", "pose", "anomaly_detection", "product_identification",
 }
 EXECUTABLE_RUNTIMES = {"ultralytics", "pytorch"}
 EXECUTABLE_TASKS = {
     "object_detection", "product_detection", "person_detection", "incident_detection",
+    # Second etage : ne regarde pas l'image entiere mais les produits deja
+    # detectes par un autre modele de la meme Box, et leur donne un nom.
+    "product_identification",
 }
 
 
 def _is_deployable(model: AiModel) -> bool:
     return model.runtime in EXECUTABLE_RUNTIMES and model.tache in EXECUTABLE_TASKS
+
+
+def raison_blocage(model: AiModel) -> str | None:
+    """Pourquoi ce modele ne peut pas etre execute, ou None s'il peut.
+
+    Source unique de la regle, servie avec chaque modele (`ModelOut.blocage`)
+    pour que l'interface dise la meme chose que l'API au lieu de recopier la
+    liste des runtimes. La condition etait jusqu'ici verifiee au dernier moment,
+    a la publication : on pouvait donc composer une Box qui ne publierait
+    jamais, et decouvrir le probleme apres coup.
+    """
+    if model.statut != "production":
+        return f"statut « {model.statut} » : à promouvoir en production"
+    if model.validation_status != "manifest_valid":
+        return "manifeste non validé"
+    if not model.fichier:
+        return "aucun fichier de poids"
+    if model.runtime not in EXECUTABLE_RUNTIMES:
+        return (f"runtime « {model.runtime} » sans adaptateur "
+                f"(disponibles : {', '.join(sorted(EXECUTABLE_RUNTIMES))})")
+    if model.tache not in EXECUTABLE_TASKS:
+        return (f"tâche « {model.tache} » inconnue du worker "
+                f"(attendues : {', '.join(sorted(EXECUTABLE_TASKS))})")
+    return None
 
 
 def _slug(value: str) -> str:
@@ -150,11 +177,26 @@ def _validate_box_models(db: Session, body: ModelBoxIn, org_id: str) -> list[AiM
         raise HTTPException(400, "Un modèle sélectionné est introuvable")
     if any(model.org_id not in (None, org_id) for model in models):
         raise HTTPException(409, "Tous les modèles doivent appartenir à l'organisation de la Box")
+    bloques = [f"{model.nom} v{model.version} — {raison}" for model in models
+               if (raison := raison_blocage(model))]
+    if bloques:
+        raise HTTPException(
+            409,
+            "Ces modèles ne peuvent pas être exécutés, retirez-les de la Box : "
+            + " ; ".join(bloques),
+        )
     return [by_id[model_id] for model_id in ids]
 
 
-def _replace_box_items(box: AiModelBox, body: ModelBoxIn) -> None:
+def _replace_box_items(box: AiModelBox, body: ModelBoxIn, db: Session | None = None) -> None:
     box.items.clear()
+    if db is not None:
+        # Purge les suppressions avant de reinserer. Sans ce flush, garder un
+        # modele deja present fait inserer la nouvelle ligne avant la
+        # suppression de l'ancienne : uq_ai_model_box_item_model saute, et
+        # l'erreur remonte en « cette version existe deja ». Modifier une Box en
+        # conservant l'un de ses modeles etait donc impossible.
+        db.flush()
     for index, item in enumerate(body.items):
         data = item.model_dump()
         data["position"] = item.position if item.position else index
@@ -167,7 +209,14 @@ def list_models(request: Request, db: Session = Depends(get_db), _=Depends(requi
     query = select(AiModel).order_by(AiModel.created_at.desc())
     if org_id:
         query = query.where(or_(AiModel.org_id == org_id, AiModel.org_id.is_(None)))
-    return db.execute(query).scalars().all()
+    return [_model_out(model) for model in db.execute(query).scalars()]
+
+
+def _model_out(model: AiModel) -> ModelOut:
+    sortie = ModelOut.model_validate(model)
+    sortie.blocage = raison_blocage(model)
+    sortie.deployable = sortie.blocage is None
+    return sortie
 
 
 @router.post("/models", response_model=ModelOut, status_code=201)
@@ -267,7 +316,7 @@ def upload_model(
 
     db.refresh(model)
     write_audit(db, actor=user, action="MODEL_UPLOAD", resource=f"{nom} {version}", result="sandbox")
-    return model
+    return _model_out(model)
 
 
 @router.post("/models/{model_id}/promote", response_model=ModelOut)
@@ -284,7 +333,51 @@ def promote_model(request: Request, model_id: str, body: ModelPromoteIn, db: Ses
     db.commit()
     db.refresh(model)
     write_audit(db, actor=user, action="MODEL_PROMOTE", resource=f"{model.nom}->{body.statut}")
-    return model
+    return _model_out(model)
+
+
+@router.delete("/models/{model_id}", status_code=204)
+def delete_model(request: Request, model_id: str, db: Session = Depends(get_db),
+                 user=Depends(require("api:ai.model.delete", "execute"))):
+    """Retire definitivement un modele du catalogue, poids compris.
+
+    Le catalogue n'avait aucune sortie : un import rate, un fichier de test, une
+    tache inexecutable restaient la pour toujours et venaient polluer la
+    composition des Box. La suppression est refusee tant qu'une Box reference le
+    modele — y compris en brouillon — parce que casser une composition en
+    silence est pire que demander de la modifier d'abord.
+    """
+    model = _scoped_model(db, model_id, request_organisation_id(request))
+    boxes = db.execute(
+        select(AiModelBox.nom, AiModelBox.version, AiModelBox.statut)
+        .join(AiModelBoxItem, AiModelBoxItem.box_id == AiModelBox.id)
+        .where(AiModelBoxItem.model_id == model.id)
+    ).all()
+    if boxes:
+        details = ", ".join(f"{nom} v{version} ({statut})" for nom, version, statut in boxes)
+        raise HTTPException(409, f"Modèle utilisé par : {details}. Retirez-le de ces Box d'abord")
+
+    deploiements = db.execute(
+        select(AiModelDeployment).where(AiModelDeployment.model_id == model.id)
+    ).scalars().all()
+    for deploiement in deploiements:
+        db.delete(deploiement)
+
+    chemin = Path(model.fichier) if model.fichier else None
+    etiquette = f"{model.nom} v{model.version}"
+    db.delete(model)
+    db.commit()
+
+    if chemin and chemin.is_file():
+        # Les poids ne servent plus a personne : les garder occupe le volume et
+        # laisse un artefact sans trace en base.
+        chemin.unlink(missing_ok=True)
+        try:
+            chemin.parent.rmdir()
+        except OSError:
+            pass  # repertoire non vide : on laisse en place plutot que d'insister
+    write_audit(db, actor=user, action="MODEL_DELETE", resource=etiquette)
+    return None
 
 
 @router.get("/model-boxes", response_model=list[ModelBoxOut])
@@ -333,7 +426,7 @@ def update_model_box(request: Request, box_id: str, body: ModelBoxIn, db: Sessio
     _validate_box_models(db, body, box.org_id)
     box.nom, box.version = body.nom.strip(), body.version.strip()
     box.description = body.description.strip() if body.description else None
-    _replace_box_items(box, body)
+    _replace_box_items(box, body, db)
     try:
         db.commit()
     except IntegrityError as exc:
@@ -352,12 +445,10 @@ def publish_model_box(request: Request, box_id: str, db: Session = Depends(get_d
         raise HTTPException(409, "Seule une Box en brouillon peut être publiée")
     if not box.items:
         raise HTTPException(409, "Ajoutez au moins un modèle à la Box")
-    unavailable = [item.model.nom for item in box.items if (
-        item.model.statut != "production" or item.model.validation_status != "manifest_valid"
-        or not item.model.fichier or not _is_deployable(item.model)
-    )]
-    if unavailable:
-        raise HTTPException(409, "Modèles non déployables : " + ", ".join(unavailable))
+    bloques = [f"{item.model.nom} v{item.model.version} — {raison}" for item in box.items
+               if (raison := raison_blocage(item.model))]
+    if bloques:
+        raise HTTPException(409, "Modèles non déployables : " + " ; ".join(bloques))
     box.statut = "published"
     db.commit()
     box = _scoped_box(db, box.id, box.org_id)

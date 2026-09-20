@@ -18,6 +18,7 @@ const IamStructurePage = lazy(() => import("./features/identity-access/pages/Iam
 const RobotsPage = lazy(() => import("./features/fleet-management/pages/RobotsPage.jsx"));
 const AiVisionPage = lazy(() => import("./features/ai-vision/pages/AiVisionPage.jsx"));
 const AuditLogPage = lazy(() => import("./features/audit-log/pages/AuditLogPage.jsx"));
+const AccountPage = lazy(() => import("./features/account/pages/AccountPage.jsx"));
 
 function pagePolicy(id: string, code: string): AuthorizationPolicy {
   return {
@@ -58,6 +59,14 @@ export const administrationModuleManifest: ApplicationModuleManifest = {
     { id: "identity.structure", path: "structure", policy: pagePolicy("identity.structure.route", IDENTITY_ACCESS_PERMISSIONS.STRUCTURE_PAGE), component: IamStructurePage },
     { id: "fleet.robots", path: "robots", policy: pagePolicy("fleet.robots.route", FLEET_MANAGEMENT_PERMISSIONS.ROBOTS_PAGE), component: RobotsPage },
     { id: "ai-vision.models", path: "sandbox", policy: pagePolicy("ai-vision.route", AI_VISION_PERMISSIONS.PAGE), component: AiVisionPage },
+    {
+      id: "account.self",
+      path: "compte",
+      // Aucune permission requise : seule la session compte, et la page
+      // n'agit que sur son porteur.
+      policy: { id: "account.self.route", requiresAuthentication: true },
+      component: AccountPage,
+    },
     { id: "audit-log.events", path: "audit", policy: pagePolicy("audit-log.route", AUDIT_LOG_PERMISSIONS.PAGE), component: AuditLogPage },
   ],
   defaultEnabled: true,

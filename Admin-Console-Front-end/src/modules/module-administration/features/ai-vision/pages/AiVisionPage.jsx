@@ -14,7 +14,7 @@ import {
   IconPlus,
   IconRefresh,
   IconRobot,
-  IconSparkles,
+  IconGrid,
   IconTrash,
   IconUpload,
   IconX,
@@ -42,23 +42,27 @@ const TASKS = [
   ["segmentation", "Segmentation"],
   ["pose", "Estimation de pose"],
   ["anomaly_detection", "Détection d'anomalies"],
+  ["product_identification", "Identification de produits (galerie de référence)"],
 ];
 
 const RUNTIMES = [
   ["ultralytics", "Ultralytics / PyTorch (.pt)"],
+  ["pytorch", "PyTorch natif (.pt)"],
   ["onnxruntime", "ONNX Runtime (.onnx)"],
   ["tensorrt", "TensorRT (.engine)"],
   ["torchscript", "TorchScript (.torchscript)"],
   ["tflite", "TensorFlow Lite (.tflite)"],
 ];
 
-const EXECUTABLE_RUNTIMES = new Set(["ultralytics", "pytorch"]);
-const EXECUTABLE_TASKS = new Set([
-  "object_detection", "product_detection", "person_detection", "incident_detection",
-]);
+/* Le verdict d'executabilite vient de l'API (`deployable` / `blocage`). Le
+   recopier ici produisait deux sources de verite : le catalogue accepte huit
+   taches et cinq formats a l'import, le worker n'en execute que quatre et deux. */
+function estPret(model) {
+  return model.deployable === true;
+}
 
-function isDeployable(model) {
-  return EXECUTABLE_RUNTIMES.has(model.runtime) && EXECUTABLE_TASKS.has(model.tache);
+function motifBlocage(model) {
+  return model.blocage || "non exécutable en l'état";
 }
 
 function formatBytes(bytes) {
@@ -85,6 +89,11 @@ export default function AiVisionPage() {
   const [assignmentDraft, setAssignmentDraft] = useState({ targetType: "robot", targetId: "", boxId: "" });
   const [loading, setLoading] = useState(true);
   const [savingAssignment, setSavingAssignment] = useState("");
+  // Une Box s'affecte a autant de robots, flottes et sites qu'on veut : la liste
+  // doit donc se filtrer et se paginer, pas s'empiler indefiniment.
+  const [assignmentQuery, setAssignmentQuery] = useState("");
+  const [assignmentScope, setAssignmentScope] = useState("all");
+  const [assignmentPage, setAssignmentPage] = useState(0);
   const [modelModal, setModelModal] = useState(null);
   const [boxModal, setBoxModal] = useState(null);
   const [catModal, setCatModal] = useState(null);
@@ -94,6 +103,7 @@ export default function AiVisionPage() {
   const canUpload = can("api:ai.model.upload", "execute");
   const canPromote = can("api:ai.model.promote", "execute");
   const canDeploy = can("api:ai.model.deploy", "execute");
+  const canModelDelete = can("api:ai.model.delete", "execute");
   const canCatCreate = can("api:ai.category.write", "create");
   const canCatUpdate = can("api:ai.category.write", "update");
   const canCatDelete = can("api:ai.category.write", "delete");
@@ -103,6 +113,42 @@ export default function AiVisionPage() {
   const targetOptions = assignmentDraft.targetType === "site"
     ? sites
     : assignmentDraft.targetType === "fleet" ? fleets : robots;
+
+  const PAR_PAGE = 12;
+
+  const assignmentRows = useMemo(() => assignments.map((assignment) => {
+    const type = assignment.robot_id ? "robot" : assignment.fleet_id ? "fleet" : "site";
+    const targetId = assignment.robot_id || assignment.fleet_id || assignment.site_id;
+    const source = type === "robot" ? robots : type === "fleet" ? fleets : sites;
+    return {
+      assignment,
+      type,
+      targetId,
+      scopeLabel: type === "robot" ? "Robot" : type === "fleet" ? "Flotte" : "Site",
+      targetLabel: source.find((item) => item.id === targetId)?.nom || targetId,
+    };
+  }), [assignments, robots, fleets, sites]);
+
+  const assignmentCounts = useMemo(() => assignmentRows.reduce((acc, row) => {
+    acc[row.type] = (acc[row.type] || 0) + 1;
+    return acc;
+  }, {}), [assignmentRows]);
+
+  const filteredAssignments = useMemo(() => {
+    const terme = assignmentQuery.trim().toLowerCase();
+    return assignmentRows.filter((row) => {
+      if (assignmentScope !== "all" && row.type !== assignmentScope) return false;
+      if (!terme) return true;
+      return `${row.assignment.box_name} v${row.assignment.box_version} ${row.targetLabel}`
+        .toLowerCase().includes(terme);
+    });
+  }, [assignmentRows, assignmentQuery, assignmentScope]);
+
+  const pagesAssignments = Math.max(1, Math.ceil(filteredAssignments.length / PAR_PAGE));
+  const pageAssignments = Math.min(assignmentPage, pagesAssignments - 1);
+  const assignmentsVisibles = filteredAssignments.slice(
+    pageAssignments * PAR_PAGE, pageAssignments * PAR_PAGE + PAR_PAGE,
+  );
 
   const loadStudio = useCallback(async () => {
     setLoading(true);
@@ -265,6 +311,19 @@ export default function AiVisionPage() {
     }
   }
 
+  async function removeModel(model) {
+    if (!window.confirm(
+      `Supprimer « ${model.nom} » v${model.version} du catalogue ? `
+      + "Les poids sont effacés et l'opération est définitive.",
+    )) return;
+    try {
+      await api.del(`/ai/models/${model.id}`);
+      await loadStudio();
+    } catch (error) {
+      setErr(captureError(error, { feature: "ai-studio", action: "delete-model" }));
+    }
+  }
+
   async function publishBox(box) {
     if (!window.confirm(`Publier « ${box.nom} » v${box.version} ? Cette version deviendra immuable.`)) return;
     try {
@@ -353,12 +412,7 @@ export default function AiVisionPage() {
       <div className="platform-content ai-vision-page" data-testid="sandbox-page">
         {err && !modelModal && !boxModal && !catModal && <div className="auth-error" role="alert"><IconAlertCircle size={15} /> {err}</div>}
 
-        <section className="ai-studio-summary" aria-label="Résumé de la Sandbox IA & Vision">
-          <div className="ai-studio-intro">
-            <span className="ai-eyebrow"><IconSparkles size={13} /> Chaîne de perception modulaire</span>
-            <h2>Un catalogue de modèles, des Boxes prêtes à déployer.</h2>
-            <p>Chaque constructeur apporte ses artefacts et leur manifeste. OSCAR les compose ensuite sans dépendance codée en dur.</p>
-          </div>
+        <section className="ai-studio-summary" aria-label="État de la Sandbox IA & Vision">
           <div className="ai-studio-metrics">
             <div><strong>{models.length}</strong><span>modèles</span></div>
             <div><strong>{productionModels.length}</strong><span>en production</span></div>
@@ -375,12 +429,23 @@ export default function AiVisionPage() {
         </section>
 
         <div className="ai-vision-grid">
+          <section className="card-shell ai-models-card">
+            <div className="card-head ai-card-head"><div><h3><IconCpu size={16} /> Registre de modèles ({models.length})</h3><small>Artefacts indépendants, catégorisés et validés avant composition.</small></div>{canUpload && <button className="btn-shell small" onClick={openModel}><IconUpload size={13} /> Importer</button>}</div>
+            <div className="card-body flush table-wrap ai-section-scroll" role="region" aria-label="Registre de modèles" tabIndex={0}>
+              <table className="data-table ai-model-table"><thead><tr><th>Modèle</th><th>Catégories</th><th>Artefact</th><th>Cycle</th><th>Validation</th><th>Actions</th></tr></thead><tbody>
+                {loading && <tr><td colSpan={6} className="ai-empty">Chargement des modèles...</td></tr>}
+                {!loading && models.map((model) => <tr key={model.id} data-testid="model-row"><td><div className="ai-model-identity"><span><strong data-testid="model-name">{model.nom}</strong><small>{model.tache} · v{model.version}</small></span></div></td><td><div className="ai-category-chips">{(model.category_ids || []).map((id) => <span key={id}>{cats.find((cat) => cat.id === id)?.label || id}</span>)}{!model.category_ids?.length && <small>Non classé</small>}</div></td><td><div className="ai-artifact-cell"><strong className="ai-runtime-name">{model.runtime || model.framework}</strong><small>{formatBytes(model.artifact_size)}</small></div></td><td><span className={`status-chip ${MODEL_CHIP[model.statut] || "neutral"}`}>{model.statut}</span></td><td><span className={`status-chip ${model.validation_status === "manifest_valid" ? "online" : "warning"}`}>{model.validation_status || "à valider"}</span></td><td className="row-actions">{canPromote && model.statut === "sandbox" && <button className="btn-shell small" data-testid="model-promote" onClick={() => promote(model)}><IconArrowUpRight size={13} /> Promouvoir</button>}{canModelDelete && <button className="btn-shell small danger" data-testid="model-delete" onClick={() => removeModel(model)} title="Retirer du catalogue"><IconTrash size={12} /></button>}</td></tr>)}
+                {!loading && models.length === 0 && <tr><td colSpan={6} className="ai-empty">Aucun modèle chargé pour cette organisation.</td></tr>}
+              </tbody></table>
+            </div>
+          </section>
+
           <section className="card-shell ai-boxes-card">
             <div className="card-head ai-card-head">
               <div><h3><IconLayers size={16} /> Model Boxes ({boxes.length})</h3><small>Une version publiée est immuable et devient l'unité de déploiement.</small></div>
               <div className="row-actions"><button className="btn-shell small" onClick={loadStudio} title="Actualiser"><IconRefresh size={13} /></button>{canDeploy && <button className="btn-shell small primary" onClick={() => openBox()}><IconPlus size={13} /> Composer</button>}</div>
             </div>
-            <div className="card-body">
+            <div className="card-body ai-section-scroll" role="region" aria-label="Liste des Model Boxes" tabIndex={0}>
               <div className="ai-box-grid">
                 {loading && <p className="ai-empty compact">Chargement des Boxes...</p>}
                 {!loading && boxes.map((box) => (
@@ -401,9 +466,9 @@ export default function AiVisionPage() {
             </div>
           </section>
 
-          <aside className="card-shell ai-deploy-card">
-            <div className="card-head"><div><h3><IconRobot size={16} /> Affectations</h3><small>La priorité est robot, puis flotte, puis site.</small></div></div>
-            <div className="card-body">
+          <aside className="card-shell ai-assign-card">
+            <div className="card-head"><div><h3><IconRobot size={16} /> Affecter une Box</h3><small>La priorité est robot, puis flotte, puis site.</small></div></div>
+            <div className="card-body ai-section-scroll" role="region" aria-label="Affecter une Box" tabIndex={0}>
               <div className="ai-assignment-form">
                 <label className="auth-label" htmlFor="ai-box-target-type">Portée</label>
                 <div className="ai-scope-switch" id="ai-box-target-type">{[["robot", "Robot"], ["fleet", "Flotte"], ["site", "Site"]].map(([value, label]) => <button type="button" className={assignmentDraft.targetType === value ? "active" : ""} key={value} onClick={() => changeTargetType(value)}>{label}</button>)}</div>
@@ -413,38 +478,72 @@ export default function AiVisionPage() {
                 <select id="ai-box-select" className="field-shell" value={assignmentDraft.boxId} onChange={(event) => setAssignmentDraft({ ...assignmentDraft, boxId: event.target.value })}>{publishedBoxes.length === 0 && <option value="">Aucune Box publiée</option>}{publishedBoxes.map((box) => <option key={box.id} value={box.id}>{box.nom} · v{box.version}</option>)}</select>
                 <button className="btn-shell primary ai-assign-button" disabled={!canDeploy || !assignmentDraft.targetId || !assignmentDraft.boxId || savingAssignment} onClick={() => saveAssignment(assignmentDraft.boxId, assignmentDraft.targetType, assignmentDraft.targetId)}><IconCheck size={14} /> Affecter la Box</button>
               </div>
-              <div className="ai-assignment-list">
-                {assignments.map((assignment) => {
-                  const type = assignment.robot_id ? "robot" : assignment.fleet_id ? "fleet" : "site";
-                  const targetId = assignment.robot_id || assignment.fleet_id || assignment.site_id;
-                  const key = `${assignment.box_id}:${type}:${targetId}`;
-                  return <div className={`ai-assignment-row${assignment.enabled ? "" : " muted"}`} key={assignment.id}><span><strong>{assignment.box_name} · v{assignment.box_version}</strong><small>{targetName(assignment)}</small></span>{canDeploy && <button className="btn-shell small" disabled={savingAssignment === key} onClick={() => saveAssignment(assignment.box_id, type, targetId, !assignment.enabled)}>{assignment.enabled ? "Désactiver" : "Réactiver"}</button>}</div>;
-                })}
-                {assignments.length === 0 && <p className="ai-empty compact">Aucune affectation enregistrée.</p>}
+              <p className="ai-assign-note">
+                Une même Box peut couvrir plusieurs robots, flottes et sites.
+                Les affectations en vigueur sont listées ci-dessous.
+              </p>
+            </div>
+          </aside>
+
+          <section className="card-shell ai-assignments-card">
+            <div className="card-head">
+              <div><h3><IconLayers size={16} /> Affectations en vigueur ({assignments.length})</h3><small>Une ligne par couple Box / cible. Le robot l'emporte sur la flotte, la flotte sur le site.</small></div>
+              <div className="ai-assignments-tools">
+                <div className="ai-scope-switch compact">
+                  {[["all", `Tout ${assignments.length}`], ["robot", `Robots ${assignmentCounts.robot || 0}`],
+                    ["fleet", `Flottes ${assignmentCounts.fleet || 0}`], ["site", `Sites ${assignmentCounts.site || 0}`]]
+                    .map(([value, label]) => (
+                      <button type="button" key={value} className={assignmentScope === value ? "active" : ""}
+                              onClick={() => { setAssignmentScope(value); setAssignmentPage(0); }}>{label}</button>
+                    ))}
+                </div>
+                <input className="field-shell ai-assignments-search" type="search" value={assignmentQuery}
+                       placeholder="Filtrer par Box ou cible"
+                       onChange={(event) => { setAssignmentQuery(event.target.value); setAssignmentPage(0); }} />
               </div>
             </div>
-          </aside>
-
-          <section className="card-shell ai-models-card">
-            <div className="card-head ai-card-head"><div><h3><IconCpu size={16} /> Registre de modèles ({models.length})</h3><small>Artefacts indépendants, catégorisés et validés avant composition.</small></div>{canUpload && <button className="btn-shell small" onClick={openModel}><IconUpload size={13} /> Importer</button>}</div>
-            <div className="card-body flush table-wrap">
-              <table className="data-table ai-model-table"><thead><tr><th>Modèle</th><th>Catégories</th><th>Artefact</th><th>Cycle</th><th>Validation</th><th>Actions</th></tr></thead><tbody>
-                {loading && <tr><td colSpan={6} className="ai-empty">Chargement des modèles...</td></tr>}
-                {!loading && models.map((model) => <tr key={model.id} data-testid="model-row"><td><div className="ai-model-identity"><span className="ai-model-icon"><IconSparkles size={15} /></span><span><strong data-testid="model-name">{model.nom}</strong><small>{model.tache} · v{model.version}</small></span></div></td><td><div className="ai-category-chips">{(model.category_ids || []).map((id) => <span key={id}>{cats.find((cat) => cat.id === id)?.label || id}</span>)}{!model.category_ids?.length && <small>Non classé</small>}</div></td><td><strong className="ai-runtime-name">{model.runtime || model.framework}</strong><small>{formatBytes(model.artifact_size)}</small></td><td><span className={`status-chip ${MODEL_CHIP[model.statut] || "neutral"}`}>{model.statut}</span></td><td><span className={`status-chip ${model.validation_status === "manifest_valid" ? "online" : "warning"}`}>{model.validation_status || "à valider"}</span></td><td className="row-actions">{canPromote && model.statut === "sandbox" && <button className="btn-shell small" data-testid="model-promote" onClick={() => promote(model)}><IconArrowUpRight size={13} /> Promouvoir</button>}</td></tr>)}
-                {!loading && models.length === 0 && <tr><td colSpan={6} className="ai-empty">Aucun modèle chargé pour cette organisation.</td></tr>}
-              </tbody></table>
+            <div className="card-body flush table-wrap ai-section-scroll" role="region" aria-label="Affectations en vigueur" tabIndex={0}>
+              <table className="data-table ai-assignments-table">
+                <thead><tr><th>Box</th><th>Portée</th><th>Cible</th><th>État</th><th>Actions</th></tr></thead>
+                <tbody>
+                  {assignmentsVisibles.map(({ assignment, type, targetId, scopeLabel, targetLabel }) => {
+                    const key = `${assignment.box_id}:${type}:${targetId}`;
+                    return (
+                      <tr key={assignment.id} className={assignment.enabled ? "" : "muted"} data-testid="assignment-row">
+                        <td><div className="ai-assignment-box"><strong>{assignment.box_name}</strong><small>v{assignment.box_version}</small></div></td>
+                        <td><span className="status-chip neutral">{scopeLabel}</span></td>
+                        <td><span className="ai-assignment-target">{targetLabel}</span></td>
+                        <td><span className={`status-chip ${assignment.enabled ? "online" : "neutral"}`}>{assignment.enabled ? "active" : "suspendue"}</span></td>
+                        <td className="row-actions">{canDeploy && <button className="btn-shell small" disabled={savingAssignment === key} onClick={() => saveAssignment(assignment.box_id, type, targetId, !assignment.enabled)}>{assignment.enabled ? "Désactiver" : "Réactiver"}</button>}</td>
+                      </tr>
+                    );
+                  })}
+                  {filteredAssignments.length === 0 && <tr><td colSpan={5} className="ai-empty">{assignments.length === 0 ? "Aucune affectation enregistrée." : "Aucune affectation ne correspond au filtre."}</td></tr>}
+                </tbody>
+              </table>
             </div>
+            {pagesAssignments > 1 && (
+              <div className="ai-assignments-foot">
+                <span>{filteredAssignments.length} affectation{filteredAssignments.length > 1 ? "s" : ""} · page {pageAssignments + 1} sur {pagesAssignments}</span>
+                <span className="row-actions">
+                  <button className="btn-shell small" disabled={pageAssignments === 0}
+                          onClick={() => setAssignmentPage(pageAssignments - 1)}>Précédent</button>
+                  <button className="btn-shell small" disabled={pageAssignments >= pagesAssignments - 1}
+                          onClick={() => setAssignmentPage(pageAssignments + 1)}>Suivant</button>
+                </span>
+              </div>
+            )}
           </section>
-
-          <aside className="card-shell ai-integration-card">
-            <div className="card-head"><div><h3><IconInfo size={16} /> Contrat constructeur</h3><small>Ce qu'un partenaire doit fournir.</small></div></div>
-            <div className="card-body"><ol className="ai-integration-steps"><li><span>01</span><div><strong>Poids exportés</strong><small>ONNX recommandé. `.pt` réservé aux artefacts de confiance.</small></div></li><li><span>02</span><div><strong>Manifeste d'inférence</strong><small>Tâche, entrée, labels, runtime et version.</small></div></li><li><span>03</span><div><strong>Métriques et limites</strong><small>Dataset, précision, rappel et usages exclus.</small></div></li></ol><div className="ai-privacy-note"><IconInfo size={15} /><small>Aucun script Python arbitraire n'est exécuté sur la plateforme.</small></div></div>
-          </aside>
 
           <section className="card-shell ai-categories-card">
-            <div className="card-head"><div><h3><IconSparkles size={16} /> Catégories</h3><small>Taxonomie transverse utilisée pour retrouver et documenter les modèles.</small></div>{canCatCreate && <button className="btn-shell small" data-testid="category-add" onClick={() => openCat()}><IconPlus size={13} /> Ajouter</button>}</div>
-            <div className="card-body"><div className="legend-list">{cats.map((category) => <div className="legend-item" key={category.id} data-testid="category-item"><span className="ai-category-name"><i style={{ "--legend-color": category.couleur || "var(--shell-blue)" }} /><strong>{category.label}</strong><small>{category.code}</small></span><span className="row-actions"><span className="status-chip neutral">{category.type || "retail"}</span>{canCatUpdate && <button className="btn-shell small" data-testid="category-edit" onClick={() => openCat(category)} title="Modifier"><IconEdit size={12} /></button>}{canCatDelete && <button className="btn-shell small danger" data-testid="category-delete" onClick={() => removeCat(category)} title="Supprimer"><IconTrash size={12} /></button>}</span></div>)}{cats.length === 0 && <p className="ai-empty compact">Aucune catégorie configurée.</p>}</div><div className="ai-privacy-note"><IconInfo size={15} /><small>La détection de personnes reste non nominative : présence et trajectoire uniquement.</small></div></div>
+            <div className="card-head"><div><h3><IconGrid size={16} /> Catégories</h3><small>Taxonomie transverse utilisée pour retrouver et documenter les modèles.</small></div>{canCatCreate && <button className="btn-shell small" data-testid="category-add" onClick={() => openCat()}><IconPlus size={13} /> Ajouter</button>}</div>
+            <div className="card-body ai-section-scroll" role="region" aria-label="Catégories" tabIndex={0}><div className="legend-list">{cats.map((category) => <div className="legend-item" key={category.id} data-testid="category-item"><span className="ai-category-name"><i style={{ "--legend-color": category.couleur || "var(--shell-blue)" }} /><strong>{category.label}</strong><small>{category.code}</small></span><span className="row-actions"><span className="status-chip neutral">{category.type || "retail"}</span>{canCatUpdate && <button className="btn-shell small" data-testid="category-edit" onClick={() => openCat(category)} title="Modifier"><IconEdit size={12} /></button>}{canCatDelete && <button className="btn-shell small danger" data-testid="category-delete" onClick={() => removeCat(category)} title="Supprimer"><IconTrash size={12} /></button>}</span></div>)}{cats.length === 0 && <p className="ai-empty compact">Aucune catégorie configurée.</p>}</div><div className="ai-privacy-note"><IconInfo size={15} /><small>La détection de personnes reste non nominative : présence et trajectoire uniquement.</small></div></div>
           </section>
+          <aside className="card-shell ai-integration-card">
+            <div className="card-head"><div><h3><IconInfo size={16} /> Contrat constructeur</h3><small>Ce qu'un partenaire doit fournir.</small></div></div>
+            <div className="card-body ai-section-scroll" role="region" aria-label="Contrat constructeur" tabIndex={0}><ol className="ai-integration-steps"><li><span>01</span><div><strong>Poids exportés</strong><small>ONNX recommandé. `.pt` réservé aux artefacts de confiance.</small></div></li><li><span>02</span><div><strong>Manifeste d'inférence</strong><small>Tâche, entrée, labels, runtime et version.</small></div></li><li><span>03</span><div><strong>Métriques et limites</strong><small>Dataset, précision, rappel et usages exclus.</small></div></li></ol><div className="ai-privacy-note"><IconInfo size={15} /><small>Aucun script Python arbitraire n'est exécuté sur la plateforme.</small></div></div>
+          </aside>
+
         </div>
       </div>
 
@@ -475,7 +574,7 @@ export default function AiVisionPage() {
             <div className="ai-form-grid"><div><label className="auth-label">Nom</label><input className="field-shell" value={boxModal.nom} onChange={(event) => setBoxModal({ ...boxModal, nom: event.target.value })} placeholder="Anomalies magasin" required /></div><div><label className="auth-label">Version</label><input className="field-shell" value={boxModal.version} onChange={(event) => setBoxModal({ ...boxModal, version: event.target.value })} required /></div></div>
             <label className="auth-label">Description</label><textarea className="field-shell" rows={2} value={boxModal.description} onChange={(event) => setBoxModal({ ...boxModal, description: event.target.value })} placeholder="Capacité métier et contexte d'utilisation." />
             <div className="ai-box-builder-head"><div><label className="auth-label">Modèles de la Box</label><small>{boxModal.items.length} sélectionné{boxModal.items.length > 1 ? "s" : ""}</small></div><span>Réglages embarqués par version</span></div>
-            <div className="ai-model-picker">{models.map((model) => { const selected = boxModal.items.some((item) => item.model_id === model.id); const ready = model.statut === "production" && model.validation_status === "manifest_valid" && isDeployable(model); return <button type="button" className={selected ? "selected" : ""} key={model.id} onClick={() => toggleModelInBox(model.id)}><span className="ai-picker-check">{selected && <IconCheck size={12} />}</span><span><strong>{model.nom}</strong><small>v{model.version} · {ready ? "prêt à publier" : "sandbox / adaptateur requis"}</small></span></button>; })}{models.length === 0 && <p className="ai-empty compact">Importez d'abord un modèle.</p>}</div>
+            <div className="ai-model-picker">{models.map((model) => { const selected = boxModal.items.some((item) => item.model_id === model.id); const ready = estPret(model); return <button type="button" className={`${selected ? "selected" : ""}${ready ? "" : " unavailable"}`} key={model.id} disabled={!ready} title={ready ? undefined : motifBlocage(model)} onClick={() => ready && toggleModelInBox(model.id)}><span className="ai-picker-check">{selected && <IconCheck size={12} />}</span><span><strong>{model.nom}</strong><small>v{model.version} · {ready ? "prêt à publier" : motifBlocage(model)}</small></span></button>; })}{models.length === 0 && <p className="ai-empty compact">Importez d'abord un modèle.</p>}</div>
             <div className="ai-box-item-list">{boxModal.items.map((item) => { const model = models.find((entry) => entry.id === item.model_id); return <article className="ai-box-item" key={item.model_id}><header><span><IconCpu size={14} /><strong>{model?.nom || item.model_id}</strong></span><button type="button" className="icon-btn" onClick={() => toggleModelInBox(item.model_id)} aria-label="Retirer"><IconX size={13} /></button></header><div className="ai-box-item-fields"><label>Caméra<input className="field-shell" value={item.camera} onChange={(event) => updateBoxItem(item.model_id, { camera: event.target.value })} /></label><label>FPS<input className="field-shell" type="number" min="1" max="30" value={item.inference_fps} onChange={(event) => updateBoxItem(item.model_id, { inference_fps: event.target.value })} /></label><label>Confiance %<input className="field-shell" type="number" min="0" max="100" value={item.confidence} onChange={(event) => updateBoxItem(item.model_id, { confidence: event.target.value })} /></label><label>IoU %<input className="field-shell" type="number" min="0" max="100" value={item.iou_threshold} onChange={(event) => updateBoxItem(item.model_id, { iou_threshold: event.target.value })} /></label></div><div className="ai-box-item-options"><label><input type="checkbox" checked={item.overlay_enabled} onChange={(event) => updateBoxItem(item.model_id, { overlay_enabled: event.target.checked })} /> Overlay cockpit</label><label><input type="checkbox" checked={item.incident_enabled} onChange={(event) => updateBoxItem(item.model_id, { incident_enabled: event.target.checked })} /> Création d'incident</label></div></article>; })}</div>
             {err && <div className="auth-error"><IconAlertCircle size={15} /> {err}</div>}
           </div>

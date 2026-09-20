@@ -33,7 +33,7 @@ body {
 .auth-page-wrap {
   min-height: 100vh;
   display: grid;
-  grid-template-columns: minmax(430px, 0.78fr) minmax(0, 1.22fr);
+  grid-template-columns: minmax(0, 1.22fr) minmax(430px, 0.78fr);
   background: #08090b;
   color-scheme: dark;
 }
@@ -41,6 +41,8 @@ body {
 .auth-page-wrap::before { display: none; }
 
 .auth-login-panel {
+  grid-column: 2;
+  grid-row: 1;
   min-height: 100vh;
   padding: clamp(28px, 4vh, 48px) clamp(34px, 4.5vw, 68px) 28px;
   background: #08090b;
@@ -94,7 +96,7 @@ body {
   font-size: 14px;
 }
 .auth-form .field-shell:hover { border-color: rgba(255, 255, 255, 0.26); }
-.auth-form .field-shell:focus { border-color: rgba(216, 88, 16, 0.75); box-shadow: 0 0 0 3px rgba(216, 88, 16, 0.11); }
+.auth-form .field-shell:focus { border-color: #d85810; box-shadow: none; }
 .auth-form .btn-shell.primary {
   min-height: 48px;
   margin-top: 10px;
@@ -127,13 +129,33 @@ body {
 .auth-login-footer small { font-size: 9px; }
 
 .auth-visual-panel {
+  grid-column: 1;
+  grid-row: 1;
   position: relative;
-  min-height: 100vh;
+  /* Detachee des bords : la marge laisse respirer le noir de la page derriere.
+     La hauteur retranche les deux marges, sinon le panneau depasse la fenetre
+     et fait apparaitre une barre de defilement. */
+  margin: 14px;
+  min-height: calc(100vh - 28px);
+  /* Meme rayon que les boutons et les champs du formulaire (7 px). */
+  border-radius: 7px;
   padding: clamp(42px, 7vw, 96px);
   background-color: #151719;
-  background-image: url("/brand/oscar-login-architecture.jpg");
-  background-position: center;
-  background-size: cover;
+  /* Deux couches : le degrade est declare en premier, donc peint au-dessus de
+     la photo. Il enracine le bas de l'image dans le noir de la page au lieu de
+     la laisser se couper net sur le bord. */
+  background-image:
+    linear-gradient(
+      to top,
+      rgba(8, 9, 11, 0.88) 0%,
+      rgba(8, 9, 11, 0.55) 12%,
+      rgba(8, 9, 11, 0.18) 26%,
+      rgba(8, 9, 11, 0) 40%
+    ),
+    url("/brand/oscar-login-humanoid.jpg");
+  background-position: center, 50% 42%;
+  background-size: cover, cover;
+  background-repeat: no-repeat, no-repeat;
   overflow: hidden;
 }
 
@@ -393,7 +415,7 @@ body {
   color: var(--shell-text);
 }
 .field-shell:hover { border-color: rgba(255, 255, 255, 0.16); }
-.field-shell:focus { border-color: rgba(216, 88, 16, 0.72); box-shadow: 0 0 0 3px rgba(216, 88, 16, 0.12); }
+.field-shell:focus { border-color: #d85810; box-shadow: none; }
 .status-chip {
   min-height: 22px;
   padding: 2px 8px;
@@ -518,6 +540,7 @@ body {
 
 @media (max-width: 760px) {
   .auth-page-wrap { grid-template-columns: 1fr; }
+  .auth-login-panel { grid-column: 1; }
   .auth-login-panel { min-height: 100vh; padding: 26px 24px 22px; }
   .auth-card-shell { width: min(100%, 380px); margin: auto; padding: 52px 0; }
   .auth-login-footer { width: min(100%, 380px); margin: 0 auto; }
@@ -540,3 +563,61 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .modal-shell { animation: none; }
 }
+
+
+/* --- Pages d'identite : liens secondaires, avis, indications ---
+   Le panneau est revenu au fond sombre : ces couleurs sont donc claires sur
+   fond noir, et non l'inverse. */
+.auth-secondary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  margin-top: 20px;
+  padding-top: 18px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  font-size: 13px;
+}
+.auth-link {
+  color: #f0803c;
+  font-weight: 560;
+  text-decoration: none;
+  border-bottom: 1px solid rgba(240, 128, 60, 0.32);
+}
+.auth-link:hover { border-bottom-color: #f0803c; }
+
+.auth-hint {
+  display: block;
+  margin-top: 7px;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.auth-hint.warn { color: #ff9a92; }
+
+.auth-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 13px 15px;
+  border: 1px solid rgba(73, 212, 157, 0.28);
+  border-radius: 8px;
+  background: rgba(73, 212, 157, 0.08);
+  color: #6fddb2;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.auth-notice svg { flex: none; margin-top: 2px; }
+
+
+/* --- Composition centree de la page de connexion ---
+   Le bloc de marque, le titre et le pied de page se centrent avec la carte,
+   sur un axe unique. Les libelles des champs restent alignes a gauche : une
+   etiquette centree au-dessus d'un champ pleine largeur se detache de ce
+   qu'elle designe, et l'oeil doit revenir en arriere pour lire la saisie. */
+.auth-login-panel { align-items: center; }
+.auth-brand-header { justify-content: center; }
+.auth-login-heading { text-align: center; }
+.auth-login-heading p { margin-inline: auto; }
+.auth-secondary { justify-content: center; }
+.auth-login-footer { width: min(100%, 380px); }
+.auth-notice { text-align: left; }
