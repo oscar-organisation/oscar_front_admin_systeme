@@ -48,7 +48,7 @@ from ..schemas import (
 router = APIRouter(prefix="/studio", tags=["studio"])
 
 # Statuts qu'un déploiement plus récent remplace.
-EN_COURS = ("pending", "delivered", "active")
+EN_COURS = ("pending", "delivered", "prepared", "active")
 
 
 def _maintenant() -> datetime:
@@ -77,6 +77,7 @@ def _bundle_du_perimetre(db: Session, bundle_id: str, org_id: str | None) -> Dep
     bundle = db.execute(
         select(DeploymentBundle)
         .where(DeploymentBundle.id == bundle_id)
+        .with_for_update()
         .options(selectinload(DeploymentBundle.versions))
     ).scalar_one_or_none()
     if not bundle or (org_id and bundle.org_id != org_id):
@@ -241,13 +242,23 @@ def save_draft(request: Request, bundle_id: str, body: BundleDraftIn, db: Sessio
     """
     bundle = _bundle_du_perimetre(db, bundle_id, request_organisation_id(request))
     version = _brouillon(bundle)
+    actuelle = version or _derniere_publiee(bundle)
+    if "expected_revision" in body.model_fields_set and body.expected_revision != (
+        actuelle.editing_revision if actuelle else None
+    ):
+        raise HTTPException(409, "Brouillon modifié sur un autre poste : rechargez ou conservez une copie locale")
+    try:
+        checksum = empreinte(manifeste_runtime(body.spec))
+        valider_specification(body.spec)
+    except (TypeError, ValueError, AttributeError):
+        raise HTTPException(422, "Structure de composition invalide (nodes, agents, canaux ou edges)")
     if version is None:
         dernier = max((v.numero for v in bundle.versions), default=0)
         version = BundleVersion(bundle_id=bundle.id, numero=dernier + 1, statut="draft")
         db.add(version)
     version.spec = body.spec
     version.notes = body.notes
-    version.checksum = empreinte(manifeste_runtime(body.spec))
+    version.checksum = checksum
     db.commit()
     db.refresh(version)
     return version
@@ -294,6 +305,8 @@ def publish_bundle(request: Request, bundle_id: str, body: BundlePublishIn,
     version = _brouillon(bundle)
     if version is None:
         raise HTTPException(409, "Aucun brouillon à publier : modifiez la composition d'abord")
+    if "expected_revision" in body.model_fields_set and body.expected_revision != version.editing_revision:
+        raise HTTPException(409, "Le brouillon a changé depuis la vérification : vérifiez-le de nouveau")
     erreurs, _avertissements = valider_specification(version.spec)
     if erreurs:
         raise HTTPException(409, "Composition non publiable : " + " ; ".join(erreurs))
@@ -454,7 +467,7 @@ def runtime_bundle(reference: str, db: Session = Depends(get_db), _=Depends(_age
     deployment = db.execute(
         select(BundleDeployment)
         .where(BundleDeployment.robot_id == robot.id)
-        .where(BundleDeployment.statut.in_(("pending", "delivered", "active")))
+        .where(BundleDeployment.statut.in_(EN_COURS))
         .order_by(BundleDeployment.created_at.desc())
     ).scalars().first()
     if deployment is None:
@@ -489,9 +502,11 @@ def runtime_report(reference: str, body: DeploymentReportIn, db: Session = Depen
     deployment = db.get(BundleDeployment, body.deployment_id)
     if not deployment or deployment.robot_id != robot.id:
         raise HTTPException(404, "Déploiement introuvable pour ce robot")
+    if deployment.statut == "superseded":
+        raise HTTPException(409, "Ce déploiement a été remplacé : rapport obsolète")
     version = db.get(BundleVersion, deployment.version_id)
     attendu = empreinte(manifeste_runtime(version.spec if version else {}))
-    if body.checksum and not hmac.compare_digest(body.checksum, attendu):
+    if not body.checksum or not hmac.compare_digest(body.checksum, attendu):
         # Le robot rend compte d'autre chose que ce qui lui a été servi : on
         # le consigne comme un échec plutôt que de valider une version qui ne
         # correspond à rien de publié.
@@ -503,6 +518,6 @@ def runtime_report(reference: str, body: DeploymentReportIn, db: Session = Depen
     deployment.statut = body.statut
     deployment.message = body.message
     deployment.report = body.report
-    deployment.applied_at = _maintenant()
+    deployment.applied_at = _maintenant() if body.statut == "active" else None
     db.commit()
     return {"deployment": deployment.id, "statut": deployment.statut}

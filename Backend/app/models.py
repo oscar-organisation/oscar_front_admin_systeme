@@ -644,6 +644,12 @@ class BundleVersion(Base, TimestampMixin):
 
     bundle: Mapped[DeploymentBundle] = relationship(back_populates="versions")
 
+    @property
+    def editing_revision(self) -> str:
+        # Distinct du checksum runtime : déplacer un bloc est aussi une édition.
+        from .bundle_spec import empreinte
+        return empreinte({"id": self.id, "statut": self.statut, "spec": self.spec, "notes": self.notes})
+
 
 class BundleDeployment(Base, TimestampMixin):
     """Fait daté : telle version a été demandée sur tel robot.
@@ -661,6 +667,7 @@ class BundleDeployment(Base, TimestampMixin):
     robot_id: Mapped[str] = mapped_column(ForeignKey("robots.id", ondelete="CASCADE"), index=True)
     # pending : demandé, pas encore retiré par le robot
     # delivered : le robot a récupéré la composition
+    # prepared : configuration déposée, sans confirmation du runtime
     # active : le robot a confirmé l'avoir appliquée
     # failed : le robot a signalé un échec
     # superseded : remplacé par un déploiement plus récent

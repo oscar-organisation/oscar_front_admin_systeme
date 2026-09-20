@@ -519,10 +519,12 @@ class BundleDraftIn(BaseModel):
 
     spec: dict = Field(default_factory=dict)
     notes: str | None = None
+    expected_revision: str | None = None
 
 
 class BundlePublishIn(BaseModel):
     notes: str | None = None
+    expected_revision: str | None = None
 
 
 class BundleVersionOut(BaseModel):
@@ -532,6 +534,7 @@ class BundleVersionOut(BaseModel):
     numero: int
     statut: str
     checksum: str | None = None
+    editing_revision: str
     notes: str | None = None
     published_at: datetime | None = None
     created_at: datetime | None = None
@@ -597,7 +600,7 @@ class DeploymentOut(BaseModel):
 
 class DeploymentReportIn(BaseModel):
     deployment_id: str
-    statut: str = Field(pattern="^(active|failed)$")
+    statut: str = Field(pattern="^(prepared|active|failed)$")
     checksum: str | None = None
     message: str | None = None
     report: dict = Field(default_factory=dict)
