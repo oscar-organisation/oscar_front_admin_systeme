@@ -64,7 +64,7 @@ img, video, canvas { max-width: 100%; }
 button, input, select, textarea { font: inherit; letter-spacing: 0; }
 button, a { -webkit-tap-highlight-color: transparent; }
 button { touch-action: manipulation; }
-::selection { color: #051014; background: var(--shell-blue); }
+::selection { color: #ffffff; background: var(--shell-blue); }
 
 :focus-visible {
   outline: 2px solid var(--shell-blue);
@@ -537,14 +537,14 @@ button { touch-action: manipulation; }
 .organisation-switcher-trigger {
   width: 100%;
   min-width: 0;
-  min-height: 58px;
-  padding: 9px;
+  min-height: 48px;
+  padding: 8px 9px;
   border: 1px solid var(--shell-line);
   border-radius: var(--radius-md);
   background: rgba(255, 255, 255, 0.025);
   color: var(--shell-text);
   display: grid;
-  grid-template-columns: 28px minmax(0, 1fr) 16px;
+  grid-template-columns: 26px minmax(0, 1fr) 16px;
   align-items: center;
   gap: 8px;
   text-align: left;
@@ -561,8 +561,8 @@ button { touch-action: manipulation; }
 .organisation-switcher-trigger:disabled { cursor: default; }
 
 .organisation-switcher-icon {
-  width: 28px;
-  height: 28px;
+  width: 26px;
+  height: 26px;
   border-radius: var(--radius-sm);
   background: var(--shell-blue-soft);
   color: var(--shell-blue);
@@ -576,13 +576,6 @@ button { touch-action: manipulation; }
   gap: 1px;
 }
 
-.organisation-switcher-copy > span:first-child {
-  color: var(--shell-dim);
-  font-family: var(--font-mono);
-  font-size: 9px;
-  text-transform: uppercase;
-}
-
 .organisation-switcher-copy strong,
 .organisation-switcher-copy small {
   min-width: 0;
@@ -593,7 +586,7 @@ button { touch-action: manipulation; }
 
 .organisation-switcher-copy strong {
   color: var(--shell-text);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
 }
 
@@ -990,7 +983,7 @@ button { touch-action: manipulation; }
 .btn-shell.primary {
   border-color: var(--shell-blue-strong);
   background: var(--shell-blue);
-  color: #051014;
+  color: #ffffff;
   font-weight: 600;
 }
 
@@ -1111,8 +1104,21 @@ input[type="color"].field-shell { padding: 5px; }
   align-items: start;
 }
 
-.ai-models-card { min-width: 0; }
-.ai-categories-card { grid-column: 1 / -1; }
+/* Le registre passe pleine largeur : son tableau a six colonnes et debordait
+   horizontalement dans la colonne etroite, coupant la colonne Actions. */
+.ai-models-card { grid-column: 1 / -1; min-width: 0; }
+/* Les affectations forment leur propre rangee pleine largeur. Elles vivaient
+   dans une colonne etroite et collante dont le contenu, une liste sans borne,
+   depassait la hauteur de sa rangee et se peignait par-dessus la carte
+   suivante. Une Box pouvant viser autant de robots, flottes et sites qu'on
+   veut, cette liste a besoin d'un tableau, d'un filtre et d'une pagination. */
+.ai-assignments-card { grid-column: 1 / -1; min-width: 0; }
+.ai-assign-card { min-width: 0; }
+/* Categories et contrat constructeur se partagent la derniere rangee : ce sont
+   deux blocs de reference, consultes rarement, qui n'ont pas a occuper une
+   colonne au-dessus des cartes de travail. */
+.ai-categories-card { min-width: 0; }
+.ai-integration-card { min-width: 0; }
 .ai-card-head { min-height: 70px; }
 .ai-empty { padding: 30px !important; color: var(--shell-dim); text-align: center; }
 .ai-empty.compact { padding: 18px 4px !important; margin: 0; }
@@ -1143,8 +1149,15 @@ input[type="color"].field-shell { padding: 5px; }
 }
 
 .ai-runtime-name { color: var(--shell-text); font-size: 11px; font-family: var(--font-mono); }
-.ai-deploy-card { position: sticky; top: 16px; }
-.ai-deploy-card .field-shell { width: 100%; }
+.ai-assign-card .field-shell { width: 100%; }
+.ai-assign-note {
+  margin: 14px 0 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--shell-line);
+  color: var(--shell-dim);
+  font-size: 10.5px;
+  line-height: 1.6;
+}
 
 .ai-deployment-list {
   margin-top: 14px;
@@ -1225,16 +1238,13 @@ input[type="color"].field-shell { padding: 5px; }
 .ai-trust-checkbox small { color: var(--shell-dim); font-size: 10.5px; }
 
 .ai-studio-summary {
-  min-height: 148px;
   margin-bottom: 16px;
-  padding: 22px 24px;
+  padding: 18px 24px;
   border: 1px solid var(--shell-line);
   border-radius: var(--radius-lg);
   background: var(--shell-surface);
-  box-shadow: inset 3px 0 0 rgba(73, 136, 246, 0.45), var(--shadow-sm);
-  display: grid;
-  grid-template-columns: minmax(300px, 1.25fr) minmax(460px, 1fr);
-  align-items: center;
+  box-shadow: var(--shadow-sm);
+  display: block;
   gap: 28px;
   overflow: hidden;
 }
@@ -1266,6 +1276,21 @@ input[type="color"].field-shell { padding: 5px; }
 .ai-studio-metrics span { margin-top: 7px; color: var(--shell-dim); font-size: 9.5px; line-height: 1.25; }
 
 .ai-boxes-card { min-width: 0; }
+.ai-section-scroll {
+  max-height: min(560px, 60vh);
+  max-height: min(560px, 60dvh);
+  overflow-y: auto;
+  overscroll-behavior-y: auto;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: var(--shell-line-strong) transparent;
+}
+.ai-section-scroll:focus-visible { outline-offset: -3px; }
+.ai-section-scroll .data-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
 .ai-box-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .ai-box-card {
   min-width: 0;
@@ -1304,12 +1329,35 @@ input[type="color"].field-shell { padding: 5px; }
 .ai-scope-switch button:hover { color: var(--shell-text); }
 .ai-scope-switch button.active { background: var(--shell-blue-soft); color: var(--shell-blue-strong); box-shadow: inset 0 0 0 1px var(--shell-blue-border); }
 .ai-assign-button { width: 100%; margin-top: 6px; }
-.ai-assignment-list { max-height: 310px; margin-top: 18px; border-top: 1px solid var(--shell-line); overflow-y: auto; }
-.ai-assignment-row { min-height: 58px; padding: 9px 0; border-bottom: 1px solid var(--shell-line); display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.ai-assignment-row > span { min-width: 0; display: flex; flex-direction: column; }
-.ai-assignment-row strong { overflow: hidden; color: var(--shell-text); font-size: 10.5px; text-overflow: ellipsis; white-space: nowrap; }
-.ai-assignment-row small { color: var(--shell-dim); font-size: 9.5px; }
-.ai-assignment-row.muted { opacity: 0.5; }
+.ai-assignments-tools { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.ai-assignments-search { width: 210px; min-height: 32px; font-size: 11px; }
+.ai-scope-switch.compact { grid-template-columns: repeat(4, auto); }
+.ai-scope-switch.compact button { padding: 0 10px; white-space: nowrap; }
+.ai-assignments-table td { vertical-align: middle; }
+.ai-assignments-table tr.muted { opacity: 0.55; }
+.ai-assignment-box { display: flex; flex-direction: column; }
+.ai-assignment-box strong { color: var(--shell-text-strong); font-size: 12px; }
+.ai-assignment-box small { color: var(--shell-dim); font: 10px/1.5 var(--font-mono); }
+.ai-assignment-target { color: var(--shell-text); font-size: 12px; }
+.ai-assignments-foot {
+  padding: 11px 18px;
+  border-top: 1px solid var(--shell-line);
+  color: var(--shell-dim);
+  font-size: 10.5px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+/* Artefact : le runtime et le poids se suivaient sur la meme ligne sans
+   separation, donnant « ultralytics5.1 Mo ». */
+.ai-artifact-cell { display: flex; flex-direction: column; gap: 2px; }
+.ai-artifact-cell small { color: var(--shell-dim); font-size: 10.5px; }
+
+/* Les actions d'une ligne de tableau tiennent sur une ligne : elles passaient
+   a la ligne des que la cellule se resserrait, decalant la hauteur des rangees. */
+.data-table .row-actions { flex-wrap: nowrap; white-space: nowrap; }
 
 .ai-category-chips { min-width: 125px; display: flex; flex-wrap: wrap; gap: 4px; }
 .ai-category-chips span { padding: 3px 6px; border: 1px solid var(--shell-line); border-radius: 5px; color: var(--shell-muted); background: rgba(255, 255, 255, 0.02); font-size: 9px; }
@@ -1344,6 +1392,11 @@ input[type="color"].field-shell { padding: 5px; }
 .ai-model-picker > button { min-width: 0; min-height: 48px; padding: 7px 9px; border: 1px solid var(--shell-line); border-radius: 7px; background: rgba(255, 255, 255, 0.018); color: var(--shell-muted); cursor: pointer; display: flex; align-items: center; gap: 9px; text-align: left; }
 .ai-model-picker > button:hover { border-color: var(--shell-line-strong); }
 .ai-model-picker > button.selected { border-color: var(--shell-blue-border); background: var(--shell-blue-soft); }
+/* Modele non executable : visible avec son motif, mais pas selectionnable —
+   l'ajouter fabriquerait une Box qui ne pourrait jamais etre publiee. */
+.ai-model-picker > button.unavailable { opacity: 0.5; cursor: not-allowed; }
+.ai-model-picker > button.unavailable:hover { border-color: var(--shell-line); }
+.ai-model-picker > button.unavailable small { color: var(--shell-amber, #d9a13a); }
 .ai-model-picker > button > span:last-child { min-width: 0; display: flex; flex-direction: column; }
 .ai-model-picker strong { overflow: hidden; color: var(--shell-text); font-size: 10.5px; text-overflow: ellipsis; white-space: nowrap; }
 .ai-model-picker small { margin-top: 2px; color: var(--shell-faint); font-size: 9px; }
@@ -1364,8 +1417,9 @@ input[type="color"].field-shell { padding: 5px; }
 
 @media (max-width: 1020px) {
   .ai-vision-grid { grid-template-columns: 1fr; }
-  .ai-deploy-card { position: static; }
   .ai-categories-card { grid-column: auto; }
+  .ai-assignments-tools { width: 100%; }
+  .ai-assignments-search { width: 100%; }
   .ai-studio-summary { grid-template-columns: 1fr; }
 }
 
@@ -1817,4 +1871,71 @@ input[type="color"].field-shell { padding: 5px; }
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+/* Roles dans la table utilisateurs : une seule ligne, hauteur constante.
+   Au-dela de deux roles, le reste est replie sous un compteur ; la liste
+   complete reste accessible par l'attribut title de la ligne. */
+.role-chip-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  white-space: nowrap;
+}
+.role-chip-row .role-chip {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+  padding: 2px 8px;
+}
+.role-chip-row .role-chip-more { flex: none; max-width: none; font-variant-numeric: tabular-nums; }
+
+/* --- Mon compte --- */
+.account-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  gap: 16px;
+  margin-bottom: 16px;
+}
+.account-form { display: flex; flex-direction: column; gap: 16px; }
+.account-actions { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.account-confirm {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--shell-green);
+  font-size: 12.5px;
+}
+.account-readonly {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 18px 26px;
+  margin: 0;
+}
+.account-readonly dt {
+  margin-bottom: 7px;
+  color: var(--shell-dim);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.account-readonly dd { margin: 0; color: var(--shell-text); font-size: 13.5px; }
+.account-empty { color: var(--shell-dim); font-size: 13px; }
+
+/* --- Pastille utilisateur devenue lien vers « Mon compte » --- */
+.user-chip-link {
+  text-decoration: none;
+  border-radius: var(--radius-md);
+  transition: background 120ms ease, border-color 120ms ease;
+}
+.user-chip-link:hover { background: var(--shell-card-hover); }
+.user-chip-link.active {
+  background: var(--shell-blue-soft);
+  box-shadow: inset 0 0 0 1px var(--shell-blue-border);
 }

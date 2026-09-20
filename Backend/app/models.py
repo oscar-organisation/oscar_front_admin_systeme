@@ -331,6 +331,15 @@ class Robot(Base, TimestampMixin):
     org_id: Mapped[str | None] = mapped_column(ForeignKey("organisations.id", ondelete="SET NULL"))
     site_id: Mapped[str | None] = mapped_column(ForeignKey("sites.id", ondelete="SET NULL"))
     nom: Mapped[str] = mapped_column(String(80), nullable=False)  # OSCAR-01
+    # Identifiant lisible du robot cote terrain : c'est lui que l'agent embarque
+    # porte dans son enrolement et dans ses chemins d'installation, la ou l'UUID
+    # reste la cle interne. Deux identites pour deux usages, jamais melangees.
+    slug: Mapped[str | None] = mapped_column(String(64), unique=True)
+    # Cle d'agent propre a ce robot : on garde l'empreinte, jamais la cle. Une
+    # cle partagee par la flotte laisse un robot compromis parler au nom des
+    # autres ; ici, chaque robot ne peut plus qu'etre lui-meme.
+    agent_key_hash: Mapped[str | None] = mapped_column(String(64))
+    agent_key_issued_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     serial: Mapped[str | None] = mapped_column(String(120), unique=True)
     firmware: Mapped[str | None] = mapped_column(String(40))
     statut: Mapped[str] = mapped_column(String(20), default="offline")  # online|offline|maintenance
@@ -546,7 +555,133 @@ class AuditLog(Base):
     ts: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), index=True)
     actor_id: Mapped[str | None] = mapped_column(String(32))
     actor_label: Mapped[str | None] = mapped_column(String(200))
+    # Organisation active au moment de l'action. Pas de cle etrangere : la trace
+    # doit survivre a la suppression de l'organisation qu'elle documente.
+    org_id: Mapped[str | None] = mapped_column(String(32), index=True)
     action: Mapped[str] = mapped_column(String(60), nullable=False)  # USER_CREATE, TOKEN_ISSUE...
     resource: Mapped[str | None] = mapped_column(String(200))
     result: Mapped[str] = mapped_column(String(20), default="success")
     ip: Mapped[str | None] = mapped_column(String(60))
+
+
+# --------------------------------------------------------------------------- #
+#  Jetons à usage unique : invitation et réinitialisation de mot de passe
+# --------------------------------------------------------------------------- #
+class AuthToken(Base):
+    """Jeton d'activation ou de réinitialisation, à usage unique.
+
+    Seule l'empreinte SHA-256 du jeton est conservée. Une fuite de la base ne
+    permet donc pas de prendre la main sur un compte : le secret n'existe que
+    dans le courriel envoyé et dans l'URL que l'utilisateur ouvre.
+
+    `used_at` marque la consommation. Un jeton consommé n'est pas supprimé :
+    il sert de trace, et son existence permet de distinguer « lien déjà
+    utilisé » de « lien inconnu » dans les journaux, sans le dire au visiteur.
+    """
+
+    __tablename__ = "auth_tokens"
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_uuid)
+    user_id: Mapped[str] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    kind: Mapped[str] = mapped_column(String(20), nullable=False)  # invite|reset
+    token_hash: Mapped[str] = mapped_column(String(64), nullable=False, unique=True, index=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), index=True
+    )
+    requested_ip: Mapped[str | None] = mapped_column(String(60))
+
+    __table_args__ = (
+        CheckConstraint("kind in ('invite','reset')", name="ck_auth_tokens_kind"),
+    )
+
+
+# --------------------------------------------------------------------------- #
+#  Studio de déploiement : bundles, versions, déploiements
+# --------------------------------------------------------------------------- #
+class DeploymentBundle(Base, TimestampMixin):
+    """Unité déployable composée dans le Studio.
+
+    Le bundle porte l'identité stable (nom, code, cible d'exécution) ; ce qui
+    change au fil du travail vit dans ses versions. Séparer les deux est ce qui
+    permet de dire « le robot tourne en version 3 » sans figer le nom, et de
+    revenir à une version antérieure sans recréer un objet.
+    """
+
+    __tablename__ = "deployment_bundles"
+    __table_args__ = (UniqueConstraint("org_id", "slug", name="uq_deployment_bundle_org_slug"),)
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_uuid)
+    org_id: Mapped[str] = mapped_column(ForeignKey("organisations.id", ondelete="CASCADE"))
+    nom: Mapped[str] = mapped_column(String(160), nullable=False)
+    slug: Mapped[str] = mapped_column(String(80), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text)
+    target: Mapped[str] = mapped_column(String(60), default="ENVIRONNEMENT_EXECUTION_ROBOT")
+    statut: Mapped[str] = mapped_column(String(20), default="active")  # active|archived
+    created_by: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+
+    versions: Mapped[list["BundleVersion"]] = relationship(
+        back_populates="bundle", cascade="all, delete-orphan", order_by="BundleVersion.numero"
+    )
+
+
+class BundleVersion(Base, TimestampMixin):
+    """Une version de bundle : brouillon tant qu'elle se modifie, figée ensuite.
+
+    `checksum` est calculé sur la composition canonique. C'est lui que le robot
+    renvoie dans son compte rendu : il prouve que ce qui tourne est bien ce qui
+    a été publié, là où un simple numéro de version se contenterait de
+    l'affirmer.
+    """
+
+    __tablename__ = "bundle_versions"
+    __table_args__ = (UniqueConstraint("bundle_id", "numero", name="uq_bundle_version_numero"),)
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_uuid)
+    bundle_id: Mapped[str] = mapped_column(ForeignKey("deployment_bundles.id", ondelete="CASCADE"))
+    numero: Mapped[int] = mapped_column(Integer, nullable=False)
+    statut: Mapped[str] = mapped_column(String(20), default="draft")  # draft|published|archived
+    spec: Mapped[dict] = mapped_column(JSON, default=dict)
+    checksum: Mapped[str | None] = mapped_column(String(64))
+    notes: Mapped[str | None] = mapped_column(Text)
+    published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    published_by: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+
+    bundle: Mapped[DeploymentBundle] = relationship(back_populates="versions")
+
+    @property
+    def editing_revision(self) -> str:
+        # Distinct du checksum runtime : déplacer un bloc est aussi une édition.
+        from .bundle_spec import empreinte
+        return empreinte({"id": self.id, "statut": self.statut, "spec": self.spec, "notes": self.notes})
+
+
+class BundleDeployment(Base, TimestampMixin):
+    """Fait daté : telle version a été demandée sur tel robot.
+
+    Une nouvelle demande ne réécrit pas la précédente, elle la remplace en la
+    passant à `superseded`. L'historique reste lisible après coup, y compris
+    quand un déploiement a échoué : c'est la seule façon de répondre à « depuis
+    quand ce robot est-il dans cet état ? ».
+    """
+
+    __tablename__ = "bundle_deployments"
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_uuid)
+    org_id: Mapped[str] = mapped_column(ForeignKey("organisations.id", ondelete="CASCADE"))
+    version_id: Mapped[str] = mapped_column(ForeignKey("bundle_versions.id", ondelete="RESTRICT"))
+    robot_id: Mapped[str] = mapped_column(ForeignKey("robots.id", ondelete="CASCADE"), index=True)
+    # pending : demandé, pas encore retiré par le robot
+    # delivered : le robot a récupéré la composition
+    # prepared : configuration déposée, sans confirmation du runtime
+    # active : le robot a confirmé l'avoir appliquée
+    # failed : le robot a signalé un échec
+    # superseded : remplacé par un déploiement plus récent
+    statut: Mapped[str] = mapped_column(String(20), default="pending", index=True)
+    requested_by: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    delivered_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    applied_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    message: Mapped[str | None] = mapped_column(Text)
+    report: Mapped[dict] = mapped_column(JSON, default=dict)
+
+    version: Mapped[BundleVersion] = relationship()
+    robot: Mapped[Robot] = relationship()

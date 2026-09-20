@@ -9,24 +9,39 @@
     "nom": "Gestionnaire de flotte",
     "description": "Gère les organisations, sites et robots.",
     "system": true,
-    "modules": ["organisations", "sites", "robots"]
+    "modules": [
+      "organisations",
+      "sites",
+      "robots",
+      "studio"
+    ]
   },
   {
     "nom": "Opérateur XR",
     "description": "Observe et pilote les robots depuis le casque.",
     "system": true,
-    "modules": ["robots", "supervision", "cockpit"]
+    "modules": [
+      "robots",
+      "supervision",
+      "cockpit"
+    ]
   },
   {
     "nom": "Opérateur 2D",
     "description": "Supervise hors casque et consulte le journal d'activité.",
     "system": true,
-    "modules": ["robots", "audit", "supervision"]
+    "modules": [
+      "robots",
+      "audit",
+      "supervision"
+    ]
   },
   {
     "nom": "Responsable Retail",
     "description": "Gère les modèles IA et les catégories de détection.",
     "system": true,
-    "modules": ["sandbox"]
+    "modules": [
+      "sandbox"
+    ]
   }
 ]

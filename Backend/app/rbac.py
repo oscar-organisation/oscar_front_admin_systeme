@@ -42,6 +42,9 @@ FEATURE_CATALOG: list[tuple[str, str, str, str, list[str]]] = [
     ("api:robot.write", "Gérer les robots", "api", "robots", CRUD),
     ("api:robot.assign", "Associer un robot (org/site/opérateur)", "api", "robots", EXEC),
     ("api:robot.token.issue", "Émettre des jetons LiveKit", "api", "robots", EXEC),
+    # Emettre une cle d'agent donne a un robot le droit de tirer ses bundles :
+    # c'est une capacite de deploiement, pas de supervision.
+    ("api:robot.agent_key", "Émettre la clé d'agent embarqué d'un robot", "api", "robots", EXEC),
     ("ui:robots.page", "Page Robots", "ui", "robots", VIEW),
     ("ui:robots.tokens", "Onglet Jetons LiveKit", "ui", "robots", VIEW),
     ("api:robot.integration", "Voir les détails d'intégration SDK d'un robot", "api", "robots", VIEW),
@@ -53,11 +56,26 @@ FEATURE_CATALOG: list[tuple[str, str, str, str, list[str]]] = [
     # --- Sandbox IA ---
     ("api:ai.model.read", "Lire les modèles IA", "api", "sandbox", VIEW),
     ("api:ai.model.upload", "Importer un modèle IA", "api", "sandbox", EXEC),
+    # Retirer un modele est destructif (poids compris) : capacite distincte de
+    # l'import, pour pouvoir l'accorder separement.
+    ("api:ai.model.delete", "Supprimer un modèle IA", "api", "sandbox", EXEC),
     ("api:ai.model.promote", "Promouvoir / archiver un modèle", "api", "sandbox", EXEC),
     ("api:ai.model.deploy", "Activer un modèle sur un robot", "api", "sandbox", EXEC),
     ("api:ai.category.write", "Gérer les catégories de détection", "api", "sandbox", CRUD),
     ("ui:sandbox.page", "Page Sandbox IA", "ui", "sandbox", VIEW),
     ("ui:sandbox.upload_button", "Bouton Importer un modèle", "ui", "sandbox", VIEW),
+    # --- Studio de déploiement ---
+    # Un bundle est la composition versionnée (agents, canaux, cible matérielle)
+    # qui sera installée sur un robot ou une flotte. Lire, composer, publier et
+    # déployer sont cinq capacités distinctes : publier fige une version,
+    # déployer la pousse sur du matériel réel.
+    ("api:bundle.read", "Lire les bundles de déploiement", "api", "studio", VIEW),
+    ("api:bundle.write", "Composer et modifier un bundle", "api", "studio", CRUD),
+    ("api:bundle.publish", "Publier une version de bundle", "api", "studio", EXEC),
+    ("api:deployment.read", "Suivre les déploiements", "api", "studio", VIEW),
+    ("api:deployment.execute", "Déployer un bundle sur un robot ou une flotte", "api", "studio", EXEC),
+    ("ui:studio.page", "Page Studio de déploiement", "ui", "studio", VIEW),
+    ("ui:studio.publish_button", "Bouton Publier un bundle", "ui", "studio", VIEW),
     # --- Audit ---
     ("api:audit.read", "Lire le journal d'audit", "api", "audit", VIEW),
     ("ui:audit.page", "Page Audit", "ui", "audit", VIEW),
