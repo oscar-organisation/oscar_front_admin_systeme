@@ -22,6 +22,7 @@ import {
   rafraichir,
   useStudioEtat,
   useStudioProjects,
+  useStudioPerimetre,
 } from "../../feature-domain/projectStore";
 import type { ProjectTarget } from "../../feature-domain/types";
 import "../../feature-styles/studio.css";
@@ -40,6 +41,7 @@ function formatDate(date: string): string {
 }
 
 export default function StudioProjectsPage() {
+  const perimetre = useStudioPerimetre();
   const projects = useStudioProjects();
   const { horsLigne, chargement } = useStudioEtat();
   const navigate = useNavigate();
@@ -51,7 +53,7 @@ export default function StudioProjectsPage() {
 
   // Le serveur fait foi pour la liste ; le cache local prend le relais s'il
   // ne repond pas.
-  useEffect(() => { void rafraichir(); }, []);
+  useEffect(() => { void rafraichir(); }, [perimetre]);
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();

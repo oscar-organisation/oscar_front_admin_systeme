@@ -9,6 +9,7 @@ import {
   etatSync,
   useStudioEtat,
   useStudioProjects,
+  useStudioPerimetre,
 } from "../../feature-domain/projectStore";
 import { DEPLOYMENT_STUDIO_PERMISSIONS } from "../../feature-permissions/deploymentStudio.permissions";
 import StudioCanvas from "../components/StudioCanvas";
@@ -30,6 +31,7 @@ function useEcranSuffisant(): boolean {
 }
 
 export default function StudioEditorPage() {
+  const perimetre = useStudioPerimetre();
   const { projectId } = useParams();
   const projects = useStudioProjects();
   const { sync } = useStudioEtat();
@@ -42,7 +44,7 @@ export default function StudioEditorPage() {
   // l'ouverture, une seule fois.
   useEffect(() => {
     if (projectId) void chargerComposition(projectId);
-  }, [projectId]);
+  }, [projectId, perimetre]);
 
   if (!project) {
     return (
