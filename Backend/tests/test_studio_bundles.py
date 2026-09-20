@@ -391,3 +391,30 @@ def test_un_robot_dune_autre_organisation_ne_recoit_pas_de_cle(client, admin_hea
     entetes_voisins = {**admin_headers, "X-Organization-ID": voisine["id"]}
     r = client.post(f"/api/robots/{contexte['robot']['id']}/agent-key", headers=entetes_voisins)
     assert r.status_code == 404
+
+
+def test_lenrolement_livre_les_deux_identites_du_runtime(client, contexte):
+    """Média et commande sont deux participants : une seule identité et le
+    second évince le premier à chaque connexion."""
+    r = client.post(f"/api/robots/{contexte['robot']['id']}/edge-credentials",
+                    headers=contexte["entetes"])
+    assert r.status_code == 200, r.text
+    corps = r.json()
+    fichiers = corps["fichiers"]
+    assert set(fichiers) == {"/etc/oscar/credentials/media.json",
+                             "/etc/oscar/credentials/command.json"}
+    identites = {chemin: contenu["livekit"]["identity"] for chemin, contenu in fichiers.items()}
+    assert len(set(identites.values())) == 2
+    salles = {contenu["livekit"]["roomName"] for contenu in fichiers.values()}
+    assert len(salles) == 1  # meme room, sinon les deux agents ne se rejoignent pas
+    for contenu in fichiers.values():
+        for cle in ("serverUrl", "roomName", "identity", "token"):
+            assert contenu["livekit"][cle]
+
+
+def test_lenrolement_dun_robot_voisin_est_refuse(client, admin_headers, contexte):
+    voisine = client.post("/api/organisations", headers=admin_headers,
+                          json={"nom": uniq("Voisine"), "slug": uniq("voisine")}).json()
+    r = client.post(f"/api/robots/{contexte['robot']['id']}/edge-credentials",
+                    headers={**admin_headers, "X-Organization-ID": voisine["id"]})
+    assert r.status_code == 404

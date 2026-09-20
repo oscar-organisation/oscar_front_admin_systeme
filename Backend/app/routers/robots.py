@@ -252,6 +252,57 @@ def issue_tokens(robot_id: str, body: TokenIssueIn, request: Request, db: Sessio
     )
 
 
+@router.post("/robots/{robot_id}/edge-credentials")
+def issue_edge_credentials(robot_id: str, request: Request, db: Session = Depends(get_db),
+                           user=Depends(require("api:robot.token.issue", "execute"))):
+    """Identifiants LiveKit de l'agent embarqué, dans la forme qu'il attend.
+
+    Le runtime embarqué tient deux rôles dans la même room : il publie la vidéo
+    et il reçoit les commandes. LiveKit n'admet qu'un participant par identité —
+    leur en donner une seule ferait que le second évince le premier à chaque
+    connexion. D'où deux identités distinctes, émises ensemble.
+
+    Jusqu'ici ces deux fichiers étaient déposés à la main sur le robot ; c'est
+    la derniere etape manuelle de l'enrôlement, et elle disparaît ici.
+    """
+    robot = _robot_du_perimetre(db, request, robot_id)
+    room = robot_room(robot)
+    base = room_slug(robot.nom)
+    maintenant = datetime.now(timezone.utc)
+    heures = settings.livekit_sdk_ttl_hours
+
+    fichiers = {}
+    for role, identite, publie in (
+        ("media", f"robot-{base}", True),
+        ("command", f"robot-{base}-command", True),
+    ):
+        jeton = create_livekit_token(
+            identite, room, can_publish=publie, can_subscribe=True,
+            can_publish_data=True, ttl_hours=heures, name=robot.nom,
+        )
+        db.add(LiveKitToken(
+            robot_id=robot.id, room=room, subject="robot", identity=identite, token=jeton,
+            expires_at=maintenant + timedelta(hours=heures),
+        ))
+        fichiers[role] = {"livekit": {
+            "serverUrl": settings.livekit_url,
+            "roomName": room,
+            "identity": identite,
+            "token": jeton,
+        }}
+    db.commit()
+    write_audit(db, actor=user, action="EDGE_CREDENTIALS_ISSUE", resource=f"{robot.nom}:{room}")
+    return {
+        "robot": {"id": robot.id, "nom": robot.nom, "slug": robot.slug},
+        "room": room,
+        "ttl_hours": heures,
+        "fichiers": {
+            "/etc/oscar/credentials/media.json": fichiers["media"],
+            "/etc/oscar/credentials/command.json": fichiers["command"],
+        },
+    }
+
+
 @router.get("/robots/{robot_id}/tokens", response_model=list[LiveKitTokenOut])
 def list_tokens(robot_id: str, request: Request, db: Session = Depends(get_db),
                 _=Depends(require("api:robot.read"))):
