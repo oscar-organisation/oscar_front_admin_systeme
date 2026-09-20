@@ -1,7 +1,7 @@
 import type { ComponentType, LazyExoticComponent } from "react";
 import type { AuthorizationPolicy } from "@/shared/kernel/permissions";
 
-export type ModuleIconKey = "home" | "building" | "store" | "users" | "shield" | "robot" | "cpu" | "activity" | "layers";
+export type ModuleIconKey = "home" | "building" | "store" | "users" | "shield" | "robot" | "cpu" | "activity" | "layers" | "blocks";
 
 export interface ModuleNavigationItem {
   id: string;
