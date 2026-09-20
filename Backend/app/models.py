@@ -338,6 +338,12 @@ class Robot(Base, TimestampMixin):
     # Cle d'agent propre a ce robot : on garde l'empreinte, jamais la cle. Une
     # cle partagee par la flotte laisse un robot compromis parler au nom des
     # autres ; ici, chaque robot ne peut plus qu'etre lui-meme.
+    # Canal de mise a jour du paquet embarque : un robot temoin passe en
+    # « beta » avant que la flotte ne suive.
+    edge_channel: Mapped[str] = mapped_column(String(20), default="stable")
+    # Derniere version du paquet embarque annoncee par le robot lui-meme : la
+    # console n'affiche donc pas ce qu'elle a demande, mais ce qui tourne.
+    edge_version: Mapped[str | None] = mapped_column(String(40))
     agent_key_hash: Mapped[str | None] = mapped_column(String(64))
     agent_key_issued_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     serial: Mapped[str | None] = mapped_column(String(120), unique=True)
@@ -685,3 +691,28 @@ class BundleDeployment(Base, TimestampMixin):
 
     version: Mapped[BundleVersion] = relationship()
     robot: Mapped[Robot] = relationship()
+
+
+class EdgeRelease(Base, TimestampMixin):
+    """Paquet embarqué distribuable, versionné et vérifiable.
+
+    Distribuer du code exécutable n'est pas distribuer de la configuration : on
+    garde l'empreinte de l'archive pour que le robot refuse ce qui ne
+    correspond pas, et on passe par des canaux (`stable`, `beta`) pour qu'une
+    version parte d'abord sur un robot témoin plutôt que sur toute la flotte.
+    """
+
+    __tablename__ = "edge_releases"
+    __table_args__ = (UniqueConstraint("version", name="uq_edge_release_version"),)
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_uuid)
+    version: Mapped[str] = mapped_column(String(40), nullable=False)
+    canal: Mapped[str] = mapped_column(String(20), default="stable")  # stable|beta
+    statut: Mapped[str] = mapped_column(String(20), default="draft")  # draft|published|archived
+    fichier: Mapped[str] = mapped_column(String(512), nullable=False)  # chemin interne
+    archive_nom: Mapped[str] = mapped_column(String(255), nullable=False)
+    sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    taille: Mapped[int] = mapped_column(Integer, nullable=False)
+    notes: Mapped[str | None] = mapped_column(Text)
+    published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    published_by: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    created_by: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
