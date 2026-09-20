@@ -84,6 +84,38 @@ export interface OscarProject {
   updatedAt: string;
   nodes: ArchitectureNode[];
   edges: ArchitectureEdge[];
+  /** Bundle serveur correspondant. Absent : le projet n'existe que dans ce navigateur. */
+  bundleId?: string;
+  /** Version brouillon cote serveur, cible des enregistrements automatiques. */
+  draftVersionId?: string;
+  /** Horodatage du dernier accord avec le serveur ; absent tant qu'il n'y en a pas eu. */
+  syncedAt?: string;
+  /** Compteurs servis par la liste, quand la composition n'est pas encore chargee. */
+  summary?: { composants: number; agents: number; robots: number };
+}
+
+/** Etat de l'accord entre le brouillon local et sa copie serveur. */
+export type SyncState = 'LOCAL' | 'SYNCHRONISE' | 'EN_COURS' | 'ECHEC';
+
+export interface RobotCible {
+  id: string;
+  nom: string;
+  slug?: string | null;
+  statut: string;
+  site_id?: string | null;
+}
+
+export interface DeploiementServeur {
+  id: string;
+  robot_id: string;
+  robot_nom?: string | null;
+  robot_slug?: string | null;
+  statut: string;
+  version_numero?: number | null;
+  bundle_nom?: string | null;
+  message?: string | null;
+  created_at?: string | null;
+  applied_at?: string | null;
 }
 
 export interface ValidationIssue {

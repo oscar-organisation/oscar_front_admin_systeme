@@ -20,6 +20,8 @@ import {
   ArrowLeft,
   Check,
   ChevronDown,
+  CloudOff,
+  CloudUpload,
   CircleHelp,
   PanelRightClose,
   Rocket,
@@ -49,9 +51,19 @@ import type {
   ChannelConfig,
   OscarProject,
   Selection,
+  SyncState,
 } from '../../feature-domain/types';
 
 const nodeTypes = { architecture: ArchitectureNode };
+
+// Dire ou en est le brouillon, sans jargon : l'operateur veut savoir si son
+// travail existe ailleurs que sur son poste.
+const ETAT_SYNC: Record<SyncState, { court: string; long: string; icone: JSX.Element }> = {
+  SYNCHRONISE: { court: 'Enregistré', long: 'Brouillon synchronisé', icone: <Check size={13} /> },
+  EN_COURS: { court: 'Enregistrement…', long: 'Enregistrement en cours', icone: <CloudUpload size={13} /> },
+  ECHEC: { court: 'Non enregistré', long: 'Serveur injoignable — brouillon local', icone: <CloudOff size={13} /> },
+  LOCAL: { court: 'Local', long: 'Projet local à ce navigateur', icone: <CloudOff size={13} /> },
+};
 
 interface StudioProps {
   project: OscarProject;
@@ -59,9 +71,13 @@ interface StudioProps {
   onBack: () => void;
   /** Sans `api:bundle.publish`, la composition reste possible mais pas la publication. */
   canPublish: boolean;
+  /** Sans `api:deployment.execute`, on publie une version sans la pousser sur un robot. */
+  canDeploy: boolean;
+  /** Accord entre le brouillon local et sa copie serveur. */
+  syncEtat: SyncState;
 }
 
-function Canvas({ project, onChange, onBack, canPublish }: StudioProps) {
+function Canvas({ project, onChange, onBack, canPublish, canDeploy, syncEtat }: StudioProps) {
   const wrapperRef = useRef<HTMLDivElement>(null);
   const { screenToFlowPosition, fitView, setCenter } = useReactFlow();
   const [selection, setSelection] = useState<Selection>(null);
@@ -276,10 +292,11 @@ function Canvas({ project, onChange, onBack, canPublish }: StudioProps) {
     setCenter(node.position.x + 180, node.position.y + 120, { zoom: 0.9, duration: 500 });
   }, [project.nodes, setCenter]);
 
-  const publishVersion = () => {
-    update({ version: project.version + 1, status: 'PRET_A_DEPLOYER' });
-    setShowPublish(false);
-    flash(`Version ${project.version + 1} figée dans ce navigateur.`);
+  // La version n'est plus incrementee ici : c'est le serveur qui numerote, et
+  // l'editeur se contente d'afficher ce qu'il a fige.
+  const publishVersion = (numero: number) => {
+    update({ version: numero, status: 'PRET_A_DEPLOYER' });
+    flash(`Version ${numero} publiée.`);
   };
 
   return (
@@ -289,7 +306,7 @@ function Canvas({ project, onChange, onBack, canPublish }: StudioProps) {
         <div className="topbar-divider" />
         <div className="project-heading"><span>Projet</span><strong>{project.name}</strong></div>
         <button className="version-button" type="button">Version {project.version} <ChevronDown size={13} /></button>
-        <span className="save-state"><Check size={13} /> Enregistré localement</span>
+        <span className="save-state">{ETAT_SYNC[syncEtat].icone} {ETAT_SYNC[syncEtat].court}</span>
         <div className="topbar-actions">
           <button className="secondary-button" onClick={() => setShowGuide(true)} type="button"><CircleHelp size={15} /> Guide</button>
           <button className={`secondary-button validation-button ${errors ? 'has-errors' : ''}`} onClick={() => setShowValidation((value) => !value)} type="button"><AlertCircle size={15} /> Vérifier {errors + warnings > 0 && <b>{errors + warnings}</b>}</button>
@@ -357,16 +374,24 @@ function Canvas({ project, onChange, onBack, canPublish }: StudioProps) {
       </div>
 
       <footer className="studio-statusbar">
-        <span><i className="status-dot status-dot--online" /> Brouillon local</span>
+        <span><i className="status-dot status-dot--online" /> {ETAT_SYNC[syncEtat].long}</span>
         <span>{project.nodes.length} composants</span>
         <span>{project.nodes.reduce((sum, node) => sum + node.data.agents.length, 0)} agents</span>
         <span>{project.edges.filter((edge) => edge.data?.edgeKind === 'DONNEES').length} liaisons de données</span>
         <span className="statusbar-spacer" />
-        <span><Save size={13} /> Données conservées dans ce navigateur</span>
+        <span><Save size={13} /> Brouillon conservé dans ce navigateur</span>
         <span><PanelRightClose size={13} /> Panneau de propriétés</span>
       </footer>
 
-      {showPublish && <PublishDialog project={project} issues={issues} onClose={() => setShowPublish(false)} onPublished={publishVersion} />}
+      {showPublish && (
+        <PublishDialog
+          project={project}
+          issues={issues}
+          canDeploy={canDeploy}
+          onClose={() => setShowPublish(false)}
+          onPublished={publishVersion}
+        />
+      )}
     </main>
   );
 }

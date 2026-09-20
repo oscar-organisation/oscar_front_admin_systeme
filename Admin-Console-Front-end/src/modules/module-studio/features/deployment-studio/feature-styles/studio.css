@@ -345,3 +345,30 @@
 .studio-scope .studio-projects { padding: 24px 28px 40px; }
 .studio-scope .studio-projects .section-heading { margin-top: 0; }
 .studio-scope .studio-projects .project-grid { margin-top: 18px; }
+
+/* Bandeau hors ligne de la liste des projets. */
+.studio-scope .studio-offline {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0 0 14px;
+  padding: 8px 11px;
+  color: #8a6a1f;
+  border: 1px solid #f0e2bc;
+  border-radius: 9px;
+  background: #fffdf7;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* Ecran trop etroit pour le plan de composition. */
+.studio-scope .studio-trop-etroit {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  max-width: 520px;
+  color: #4b576b;
+}
+.studio-scope .studio-trop-etroit h2 { margin: 0; }
+.studio-scope .studio-trop-etroit p { margin: 0; line-height: 1.55; }

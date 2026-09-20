@@ -1,3 +1,4 @@
+import re
 import uuid
 from datetime import datetime, timedelta, timezone
 
@@ -73,13 +74,31 @@ def list_robots(request: Request, org_id: str | None = None, site_id: str | None
     return db.execute(q).scalars().all()
 
 
+def _slug_robot(db: Session, nom: str) -> str:
+    """Identifiant terrain d'un robot, derive de son nom.
+
+    L'agent embarque n'attend pas un UUID mais un identifiant lisible
+    (`^[a-z0-9][a-z0-9-]{2,62}$`) : c'est ce qu'il inscrit dans son enrolement
+    et dans `/opt/oscar`. On le derive une fois, a la creation, et on le garde.
+    """
+    base = re.sub(r"[^a-z0-9]+", "-", (nom or "").lower()).strip("-")[:62]
+    if len(base) < 3:
+        base = f"robot-{uuid.uuid4().hex[:6]}"
+    candidat, suffixe = base, 2
+    while db.execute(select(Robot).where(Robot.slug == candidat)).first():
+        candidat = f"{base[:58]}-{suffixe}"
+        suffixe += 1
+    return candidat
+
+
 @router.post("/robots", response_model=RobotOut, status_code=201)
 def create_robot(body: RobotIn, db: Session = Depends(get_db),
                  user=Depends(require("api:robot.write", "create"))):
     data = body.model_dump()
     if not data.get("serial"):
         data["serial"] = None  # série vide -> NULL (pas de doublon sur chaîne vide)
-    robot = Robot(**data)
+    data.pop("slug", None)  # le slug est dérivé, jamais choisi par l'appelant
+    robot = Robot(**data, slug=_slug_robot(db, data.get("nom", "")))
     db.add(robot)
     try:
         db.commit()
@@ -127,6 +146,10 @@ def update_robot(robot_id: str, body: RobotIn, request: Request, db: Session = D
     data = body.model_dump(exclude_unset=True)
     if "serial" in data and not data["serial"]:
         data["serial"] = None
+    # Renommer un robot ne renomme pas son identifiant terrain : l'agent
+    # embarque l'a inscrit dans ses chemins et son enrolement, et un robot qui
+    # change d'identite au milieu d'une flotte est un robot qu'on perd.
+    data.pop("slug", None)
     for k, v in data.items():
         setattr(robot, k, v)
     try:
