@@ -61,6 +61,11 @@ export interface ArchitectureNodeData extends Record<string, unknown> {
   status: 'BROUILLON' | 'PRET';
   /** Box IA appliquee par ce composant, si sa mission comporte de la perception. */
   aiBoxId?: string | undefined;
+  /** Besoin de mise en route du chassis (« base », « camera »...). La commande
+   *  correspondante vit dans le profil du robot, pas ici. */
+  bringupKey?: string | undefined;
+  /** Rang de demarrage : la base avant la camera, la camera avant les agents. */
+  bringupOrder?: number | undefined;
   agents: AgentConfig[];
   onSelect?: (selection: Selection) => void;
   onAddAgent?: (nodeId: string) => void;

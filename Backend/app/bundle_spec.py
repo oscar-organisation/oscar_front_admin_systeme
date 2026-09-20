@@ -201,6 +201,16 @@ def manifeste_runtime(spec: dict) -> dict:
         }
         if donnees.get("aiBoxId"):
             composant["box_ia"] = donnees["aiBoxId"]
+        # Mise en route du chassis : la composition nomme le besoin (« base »,
+        # « camera »), le profil du robot fournit la commande. Un plan reste
+        # ainsi lisible sur n'importe quel chassis, et un chassis qui ne sait
+        # pas satisfaire un besoin le refuse au lieu de l'ignorer.
+        if donnees.get("bringupKey"):
+            composant["mise_en_route"] = str(donnees["bringupKey"]).strip().lower()
+            try:
+                composant["ordre"] = int(donnees.get("bringupOrder") or 100)
+            except (TypeError, ValueError):
+                composant["ordre"] = 100
         composants.append(composant)
 
     liaisons = []
