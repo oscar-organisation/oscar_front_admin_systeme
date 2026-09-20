@@ -2,7 +2,7 @@ import { useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 
 import { useAuth } from "@/auth/AuthContext.jsx";
-import { ADMINISTRATION_NAVIGATION } from "@/modules/module-administration/module.manifest";
+import { consoleNavigation } from "@/app/module-registry";
 import { useTheme } from "@/shared/design-system/themes";
 import { evaluatePolicy } from "@/shared/kernel/permissions";
 import OrganisationSwitcher from "@/components/OrganisationSwitcher.jsx";
@@ -22,6 +22,7 @@ import {
   IconPanelLeftClose,
   IconPanelLeftOpen,
   IconLayers,
+  IconBlocks,
   IconX,
 } from "@/components/Icons.jsx";
 
@@ -35,6 +36,7 @@ const ICONS = {
   cpu: IconCpu,
   activity: IconActivity,
   layers: IconLayers,
+  blocks: IconBlocks,
 };
 
 function initials(name = "") {
@@ -53,7 +55,7 @@ export default function AdminLayout() {
       return false;
     }
   });
-  const items = ADMINISTRATION_NAVIGATION.filter((item) => evaluatePolicy(permissions, item.policy));
+  const items = consoleNavigation.filter((item) => evaluatePolicy(permissions, item.policy));
   const close = () => setOpen(false);
   const toggleCollapsed = () => {
     setCollapsed((current) => {

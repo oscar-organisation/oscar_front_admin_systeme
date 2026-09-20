@@ -1,0 +1,95 @@
+import type { Edge, Node } from '@xyflow/react';
+
+export type ProjectTarget =
+  | 'ENVIRONNEMENT_EXECUTION_ROBOT'
+  | 'ENVIRONNEMENT_EXECUTION_SERVEUR'
+  | 'ENVIRONNEMENT_EXECUTION_NAVIGATEUR_WEB'
+  | 'ENVIRONNEMENT_EXECUTION_APPLICATION_METIER';
+
+export type ArchitectureKind = 'BUNDLE_DEPLOIEMENT' | 'INSTANCE_SERVICE' | 'INSTANCE_APPLICATION';
+
+export type InputChannelType =
+  | 'TYPE_ENTREE_INJECTION_APPLICATION'
+  | 'TYPE_ENTREE_ABONNEMENT_TEMPS_REEL'
+  | 'TYPE_ENTREE_SERVICE_LOCAL'
+  | 'TYPE_ENTREE_CONSOMMATION_COURTIER_MESSAGES'
+  | 'TYPE_ENTREE_ABONNEMENT_ROS_2';
+
+export type OutputChannelType =
+  | 'TYPE_SORTIE_PUBLICATION_TEMPS_REEL_CANAL_AGENT'
+  | 'TYPE_SORTIE_PUBLICATION_TEMPS_REEL_PLUSIEURS_CANAUX'
+  | 'TYPE_SORTIE_RAPPEL_APPLICATION'
+  | 'TYPE_SORTIE_SERVICE_LOCAL'
+  | 'TYPE_SORTIE_PUBLICATION_COURTIER_MESSAGES'
+  | 'TYPE_SORTIE_PUBLICATION_ROS_2';
+
+export type DataFormat = 'NOMBRE' | 'BOOLEEN' | 'TEXTE' | 'OBJET_JSON' | 'BINAIRE_COMPACT' | 'IMAGE';
+
+export interface ChannelConfig {
+  id: string;
+  name: string;
+  technicalCode: string;
+  direction: 'RECEPTION' | 'EMISSION';
+  channelType: InputChannelType | OutputChannelType;
+  dataFormat: DataFormat;
+  description: string;
+}
+
+export interface AgentConfig {
+  id: string;
+  name: string;
+  technicalCode: string;
+  agentType: string;
+  processingName: string;
+  interfaceName: string;
+  dataBandName: string;
+  receiveBusName: string;
+  sendBusName: string;
+  inputs: ChannelConfig[];
+  outputs: ChannelConfig[];
+  canPublishAudio: boolean;
+  canPublishVideo: boolean;
+  expanded: boolean;
+}
+
+export interface ArchitectureNodeData extends Record<string, unknown> {
+  kind: ArchitectureKind;
+  name: string;
+  technicalCode: string;
+  description: string;
+  target: ProjectTarget;
+  status: 'BROUILLON' | 'PRET';
+  agents: AgentConfig[];
+  onSelect?: (selection: Selection) => void;
+  onAddAgent?: (nodeId: string) => void;
+  onToggleAgent?: (nodeId: string, agentId: string) => void;
+}
+
+export type ArchitectureNode = Node<ArchitectureNodeData, 'architecture'>;
+export type ArchitectureEdge = Edge;
+
+export type Selection =
+  | { type: 'node'; nodeId: string }
+  | { type: 'agent'; nodeId: string; agentId: string }
+  | { type: 'channel'; nodeId: string; agentId: string; channelId: string }
+  | null;
+
+export interface OscarProject {
+  id: string;
+  name: string;
+  description: string;
+  target: ProjectTarget;
+  status: 'BROUILLON' | 'PRET_A_DEPLOYER';
+  version: number;
+  updatedAt: string;
+  nodes: ArchitectureNode[];
+  edges: ArchitectureEdge[];
+}
+
+export interface ValidationIssue {
+  id: string;
+  level: 'ERREUR' | 'ATTENTION' | 'INFORMATION';
+  title: string;
+  detail: string;
+  nodeId?: string;
+}
