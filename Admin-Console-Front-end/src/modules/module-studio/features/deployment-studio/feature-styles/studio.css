@@ -332,13 +332,10 @@
 /* Adaptations console : la page projets vit dans la grille de l'administration,
    l'editeur occupe la hauteur utile a droite de la barre laterale. */
 .studio-scope {
-  /* Le Studio garde le fond clair de son plan de travail, y compris quand la
-     console est en theme sombre : ses blocs, poignees et liaisons sont dessines
-     pour ce fond, et un plan de composition se lit comme une table a dessin. */
   display: block;
   min-height: 100vh;
-  background: #f3f6fb;
-  color: #172033;
+  background: var(--shell-bg);
+  color: var(--shell-text);
 }
 .studio-scope--editor { min-width: 1120px; height: 100vh; }
 .studio-scope--editor .studio-shell { height: 100%; }
@@ -372,3 +369,281 @@
 }
 .studio-scope .studio-trop-etroit h2 { margin: 0; }
 .studio-scope .studio-trop-etroit p { margin: 0; line-height: 1.55; }
+
+/* Harmonisation chromatique avec la plateforme d'administration.
+   Ce bloc ne change aucune dimension ni aucun comportement du Studio. */
+.studio-scope {
+  color-scheme: dark;
+  --ink: var(--shell-text);
+  --muted: var(--shell-muted);
+  --line: var(--shell-line);
+  --panel: var(--shell-surface);
+  --soft: var(--shell-card);
+  --blue: var(--shell-blue);
+  --blue-dark: var(--shell-blue-strong);
+  --violet: var(--shell-purple);
+  --cyan: #66e2ee;
+  --green: var(--shell-green);
+  --rose: #ff8cb4;
+  --amber: var(--shell-amber);
+  --danger: var(--shell-red);
+  --shadow: var(--shadow-md);
+  background: var(--shell-bg);
+  color: var(--shell-text);
+}
+
+.studio-scope .brand-mark {
+  color: #fff;
+  background: linear-gradient(145deg, var(--shell-blue-strong), var(--shell-blue));
+  box-shadow: 0 7px 18px rgba(216, 88, 16, .24);
+}
+.studio-scope .brand small,
+.studio-scope .studio-brand small,
+.studio-scope .icon-button,
+.studio-scope .section-heading span,
+.studio-scope .project-card__body > p,
+.studio-scope .project-card__meta span,
+.studio-scope .project-card__body > small,
+.studio-scope .dialog-header span,
+.studio-scope .project-heading span,
+.studio-scope .save-state,
+.studio-scope .studio-statusbar,
+.studio-scope .library-tabs button,
+.studio-scope .library-search,
+.studio-scope .palette-card__copy small,
+.studio-scope .library-note p,
+.studio-scope .project-tree__caption,
+.studio-scope .tree-generated > span,
+.studio-scope .tree-channel,
+.studio-scope .canvas-label small,
+.studio-scope .architecture-node__eyebrow,
+.studio-scope .architecture-node__meta code,
+.studio-scope .architecture-node__meta span,
+.studio-scope .architecture-node__description,
+.studio-scope .agent-card__title code,
+.studio-scope .agent-card__media,
+.studio-scope .agent-scaffold > div,
+.studio-scope .bus-title,
+.studio-scope .channel-copy small,
+.studio-scope .empty-port,
+.studio-scope .inspector__header span,
+.studio-scope .inspector-empty p,
+.studio-scope .selection-path,
+.studio-scope .form-field small,
+.studio-scope .section-label,
+.studio-scope .generated-structure code,
+.studio-scope .validation-panel__eyebrow,
+.studio-scope .validation-item p,
+.studio-scope .publish-summary small,
+.studio-scope .deployment-target small,
+.studio-scope .deployment-steps > div {
+  color: var(--shell-dim);
+}
+
+.studio-scope .primary-button {
+  color: #fff;
+  background: linear-gradient(180deg, var(--shell-blue-strong), var(--shell-blue));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.18), 0 2px 8px rgba(216,88,16,.22);
+}
+.studio-scope .primary-button:hover { background: linear-gradient(180deg, #f1742d, var(--shell-blue)); }
+.studio-scope .secondary-button,
+.studio-scope .back-button,
+.studio-scope .version-button,
+.studio-scope .channel-actions button {
+  color: var(--shell-muted);
+  border-color: var(--shell-line-strong);
+  background: var(--shell-card);
+}
+.studio-scope .secondary-button:hover,
+.studio-scope .back-button:hover,
+.studio-scope .channel-actions button:hover {
+  color: var(--shell-text);
+  border-color: var(--shell-blue-border);
+  background: var(--shell-elevated);
+}
+.studio-scope .danger-button {
+  color: var(--shell-red);
+  border-color: rgba(240,111,114,.28);
+  background: var(--shell-red-soft);
+}
+
+.studio-scope .project-card,
+.studio-scope .project-dialog,
+.studio-scope .publish-dialog,
+.studio-scope .architecture-node,
+.studio-scope .agent-card,
+.studio-scope .channel-row {
+  color: var(--shell-text);
+  border-color: var(--shell-line);
+  background: var(--shell-card);
+  box-shadow: var(--shadow-sm);
+}
+.studio-scope .project-card:hover,
+.studio-scope .palette-card:hover,
+.studio-scope .agent-card:hover,
+.studio-scope .channel-row:hover {
+  border-color: var(--shell-line-strong);
+  box-shadow: var(--shadow-md);
+}
+.studio-scope .project-card__preview {
+  color: rgba(237,107,34,.72);
+  background: linear-gradient(145deg, #12181f, #1a222c);
+}
+.studio-scope .project-card__preview::before { background-image: radial-gradient(#35414e 1px, transparent 1px); }
+.studio-scope .preview-node {
+  border-color: rgba(216,88,16,.35);
+  background: var(--shell-elevated);
+  box-shadow: var(--shadow-sm);
+}
+.studio-scope .project-card__title span { color: var(--shell-blue-strong); }
+.studio-scope .project-card__meta { border-top-color: var(--shell-line); }
+
+.studio-scope .modal-backdrop { background: rgba(0,0,0,.7); }
+.studio-scope .project-dialog,
+.studio-scope .publish-dialog { border-color: var(--shell-line-strong); background: var(--shell-surface); box-shadow: 0 30px 90px rgba(0,0,0,.55); }
+.studio-scope .dialog-header,
+.studio-scope .dialog-footer { border-color: var(--shell-line); }
+.studio-scope .dialog-footer { background: var(--shell-card); }
+.studio-scope .dialog-icon { color: var(--shell-purple); background: var(--shell-purple-soft); }
+.studio-scope .dialog-icon--blue { color: var(--shell-blue-strong); background: var(--shell-blue-soft); }
+.studio-scope .template-selector label,
+.studio-scope .template-field > button { color: var(--shell-text); border-color: var(--shell-line); background: var(--shell-card); }
+.studio-scope .template-field > button:hover { background: var(--shell-card-hover); }
+.studio-scope .template-selector label.is-selected,
+.studio-scope .template-field > button.is-selected {
+  color: var(--shell-blue-strong);
+  border-color: var(--shell-blue-border);
+  background: var(--shell-blue-soft);
+  box-shadow: 0 0 0 2px rgba(216,88,16,.08);
+}
+.studio-scope .template-field > button strong { color: var(--shell-text); }
+
+.studio-scope .studio-shell,
+.studio-scope .canvas-shell { background: var(--shell-bg); }
+.studio-scope .studio-topbar,
+.studio-scope .studio-statusbar,
+.studio-scope .library-panel,
+.studio-scope .library-tabs,
+.studio-scope .inspector,
+.studio-scope .inspector__header {
+  color: var(--shell-text);
+  border-color: var(--shell-line);
+  background: var(--shell-surface);
+}
+.studio-scope .studio-topbar { box-shadow: 0 2px 7px rgba(0,0,0,.2); }
+.studio-scope .topbar-divider { background: var(--shell-line); }
+.studio-scope .status-dot--online { background: var(--shell-green); box-shadow: 0 0 0 3px var(--shell-green-soft); }
+.studio-scope .validation-button b { color: var(--shell-amber); background: var(--shell-amber-soft); }
+.studio-scope .validation-button.has-errors b { color: var(--shell-red); background: var(--shell-red-soft); }
+
+.studio-scope .library-tabs button { border-bottom-color: var(--shell-line); }
+.studio-scope .library-tabs button.is-active { color: var(--shell-blue-strong); border-bottom-color: var(--shell-blue); }
+.studio-scope .library-search,
+.studio-scope .library-note,
+.studio-scope .selection-path,
+.studio-scope .field-explanation,
+.studio-scope .publish-summary > div { color: var(--shell-muted); border-color: var(--shell-line); background: rgba(255,255,255,.025); }
+.studio-scope .library-search input { color: var(--shell-text); }
+.studio-scope .library-intro,
+.studio-scope .tip-card,
+.studio-scope .bundle-summary { color: var(--shell-purple); border-color: rgba(167,139,250,.25); background: var(--shell-purple-soft); }
+.studio-scope .palette-card { color: var(--shell-text); border-color: var(--shell-line); background: rgba(255,255,255,.018); }
+.studio-scope .palette-card__copy code,
+.studio-scope .palette-card__grip { color: var(--shell-faint); }
+.studio-scope .palette-card--violet .palette-card__icon { color: var(--shell-purple); background: var(--shell-purple-soft); }
+.studio-scope .palette-card--blue .palette-card__icon { color: var(--shell-blue-strong); background: var(--shell-blue-soft); }
+.studio-scope .palette-card--cyan .palette-card__icon { color: #66e2ee; background: rgba(102,226,238,.1); }
+.studio-scope .palette-card--amber .palette-card__icon { color: var(--shell-amber); background: var(--shell-amber-soft); }
+.studio-scope .palette-card--green .palette-card__icon { color: var(--shell-green); background: var(--shell-green-soft); }
+.studio-scope .palette-card--rose .palette-card__icon { color: #ff8cb4; background: rgba(255,140,180,.1); }
+.studio-scope .tree-node button:hover,
+.studio-scope .tree-node button.is-selected { color: var(--shell-blue-strong); background: var(--shell-blue-soft); }
+.studio-scope .tree-generated { border-left-color: var(--shell-line); }
+.studio-scope .tree-generated .tree-bus { color: var(--shell-muted); }
+
+.studio-scope .canvas-label,
+.studio-scope .guide-card,
+.studio-scope .validation-panel {
+  color: var(--shell-text);
+  border-color: var(--shell-line-strong);
+  background: rgba(16,21,27,.94);
+  box-shadow: var(--shadow-md);
+}
+.studio-scope .react-flow__background { background: var(--shell-bg); }
+.studio-scope .react-flow__controls,
+.studio-scope .react-flow__minimap { border-color: var(--shell-line-strong); background: var(--shell-surface); box-shadow: var(--shadow-sm); }
+.studio-scope .react-flow__controls-button { color: var(--shell-muted); border-bottom-color: var(--shell-line); background: var(--shell-surface); fill: var(--shell-muted); }
+.studio-scope .react-flow__controls-button:hover { background: var(--shell-elevated); }
+.studio-scope .react-flow__minimap-mask { fill: rgba(9,12,16,.72); }
+.studio-scope .react-flow__edge-path { stroke: var(--shell-line-strong); }
+
+.studio-scope .architecture-node { border-color: var(--shell-line-strong); background: var(--shell-card); box-shadow: var(--shadow-md); }
+.studio-scope .architecture-node.is-selected { border-color: var(--shell-blue-strong); box-shadow: 0 0 0 3px var(--shell-blue-soft), var(--shadow-md); }
+.studio-scope .architecture-node__icon { color: var(--shell-blue-strong); background: var(--shell-blue-soft); }
+.studio-scope .architecture-node--bundle_deploiement .architecture-node__icon { color: var(--shell-purple); background: var(--shell-purple-soft); }
+.studio-scope .architecture-node--instance_application .architecture-node__icon { color: #66e2ee; background: rgba(102,226,238,.1); }
+.studio-scope .node-state { color: var(--shell-amber); background: var(--shell-amber-soft); }
+.studio-scope .node-state--ready { color: var(--shell-green); background: var(--shell-green-soft); }
+.studio-scope .architecture-node__meta { border-color: var(--shell-line); background: rgba(255,255,255,.018); }
+.studio-scope .structure-handle,
+.studio-scope .channel-handle { border-color: var(--shell-card) !important; }
+.studio-scope .structure-handle { background: var(--shell-dim) !important; }
+.studio-scope .agent-card { background: rgba(255,255,255,.018); }
+.studio-scope .agent-card__icon { color: var(--shell-amber); background: var(--shell-amber-soft); }
+.studio-scope .agent-scaffold > div,
+.studio-scope .bus-title small { color: var(--shell-dim); background: rgba(255,255,255,.035); }
+.studio-scope .bus-grid,
+.studio-scope .bus-column:first-child { border-color: var(--shell-line); }
+.studio-scope .channel-row { background: var(--shell-surface); }
+.studio-scope .agent-empty { color: var(--shell-dim); border-color: var(--shell-line-strong); background: rgba(255,255,255,.015); }
+.studio-scope .add-agent-button { color: var(--shell-blue-strong); border-color: var(--shell-blue-border); background: var(--shell-blue-soft); }
+.studio-scope .add-agent-button:hover { background: rgba(216,88,16,.18); }
+
+.studio-scope .inspector__footer { border-color: var(--shell-line); background: rgba(16,21,27,.95); }
+.studio-scope .inspector-empty__icon { color: var(--shell-muted); background: rgba(255,255,255,.035); }
+.studio-scope .selection-path strong,
+.studio-scope .form-field > span,
+.studio-scope .toggle-row span { color: var(--shell-muted); }
+.studio-scope .form-field input,
+.studio-scope .form-field select,
+.studio-scope .form-field textarea {
+  color: var(--shell-text);
+  border-color: var(--shell-line-strong);
+  background: rgba(255,255,255,.025);
+}
+.studio-scope .form-field input:focus,
+.studio-scope .form-field select:focus,
+.studio-scope .form-field textarea:focus { border-color: var(--shell-blue); box-shadow: 0 0 0 3px var(--shell-blue-soft); }
+.studio-scope .form-field .technical-input { color: var(--shell-muted); background: rgba(0,0,0,.16); }
+.studio-scope .generated-structure,
+.studio-scope .generated-structure > div,
+.studio-scope .toggle-row,
+.studio-scope .deployment-steps,
+.studio-scope .deployment-steps > div { border-color: var(--shell-line); }
+.studio-scope .channel-actions button:hover { color: var(--shell-blue-strong); background: var(--shell-blue-soft); }
+.studio-scope .direction-banner--reception { color: var(--shell-green); background: var(--shell-green-soft); }
+.studio-scope .direction-banner--emission { color: #ff8cb4; background: rgba(255,140,180,.1); }
+
+.studio-scope .guide-card__eyebrow { color: var(--shell-purple); }
+.studio-scope .guide-card ol { color: var(--shell-muted); }
+.studio-scope .guide-card > button:not(.icon-button) { color: #fff; background: var(--shell-blue); }
+.studio-scope .validation-panel > header,
+.studio-scope .validation-item { border-color: var(--shell-line); }
+.studio-scope .validation-item button { color: var(--shell-muted); background: rgba(255,255,255,.035); }
+.studio-scope .validation-item--erreur { border-color: rgba(240,111,114,.28); background: var(--shell-red-soft); }
+.studio-scope .validation-item--erreur > svg { color: var(--shell-red); }
+.studio-scope .validation-item--attention { border-color: rgba(239,180,81,.28); background: var(--shell-amber-soft); }
+.studio-scope .validation-item--attention > svg { color: var(--shell-amber); }
+.studio-scope .validation-item--information { border-color: rgba(73,212,157,.28); background: var(--shell-green-soft); }
+.studio-scope .validation-item--information > svg { color: var(--shell-green); }
+.studio-scope .toast { color: var(--shell-text); background: var(--shell-elevated); box-shadow: var(--shadow-md); }
+.studio-scope .publish-blocked { color: var(--shell-red); border-color: rgba(240,111,114,.28); background: var(--shell-red-soft); }
+.studio-scope .publish-blocked p { color: #ffabad; }
+.studio-scope .deployment-target { border-color: var(--shell-line); background: rgba(255,255,255,.018); }
+.studio-scope .deployment-target > span { color: var(--shell-blue-strong); background: var(--shell-blue-soft); }
+.studio-scope .deployment-target em { color: var(--shell-amber); }
+.studio-scope .deployment-steps > div.is-current { color: var(--shell-blue-strong); background: var(--shell-blue-soft); }
+.studio-scope .deployment-steps > div.is-done { color: var(--shell-green); background: var(--shell-green-soft); }
+.studio-scope .simulation-success { color: var(--shell-green); border-color: rgba(73,212,157,.28); background: var(--shell-green-soft); }
+.studio-scope .studio-offline { color: var(--shell-amber); border-color: rgba(239,180,81,.28); background: var(--shell-amber-soft); }
+.studio-scope .studio-trop-etroit { color: var(--shell-muted); }
