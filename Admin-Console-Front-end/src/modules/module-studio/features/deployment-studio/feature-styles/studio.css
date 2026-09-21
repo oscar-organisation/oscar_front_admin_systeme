@@ -388,6 +388,8 @@
   --amber: var(--shell-amber);
   --danger: var(--shell-red);
   --shadow: var(--shadow-md);
+  --studio-microcopy: #aeb8c2;
+  --studio-microcopy-quiet: #929eaa;
   background: var(--shell-bg);
   color: var(--shell-text);
 }
@@ -588,14 +590,38 @@
 .studio-scope .structure-handle,
 .studio-scope .channel-handle { border-color: var(--shell-card) !important; }
 .studio-scope .structure-handle { background: var(--shell-dim) !important; }
-.studio-scope .agent-card { background: rgba(255,255,255,.018); }
+.studio-scope .architecture-node__eyebrow,
+.studio-scope .architecture-node__meta code,
+.studio-scope .architecture-node__meta span,
+.studio-scope .architecture-node__description,
+.studio-scope .agent-card__title code,
+.studio-scope .agent-card__media,
+.studio-scope .bus-title,
+.studio-scope .channel-copy small,
+.studio-scope .empty-port {
+  color: var(--studio-microcopy);
+}
+.studio-scope .architecture-node__meta {
+  border-color: var(--shell-line-strong);
+  background: rgba(255,255,255,.035);
+}
+.studio-scope .agent-card {
+  border-color: var(--shell-line-strong);
+  background: rgba(255,255,255,.028);
+}
 .studio-scope .agent-card__icon { color: var(--shell-amber); background: var(--shell-amber-soft); }
-.studio-scope .agent-scaffold > div,
-.studio-scope .bus-title small { color: var(--shell-dim); background: rgba(255,255,255,.035); }
+.studio-scope .agent-scaffold > div {
+  color: var(--studio-microcopy);
+  background: rgba(255,255,255,.06);
+}
+.studio-scope .bus-title small {
+  color: var(--studio-microcopy);
+  background: rgba(255,255,255,.065);
+}
 .studio-scope .bus-grid,
-.studio-scope .bus-column:first-child { border-color: var(--shell-line); }
+.studio-scope .bus-column:first-child { border-color: var(--shell-line-strong); }
 .studio-scope .channel-row { background: var(--shell-surface); }
-.studio-scope .agent-empty { color: var(--shell-dim); border-color: var(--shell-line-strong); background: rgba(255,255,255,.015); }
+.studio-scope .agent-empty { color: var(--studio-microcopy-quiet); border-color: var(--shell-line-strong); background: rgba(255,255,255,.025); }
 .studio-scope .add-agent-button { color: var(--shell-blue-strong); border-color: var(--shell-blue-border); background: var(--shell-blue-soft); }
 .studio-scope .add-agent-button:hover { background: rgba(216,88,16,.18); }
 
