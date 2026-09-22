@@ -24,6 +24,7 @@ import {
   useStudioProjects,
   useStudioPerimetre,
 } from "../../feature-domain/projectStore";
+import PresetPicker from "../components/PresetPicker";
 import { listerPresets, projetDepuisPreset } from "../../feature-data/studioApi";
 import type { PresetServeur } from "../../feature-data/studioApi";
 import type { ProjectTarget } from "../../feature-domain/types";
@@ -62,6 +63,7 @@ export default function StudioProjectsPage() {
   const [target, setTarget] = useState<ProjectTarget>("ENVIRONNEMENT_EXECUTION_ROBOT");
   const [depart, setDepart] = useState<Depart>({ sorte: "forme", valeur: "ROBOT_MINIMAL" });
   const [presets, setPresets] = useState<PresetServeur[]>([]);
+  const [catalogueOuvert, setCatalogueOuvert] = useState(false);
 
   // Le serveur fait foi pour la liste ; le cache local prend le relais s'il
   // ne repond pas.
@@ -77,12 +79,14 @@ export default function StudioProjectsPage() {
     return () => { vivant = false; };
   }, [perimetre]);
 
+  const presetChoisi = depart.sorte === "preset"
+    ? presets.find((item) => item.slug === depart.slug)
+    : undefined;
+
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!name.trim()) return;
-    const preset = depart.sorte === "preset"
-      ? presets.find((item) => item.slug === depart.slug)
-      : undefined;
+    const preset = presetChoisi;
     const brouillon = preset
       ? projetDepuisPreset(preset, name.trim(), description.trim(), target)
       : createProject(name.trim(), description.trim(), target,
@@ -197,30 +201,33 @@ export default function StudioProjectsPage() {
               {presets.length > 0 && (
                 <fieldset className="template-field">
                   <legend>Partir d'un préset</legend>
-                  <p className="template-note">
-                    Compositions de référence éprouvées sur un châssis réel.
-                  </p>
-                  {presets.map((item) => {
-                    const choisi = depart.sorte === "preset" && depart.slug === item.slug;
-                    return (
-                      <button
-                        className={choisi ? "is-selected" : ""}
-                        key={item.slug}
-                        onClick={() => setDepart({ sorte: "preset", slug: item.slug })}
-                        type="button"
-                      >
-                        <Server size={18} />
-                        <span>
-                          <strong>{item.nom}</strong>
-                          <small>
-                            {item.constructeur ? `${item.constructeur} — ` : ""}
-                            {item.description ?? item.famille}
-                          </small>
-                        </span>
-                        {choisi && <Check size={16} />}
+                  {presetChoisi ? (
+                    <div className="preset-retenu">
+                      <Server size={18} />
+                      <span>
+                        <strong>{presetChoisi.nom}</strong>
+                        <small>
+                          {presetChoisi.constructeur ? `${presetChoisi.constructeur} · ` : ""}
+                          {presetChoisi.famille}
+                        </small>
+                      </span>
+                      <button className="link-button" onClick={() => setCatalogueOuvert(true)} type="button">
+                        Changer
                       </button>
-                    );
-                  })}
+                    </div>
+                  ) : (
+                    <button className="preset-ouvrir" onClick={() => setCatalogueOuvert(true)} type="button">
+                      <Server size={18} />
+                      <span>
+                        <strong>Parcourir le catalogue</strong>
+                        <small>
+                          {presets.length} composition{presets.length > 1 ? "s" : ""} de référence
+                          éprouvée{presets.length > 1 ? "s" : ""} sur un châssis réel
+                        </small>
+                      </span>
+                      <ChevronRight size={16} />
+                    </button>
+                  )}
                 </fieldset>
               )}
               <fieldset className="template-field">
@@ -249,6 +256,18 @@ export default function StudioProjectsPage() {
             </footer>
           </form>
         </div>
+      )}
+
+      {catalogueOuvert && (
+        <PresetPicker
+          presets={presets}
+          choisi={depart.sorte === "preset" ? depart.slug : undefined}
+          onChoisir={(preset) => {
+            setDepart({ sorte: "preset", slug: preset.slug });
+            setCatalogueOuvert(false);
+          }}
+          onFermer={() => setCatalogueOuvert(false)}
+        />
       )}
     </div>
   );

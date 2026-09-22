@@ -26,8 +26,8 @@ import type {
 } from '../../feature-domain/types';
 
 const DATA_FORMATS: Array<{ value: DataFormat; label: string }> = [
-  { value: 'BINAIRE_COMPACT', label: 'Binaire compact — haute fréquence' },
-  { value: 'OBJET_JSON', label: 'Objet structuré — données métier' },
+  { value: 'BINAIRE_COMPACT', label: 'Binaire compact, haute fréquence' },
+  { value: 'OBJET_JSON', label: 'Objet structuré, données métier' },
   { value: 'NOMBRE', label: 'Nombre' },
   { value: 'BOOLEEN', label: 'Vrai / faux' },
   { value: 'TEXTE', label: 'Texte' },
@@ -175,7 +175,7 @@ export default function Inspector({
                   >
                     <option value="">Aucune</option>
                     {boxes.map((box) => (
-                      <option key={box.id} value={box.id}>{box.nom} — v{box.version}</option>
+                      <option key={box.id} value={box.id}>{box.nom} v{box.version}</option>
                     ))}
                     {node.data.aiBoxId && !boxes.some((box) => box.id === node.data.aiBoxId) && (
                       <option value={node.data.aiBoxId}>Box retirée ou non publiée</option>
@@ -238,7 +238,7 @@ export default function Inspector({
           <>
             <div className="selection-path"><span>{agent.name}</span><ChevronRight size={12} /><strong>{channel.name}</strong></div>
             <div className={`direction-banner direction-banner--${channel.direction.toLowerCase()}`}>
-              {channel.direction === 'RECEPTION' ? 'Canal de réception — entrée' : 'Canal d’émission — sortie'}
+              {channel.direction === 'RECEPTION' ? 'Canal de réception (entrée)' : 'Canal d’émission (sortie)'}
             </div>
             <Field label="Nom du canal">
               <input value={channel.name} onChange={(event) => onUpdateChannel(node.id, agent.id, channel.id, { name: event.target.value })} />

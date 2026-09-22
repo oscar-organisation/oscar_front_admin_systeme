@@ -94,6 +94,41 @@
 .studio-scope .template-field { margin: 4px 0 0; padding: 0; border: 0; }
 .studio-scope .template-field legend { margin-bottom: 8px; font-size: 11px; font-weight: 700; }
 .studio-scope .template-note { margin: -4px 0 8px; font-size: 11px; color: #64748b; }
+
+/* Catalogue de presets : une surface a part, parce qu'une liste deroulante
+   tenait a trois entrees et ne tiendra pas a cent. */
+.studio-scope .preset-dialog { display: flex; flex-direction: column; width: min(880px, calc(100vw - 48px)); max-height: calc(100vh - 64px); border: 1px solid rgba(255,255,255,.6); border-radius: 18px; background: white; box-shadow: 0 30px 90px rgba(20,29,48,.3); }
+.studio-scope .preset-search { display: flex; align-items: center; gap: 9px; padding: 14px 22px; color: #7b8799; border-bottom: 1px solid #eef1f6; }
+.studio-scope .preset-search input { flex: 1; padding: 8px 0; font: 400 13px/1.3 var(--font-sans); color: inherit; border: 0; background: none; outline: none; }
+.studio-scope .preset-search input::placeholder { color: #9aa5b6; }
+.studio-scope .preset-filters { display: flex; flex-wrap: wrap; gap: 6px; padding: 12px 22px 0; }
+.studio-scope .preset-filters button { padding: 5px 11px; font: 600 11px/1 var(--font-sans); color: #5c6779; border: 1px solid #e2e7ef; border-radius: 999px; background: white; cursor: pointer; }
+.studio-scope .preset-filters button em { font-style: normal; color: #9aa5b6; }
+.studio-scope .preset-filters button.is-active { color: var(--blue); border-color: #c5d4ff; background: #eef3ff; }
+.studio-scope .preset-filters button.is-active em { color: var(--blue); }
+.studio-scope .preset-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(248px, 1fr)); gap: 11px; overflow: auto; padding: 16px 22px 22px; }
+.studio-scope .preset-card { display: flex; flex-direction: column; gap: 7px; padding: 13px 14px; text-align: left; border: 1px solid #dce3ee; border-radius: 12px; background: white; cursor: pointer; }
+.studio-scope .preset-card:hover { border-color: #c5d4ff; box-shadow: 0 6px 18px rgba(20,29,48,.07); }
+.studio-scope .preset-card.is-selected { border-color: var(--blue); background: #f6f9ff; }
+.studio-scope .preset-card__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+.studio-scope .preset-card__head strong { font: 700 13px/1.3 var(--font-sans); }
+.studio-scope .preset-card__head svg { flex: none; color: var(--blue); }
+.studio-scope .preset-card__tags { display: flex; flex-wrap: wrap; gap: 5px; }
+.studio-scope .preset-tag { padding: 3px 8px; font: 600 10px/1 var(--font-sans); color: #5c6779; border-radius: 999px; background: #f1f4f9; }
+.studio-scope .preset-tag--famille { color: #6447cd; background: #efeaff; }
+.studio-scope .preset-card p { margin: 0; font-size: 11px; line-height: 1.45; color: #64748b; }
+.studio-scope .preset-card > small { color: #9aa5b6; font-size: 10px; }
+.studio-scope .preset-vide { grid-column: 1 / -1; margin: 18px 0; text-align: center; font-size: 12px; color: #7b8799; }
+
+/* Choix retenu, dans la creation de projet */
+.studio-scope .preset-ouvrir, .studio-scope .preset-retenu { display: grid; grid-template-columns: 28px 1fr auto; gap: 8px; align-items: center; width: 100%; padding: 11px 12px; text-align: left; border: 1px solid #dce3ee; border-radius: 10px; background: white; }
+.studio-scope .preset-ouvrir { cursor: pointer; }
+.studio-scope .preset-ouvrir:hover { border-color: #c5d4ff; }
+.studio-scope .preset-retenu { border-color: var(--blue); background: #f6f9ff; }
+.studio-scope .preset-ouvrir span, .studio-scope .preset-retenu span { display: flex; flex-direction: column; gap: 2px; }
+.studio-scope .preset-ouvrir strong, .studio-scope .preset-retenu strong { font: 700 12px/1.3 var(--font-sans); }
+.studio-scope .preset-ouvrir small, .studio-scope .preset-retenu small { font-size: 10px; color: #7b8799; }
+.studio-scope .link-button { padding: 4px 9px; font: 600 11px/1 var(--font-sans); color: var(--blue); border: 1px solid #c5d4ff; border-radius: 7px; background: white; cursor: pointer; }
 .studio-scope .template-field > button { display: grid; grid-template-columns: 28px 1fr 18px; gap: 8px; align-items: center; width: 100%; margin-bottom: 7px; padding: 10px 12px; text-align: left; border: 1px solid #dce3ee; border-radius: 10px; background: white; cursor: pointer; }
 .studio-scope .template-field > button:hover { background: #f8faff; }
 .studio-scope .template-field > button.is-selected { color: var(--blue); border-color: #8ba4fa; background: #f5f7ff; box-shadow: 0 0 0 2px rgba(55,102,245,.07); }
