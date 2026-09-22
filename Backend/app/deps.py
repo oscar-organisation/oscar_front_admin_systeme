@@ -315,6 +315,20 @@ def roles_hors_portee(
     return excessifs
 
 
+def _borner(valeur: str | None, longueur: int) -> str | None:
+    """Ramène une valeur à la largeur de sa colonne, sans perdre la trace.
+
+    Un robot qui rend compte d'un échec joint le message du démon, qui peut
+    faire plusieurs centaines de caractères. La ligne d'audit était alors
+    refusée par la base et l'appel entier repartait en 500 : la console
+    n'apprenait rien, précisément quand quelque chose allait mal. Mieux vaut
+    une trace coupée qu'aucune trace, et la coupure se voit.
+    """
+    if valeur is None or len(valeur) <= longueur:
+        return valeur
+    return valeur[: longueur - 1] + "…"
+
+
 def write_audit(
     db: Session,
     *,
@@ -328,12 +342,12 @@ def write_audit(
     db.add(
         AuditLog(
             actor_id=actor.id if actor else None,
-            actor_label=(f"{actor.nom}" if actor else "system"),
+            actor_label=_borner(f"{actor.nom}" if actor else "system", 200),
             org_id=org_id if org_id is not None else db.info.get("active_org_id"),
             action=action,
-            resource=resource,
+            resource=_borner(resource, 200),
             result=result,
-            ip=ip,
+            ip=_borner(ip, 60),
         )
     )
     db.commit()
