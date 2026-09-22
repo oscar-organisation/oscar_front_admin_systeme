@@ -93,6 +93,7 @@
 .studio-scope .template-selector small { display: block; margin-top: 4px; color: var(--muted); font-size: 10px; line-height: 1.4; }
 .studio-scope .template-field { margin: 4px 0 0; padding: 0; border: 0; }
 .studio-scope .template-field legend { margin-bottom: 8px; font-size: 11px; font-weight: 700; }
+.studio-scope .template-note { margin: -4px 0 8px; font-size: 11px; color: #64748b; }
 .studio-scope .template-field > button { display: grid; grid-template-columns: 28px 1fr 18px; gap: 8px; align-items: center; width: 100%; margin-bottom: 7px; padding: 10px 12px; text-align: left; border: 1px solid #dce3ee; border-radius: 10px; background: white; cursor: pointer; }
 .studio-scope .template-field > button:hover { background: #f8faff; }
 .studio-scope .template-field > button.is-selected { color: var(--blue); border-color: #8ba4fa; background: #f5f7ff; box-shadow: 0 0 0 2px rgba(55,102,245,.07); }

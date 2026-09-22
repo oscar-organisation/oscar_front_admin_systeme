@@ -630,3 +630,46 @@ class EdgeReleaseReportIn(BaseModel):
     statut: str = Field(pattern="^(installed|failed|rolled_back)$")
     message: str | None = None
     sha256: str | None = None
+
+
+class CompositionPresetIn(BaseModel):
+    """Préset versé au catalogue de la plateforme."""
+
+    slug: str = Field(min_length=2, max_length=80)
+    nom: str = Field(min_length=2, max_length=160)
+    famille: str = Field(min_length=2, max_length=80)
+    constructeur: str | None = None
+    description: str | None = None
+    spec: dict = Field(default_factory=dict)
+    ordre: int = 100
+    notes: str | None = None
+
+
+class CompositionPresetPatch(BaseModel):
+    """Correction d'un préset. Tout est optionnel : on ne touche qu'au nécessaire."""
+
+    nom: str | None = None
+    famille: str | None = None
+    constructeur: str | None = None
+    description: str | None = None
+    spec: dict | None = None
+    statut: str | None = None
+    ordre: int | None = None
+    notes: str | None = None
+
+
+class CompositionPresetOut(BaseModel):
+    model_config = ORM
+    id: str
+    slug: str
+    nom: str
+    famille: str
+    constructeur: str | None = None
+    description: str | None = None
+    spec: dict = Field(default_factory=dict)
+    statut: str
+    ordre: int
+    revision: int
+    notes: str | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None

@@ -24,10 +24,21 @@ import {
   useStudioProjects,
   useStudioPerimetre,
 } from "../../feature-domain/projectStore";
+import { listerPresets, projetDepuisPreset } from "../../feature-data/studioApi";
+import type { PresetServeur } from "../../feature-data/studioApi";
 import type { ProjectTarget } from "../../feature-domain/types";
 import "../../feature-styles/studio.css";
 
 type Template = "DEMONSTRATION" | "ROBOT_MINIMAL" | "VIDE";
+
+/**
+ * Un projet part soit d'un préset du catalogue, soit d'une forme générique.
+ *
+ * Les deux sont exclusifs, d'où un seul état plutôt que deux qui pourraient se
+ * contredire. Les présets viennent du serveur ; les formes génériques restent
+ * disponibles hors ligne, et servent de repli si le catalogue ne répond pas.
+ */
+type Depart = { sorte: "preset"; slug: string } | { sorte: "forme"; valeur: Template };
 
 const TEMPLATES: { value: Template; label: string; hint: string; icon: typeof Bot }[] = [
   { value: "ROBOT_MINIMAL", label: "Robot minimal", hint: "Bundle, service, agent et premiers canaux.", icon: Bot },
@@ -49,16 +60,33 @@ export default function StudioProjectsPage() {
   const [name, setName] = useState("Nouveau projet robot");
   const [description, setDescription] = useState("Configuration des services et agents OSCAR.");
   const [target, setTarget] = useState<ProjectTarget>("ENVIRONNEMENT_EXECUTION_ROBOT");
-  const [template, setTemplate] = useState<Template>("ROBOT_MINIMAL");
+  const [depart, setDepart] = useState<Depart>({ sorte: "forme", valeur: "ROBOT_MINIMAL" });
+  const [presets, setPresets] = useState<PresetServeur[]>([]);
 
   // Le serveur fait foi pour la liste ; le cache local prend le relais s'il
   // ne repond pas.
   useEffect(() => { void rafraichir(); }, [perimetre]);
 
+  // Le catalogue est un confort, pas une condition : s'il ne repond pas, les
+  // formes generiques restent la et la creation n'est pas bloquee.
+  useEffect(() => {
+    let vivant = true;
+    listerPresets()
+      .then((liste) => { if (vivant) setPresets(liste); })
+      .catch(() => { if (vivant) setPresets([]); });
+    return () => { vivant = false; };
+  }, [perimetre]);
+
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!name.trim()) return;
-    const brouillon = createProject(name.trim(), description.trim(), target, template);
+    const preset = depart.sorte === "preset"
+      ? presets.find((item) => item.slug === depart.slug)
+      : undefined;
+    const brouillon = preset
+      ? projetDepuisPreset(preset, name.trim(), description.trim(), target)
+      : createProject(name.trim(), description.trim(), target,
+                      depart.sorte === "forme" ? depart.valeur : "ROBOT_MINIMAL");
     const project = await creerProjet(brouillon, target);
     setOpen(false);
     navigate(`/studio/${project.id}`);
@@ -166,20 +194,50 @@ export default function StudioProjectsPage() {
                 </select>
                 <small>{TARGETS.find((item) => item.value === target)?.hint}</small>
               </label>
+              {presets.length > 0 && (
+                <fieldset className="template-field">
+                  <legend>Partir d'un préset</legend>
+                  <p className="template-note">
+                    Compositions de référence éprouvées sur un châssis réel.
+                  </p>
+                  {presets.map((item) => {
+                    const choisi = depart.sorte === "preset" && depart.slug === item.slug;
+                    return (
+                      <button
+                        className={choisi ? "is-selected" : ""}
+                        key={item.slug}
+                        onClick={() => setDepart({ sorte: "preset", slug: item.slug })}
+                        type="button"
+                      >
+                        <Server size={18} />
+                        <span>
+                          <strong>{item.nom}</strong>
+                          <small>
+                            {item.constructeur ? `${item.constructeur} — ` : ""}
+                            {item.description ?? item.famille}
+                          </small>
+                        </span>
+                        {choisi && <Check size={16} />}
+                      </button>
+                    );
+                  })}
+                </fieldset>
+              )}
               <fieldset className="template-field">
-                <legend>Point de départ</legend>
+                <legend>{presets.length > 0 ? "Ou partir d'une forme vierge" : "Point de départ"}</legend>
                 {TEMPLATES.map((item) => {
                   const Icon = item.icon;
+                  const choisi = depart.sorte === "forme" && depart.valeur === item.value;
                   return (
                     <button
-                      className={template === item.value ? "is-selected" : ""}
+                      className={choisi ? "is-selected" : ""}
                       key={item.value}
-                      onClick={() => setTemplate(item.value)}
+                      onClick={() => setDepart({ sorte: "forme", valeur: item.value })}
                       type="button"
                     >
                       <Icon size={18} />
                       <span><strong>{item.label}</strong><small>{item.hint}</small></span>
-                      {template === item.value && <Check size={16} />}
+                      {choisi && <Check size={16} />}
                     </button>
                   );
                 })}

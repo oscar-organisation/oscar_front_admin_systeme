@@ -76,6 +76,14 @@ FEATURE_CATALOG: list[tuple[str, str, str, str, list[str]]] = [
     ("api:deployment.execute", "Déployer un bundle sur un robot ou une flotte", "api", "studio", EXEC),
     ("ui:studio.page", "Page Studio de déploiement", "ui", "studio", VIEW),
     ("ui:studio.publish_button", "Bouton Publier un bundle", "ui", "studio", VIEW),
+    # --- Catalogue de presets ---
+    # Les presets sont notre bibliotheque : les memes pour toutes les
+    # organisations, un point de depart que nous maintenons. Les lire est
+    # ordinaire, les ecrire ne l'est pas — une composition de reference fautive
+    # se propagerait a tous les projets crees ensuite.
+    ("api:preset.read", "Consulter le catalogue de présets", "api", "studio", VIEW),
+    ("api:preset.write", "Maintenir le catalogue de présets", "api", "studio", CRUD),
+    ("ui:studio.presets", "Choisir un préset à la création d'un projet", "ui", "studio", VIEW),
     # --- Paquet embarque ---
     # Distribuer du code executable a une flotte n'est pas publier une
     # composition : la capacite est separee, et seule la publication sur un
