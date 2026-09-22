@@ -632,6 +632,37 @@ class DeploymentBundle(Base, TimestampMixin):
     )
 
 
+class CompositionPreset(Base, TimestampMixin):
+    """Composition de référence livrée par la plateforme.
+
+    Un préset n'appartient à aucune organisation, et c'est ce qui le sépare
+    d'un bundle : un bundle est le travail d'un client sur ses robots, un
+    préset est un point de départ que nous maintenons et que tous voient. La
+    bibliothèque s'enrichit d'un châssis à la fois.
+
+    `famille` nomme le profil de châssis visé — `rosmaster-m3pro`,
+    `unitree-g1`. C'est le même identifiant que celui qui donne son nom à
+    l'image du runtime : un préset et l'image qui le fera tourner désignent
+    ainsi le même matériel, sans table de correspondance à tenir à jour.
+    """
+
+    __tablename__ = "composition_presets"
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_uuid)
+    slug: Mapped[str] = mapped_column(String(80), nullable=False, unique=True)
+    nom: Mapped[str] = mapped_column(String(160), nullable=False)
+    constructeur: Mapped[str | None] = mapped_column(String(80))
+    famille: Mapped[str] = mapped_column(String(80), nullable=False, index=True)
+    description: Mapped[str | None] = mapped_column(Text)
+    spec: Mapped[dict] = mapped_column(JSON, default=dict)
+    statut: Mapped[str] = mapped_column(String(20), default="draft")  # draft|published|archived
+    # Ordre d'affichage dans le sélecteur ; à défaut, le nom départage.
+    ordre: Mapped[int] = mapped_column(Integer, default=100)
+    # Version du préset lui-même : un préset corrigé reste le même préset.
+    revision: Mapped[int] = mapped_column(Integer, default=1)
+    notes: Mapped[str | None] = mapped_column(Text)
+    created_by: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+
+
 class BundleVersion(Base, TimestampMixin):
     """Une version de bundle : brouillon tant qu'elle se modifie, figée ensuite.
 

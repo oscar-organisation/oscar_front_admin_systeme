@@ -55,6 +55,38 @@ export interface ValidationServeur {
   avertissements: string[];
 }
 
+/**
+ * Préset du catalogue de la plateforme.
+ *
+ * Il ne vient pas de l'organisation qui le consulte : c'est une composition de
+ * référence que nous maintenons, éprouvée sur un châssis réel. `famille`
+ * désigne ce châssis avec le même identifiant que le profil embarqué et que
+ * l'image du runtime, pour qu'aucune table de correspondance n'ait à être
+ * tenue à jour entre les trois.
+ */
+export interface PresetServeur {
+  id: string;
+  slug: string;
+  nom: string;
+  famille: string;
+  constructeur?: string | null;
+  description?: string | null;
+  spec: { nodes?: ArchitectureNode[]; edges?: ArchitectureEdge[] };
+  statut: string;
+  ordre: number;
+  revision: number;
+}
+
+/**
+ * Catalogue publié, dans l'ordre où il doit s'afficher.
+ *
+ * L'appel peut échouer — le Studio s'utilise hors ligne. L'appelant retombe
+ * alors sur les formes génériques plutôt que de bloquer la création.
+ */
+export function listerPresets(): Promise<PresetServeur[]> {
+  return api.get<PresetServeur[]>("/studio/presets");
+}
+
 export function listerBundles(): Promise<BundleServeur[]> {
   return api.get<BundleServeur[]>("/studio/bundles");
 }
@@ -116,6 +148,33 @@ export function listerDeploiements(bundleId: string): Promise<DeploiementServeur
 }
 
 /** Construit le projet d'édition à partir d'un bundle et de sa composition. */
+/**
+ * Projet neuf assis sur un préset du catalogue.
+ *
+ * La composition est copiée, pas référencée : à partir de là le projet
+ * appartient à son organisation et vit sa vie. Corriger le préset plus tard ne
+ * remonte donc pas dans les projets déjà créés — c'est voulu, un point de
+ * départ n'est pas une dépendance.
+ */
+export function projetDepuisPreset(
+  preset: PresetServeur,
+  nom: string,
+  description: string,
+  target: ProjectTarget,
+): OscarProject {
+  return {
+    id: `projet-${Date.now().toString(36)}`,
+    name: nom,
+    description: description || preset.description || "",
+    target,
+    status: "BROUILLON",
+    version: 1,
+    updatedAt: new Date().toISOString(),
+    nodes: preset.spec?.nodes ?? [],
+    edges: preset.spec?.edges ?? [],
+  };
+}
+
 export function projetDepuisBundle(bundle: BundleServeur, detail: VersionDetail | null): OscarProject {
   const version = bundle.draft_version ?? bundle.published_version ?? null;
   return {
