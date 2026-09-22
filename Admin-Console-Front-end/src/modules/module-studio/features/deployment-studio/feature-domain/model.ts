@@ -100,7 +100,7 @@ export function createArchitectureNode(
 
 function demoProject(): OscarProject {
   const bundle = createArchitectureNode('BUNDLE_DEPLOIEMENT', 1, 'ENVIRONNEMENT_EXECUTION_ROBOT', { x: 40, y: 245 });
-  bundle.data.name = 'Robot magasin — Version initiale';
+  bundle.data.name = 'Robot magasin, version initiale';
   bundle.data.technicalCode = 'BUNDLE_DEPLOIEMENT_ROBOT_MAGASIN';
   bundle.data.description = 'Déploiement coordonné des fonctions de pilotage et de perception.';
 
@@ -213,7 +213,7 @@ function demoProject(): OscarProject {
 
   return {
     id: 'projet-demonstration-oscar',
-    name: 'Robot magasin — Démonstration',
+    name: 'Robot magasin, démonstration',
     description: 'Projet exemple montrant les services embarqués et la télécommande web.',
     target: 'ENVIRONNEMENT_EXECUTION_ROBOT',
     status: 'BROUILLON',
@@ -235,7 +235,7 @@ export function createProject(
     return { ...demo, id: makeId('projet'), name, description, target, version: 1 };
   }
   const bundle = createArchitectureNode('BUNDLE_DEPLOIEMENT', 1, target, { x: 60, y: 180 });
-  bundle.data.name = `Bundle — ${name}`;
+  bundle.data.name = `Bundle ${name}`;
   bundle.data.technicalCode = technicalCode('BUNDLE_DEPLOIEMENT', name, 'PRINCIPAL');
   const nodes: ArchitectureNode[] = [bundle];
   const edges: ArchitectureEdge[] = [];

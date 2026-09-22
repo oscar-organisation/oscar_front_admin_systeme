@@ -45,7 +45,7 @@ function ChannelRow({
         event.stopPropagation();
         onSelect();
       }}
-      title={`${channel.technicalCode} — ${formatLabel(channel.dataFormat)}`}
+      title={`${channel.technicalCode} · ${formatLabel(channel.dataFormat)}`}
       type="button"
     >
       {receiving && (
