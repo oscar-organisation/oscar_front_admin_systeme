@@ -174,3 +174,32 @@ def test_la_cle_dun_autre_robot_nobtient_pas_larchive(client, admin_headers, con
     r = client.get(f"/api/studio/runtime/robots/{contexte['robot']['slug']}/release/archive",
                    headers={"X-Oscar-Agent-Key": cle_voisin})
     assert r.status_code == 401
+
+
+def test_un_echec_verbeux_est_enregistre_sans_faire_tomber_lappel(client, contexte):
+    """Le message du démon peut faire des centaines de caractères.
+
+    La ligne d'audit debordait alors sa colonne et l'appel repartait en 500 :
+    la console n'apprenait rien de l'echec, ce qui est exactement le moment ou
+    elle doit apprendre quelque chose.
+    """
+    motif = "image indisponible : " + ("manifest unknown " * 40)
+    r = client.post(f"/api/studio/runtime/robots/{contexte['robot']['slug']}/release/report",
+                    headers=contexte["cle"],
+                    json={"version": "1.0.0", "statut": "failed", "message": motif})
+    assert r.status_code == 200
+
+    detail = client.get(f"/api/robots/{contexte['robot']['id']}", headers=contexte["entetes"]).json()
+    assert detail["edge_version"] == "1.0.0"
+
+
+def test_la_trace_dun_echec_verbeux_est_coupee_et_le_montre(client, contexte):
+    client.post(f"/api/studio/runtime/robots/{contexte['robot']['slug']}/release/report",
+                headers=contexte["cle"],
+                json={"version": "1.0.0", "statut": "failed", "message": "x" * 600})
+    journal = client.get("/api/audit?limit=5", headers=contexte["entetes"]).json()
+    lignes = [l for l in (journal if isinstance(journal, list) else journal.get("items", []))
+              if l.get("action") == "EDGE_RELEASE_FAILED"]
+    assert lignes, "l'echec doit laisser une trace"
+    assert len(lignes[0]["resource"]) <= 200
+    assert lignes[0]["resource"].endswith("…")
