@@ -12,7 +12,9 @@ import {
   Server,
   X,
 } from 'lucide-react';
-import { deployer, listerRobots, publier, verifier } from '../../feature-data/studioApi';
+import { useAuth } from '@/shared/kernel/auth/AuthProvider';
+import { deployer, listerPresetsTous, listerRobots, publier, verifier } from '../../feature-data/studioApi';
+import PresetVersementDialog from './PresetVersementDialog';
 import type { DeploiementServeur, OscarProject, RobotCible, ValidationIssue } from '../../feature-domain/types';
 
 interface PublishDialogProps {
@@ -33,6 +35,22 @@ export default function PublishDialog({ project, issues, canDeploy, onClose, onP
   const [robots, setRobots] = useState<RobotCible[]>([]);
   const [selection, setSelection] = useState<string[]>([]);
   const [deploiements, setDeploiements] = useState<DeploiementServeur[]>([]);
+  // Verser au catalogue est reserve a qui le maintient : le serveur refuse de
+  // toute facon, autant ne pas proposer un geste voue a l'echec.
+  const { user } = useAuth();
+  const maintientLeCatalogue = Boolean(user?.is_superadmin);
+  const [versementOuvert, setVersementOuvert] = useState(false);
+  const [verse, setVerse] = useState<string | null>(null);
+  const [famillesConnues, setFamillesConnues] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (!maintientLeCatalogue) return;
+    let vivant = true;
+    listerPresetsTous()
+      .then((liste) => { if (vivant) setFamillesConnues([...new Set(liste.map((p) => p.famille))]); })
+      .catch(() => { if (vivant) setFamillesConnues([]); });
+    return () => { vivant = false; };
+  }, [maintientLeCatalogue]);
 
   const bloquantsLocaux = useMemo(
     () => issues.filter((issue) => issue.level === 'ERREUR').map((issue) => issue.title),
@@ -195,6 +213,24 @@ export default function PublishDialog({ project, issues, canDeploy, onClose, onP
           </>
         )}
 
+        {maintientLeCatalogue && versionPubliee && (etape === 'CIBLES' || etape === 'TERMINE') && (
+          <div className="versement-catalogue">
+            {verse ? (
+              <p><Check size={14} /> Versé au catalogue sous « {verse} ».</p>
+            ) : (
+              <>
+                <p>
+                  Cette composition peut devenir un point de départ proposé à toutes
+                  les organisations.
+                </p>
+                <button className="secondary-button" onClick={() => setVersementOuvert(true)} type="button">
+                  <Server size={15} /> Verser au catalogue
+                </button>
+              </>
+            )}
+          </div>
+        )}
+
         {etape === 'TERMINE' && (
           <div className="simulation-success">
             <CheckCircle2 size={20} />
@@ -207,6 +243,17 @@ export default function PublishDialog({ project, issues, canDeploy, onClose, onP
               </span>
             </div>
           </div>
+        )}
+
+        {versementOuvert && versionPubliee && (
+          <PresetVersementDialog
+            versionId={versionPubliee.id}
+            nomSuggere={project.name}
+            {...(project.description ? { descriptionSuggeree: project.description } : {})}
+            famillesConnues={famillesConnues}
+            onVerse={(preset) => { setVerse(preset.nom); setVersementOuvert(false); }}
+            onFermer={() => setVersementOuvert(false)}
+          />
         )}
 
         <footer className="dialog-footer">

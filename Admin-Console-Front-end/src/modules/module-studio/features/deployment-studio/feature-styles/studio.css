@@ -94,6 +94,24 @@
 .studio-scope .template-field { margin: 4px 0 0; padding: 0; border: 0; }
 .studio-scope .template-field legend { margin-bottom: 8px; font-size: 11px; font-weight: 700; }
 .studio-scope .template-note { margin: -4px 0 8px; font-size: 11px; color: #64748b; }
+.studio-scope .dialog-erreur { margin: 4px 0 0; padding: 9px 11px; font-size: 11px; line-height: 1.45; color: #b42318; border: 1px solid #fecdca; border-radius: 9px; background: #fef3f2; }
+
+/* Catalogue : la page de gestion */
+.studio-scope .preset-search--page { margin: 6px 0 14px; padding: 10px 14px; border: 1px solid #dce3ee; border-bottom: 1px solid #dce3ee; border-radius: 11px; background: white; }
+.studio-scope .preset-table { display: flex; flex-direction: column; gap: 10px; }
+.studio-scope .preset-ligne { display: grid; grid-template-columns: 38px 1fr auto; gap: 13px; align-items: start; padding: 14px 15px; border: 1px solid #dce3ee; border-radius: 13px; background: white; }
+.studio-scope .preset-ligne__icone { display: grid; place-items: center; width: 34px; height: 34px; color: var(--blue); border-radius: 10px; background: #eef3ff; }
+.studio-scope .preset-ligne__corps { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.studio-scope .preset-ligne__titre { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.studio-scope .preset-ligne__titre strong { font: 700 13.5px/1.3 var(--font-sans); }
+.studio-scope .preset-ligne__corps p { margin: 0; font-size: 11.5px; line-height: 1.45; color: #64748b; }
+.studio-scope .preset-ligne__corps > small { color: #9aa5b6; font-size: 10px; }
+.studio-scope .preset-ligne__actions { display: flex; flex-wrap: wrap; gap: 7px; justify-content: flex-end; }
+.studio-scope .preset-ligne__actions .secondary-button, .studio-scope .preset-ligne__actions .danger-button { width: auto; min-height: 31px; padding: 0 10px; font-size: 11.5px; }
+.studio-scope .preset-statut { padding: 3px 8px; font: 700 9.5px/1 var(--font-sans); text-transform: uppercase; letter-spacing: .05em; border-radius: 999px; }
+.studio-scope .preset-statut--published { color: #1a7f4b; background: #e6f6ed; }
+.studio-scope .preset-statut--draft { color: #8a6d1f; background: #fdf4e0; }
+.studio-scope .preset-statut--archived { color: #64748b; background: #f1f4f9; }
 
 /* Catalogue de presets : une surface a part, parce qu'une liste deroulante
    tenait a trois entrees et ne tiendra pas a cent. */
@@ -578,6 +596,18 @@
 .studio-scope .preset-retenu svg { color: var(--shell-blue-strong); }
 .studio-scope .link-button { color: var(--shell-blue-strong); border-color: var(--shell-blue-border); background: transparent; }
 .studio-scope .template-note { color: var(--shell-muted); }
+.studio-scope .dialog-erreur { color: var(--shell-red); border-color: var(--shell-red); background: var(--shell-red-soft); }
+.studio-scope .preset-search--page { border-color: var(--shell-line); background: var(--shell-card); }
+.studio-scope .preset-ligne { border-color: var(--shell-line); background: var(--shell-card); }
+.studio-scope .preset-ligne__icone { color: var(--shell-blue-strong); background: var(--shell-blue-soft); }
+.studio-scope .preset-ligne__corps p { color: var(--shell-muted); }
+.studio-scope .preset-ligne__corps > small { color: var(--shell-dim); }
+.studio-scope .preset-statut--published { color: var(--shell-green); background: var(--shell-green-soft); }
+.studio-scope .preset-statut--draft { color: var(--shell-amber); background: var(--shell-amber-soft); }
+.studio-scope .preset-statut--archived { color: var(--shell-muted); background: var(--shell-elevated); }
+.studio-scope .versement-catalogue { display: flex; flex-wrap: wrap; gap: 9px; align-items: center; justify-content: space-between; margin-top: 12px; padding: 11px 13px; border: 1px solid var(--shell-line); border-radius: 11px; background: var(--shell-card); }
+.studio-scope .versement-catalogue p { display: flex; align-items: center; gap: 6px; margin: 0; font-size: 11.5px; line-height: 1.45; color: var(--shell-muted); }
+.studio-scope .versement-catalogue .secondary-button { width: auto; }
 .studio-scope .template-field > button:hover { background: var(--shell-card-hover); }
 .studio-scope .template-selector label.is-selected,
 .studio-scope .template-field > button.is-selected {
