@@ -87,6 +87,45 @@ export function listerPresets(): Promise<PresetServeur[]> {
   return api.get<PresetServeur[]>("/studio/presets");
 }
 
+/** Métadonnées à poser sur un préset au moment de le verser au catalogue. */
+export interface PresetEntree {
+  slug: string;
+  nom: string;
+  famille: string;
+  constructeur?: string;
+  description?: string;
+  ordre?: number;
+  notes?: string;
+}
+
+/**
+ * Catalogue complet, brouillons compris.
+ *
+ * Réservé à qui maintient la bibliothèque : le serveur n'honore `tous` que
+ * pour un super administrateur, et se contente sinon des présets publiés.
+ */
+export function listerPresetsTous(): Promise<PresetServeur[]> {
+  return api.get<PresetServeur[]>("/studio/presets?tous=true");
+}
+
+/**
+ * Verse une version publiée au catalogue.
+ *
+ * C'est le chemin par lequel la bibliothèque s'enrichit : on compose, on
+ * éprouve sur un robot réel, puis on propose à tous ce qui a fait ses preuves.
+ */
+export function verserAuCatalogue(versionId: string, entree: PresetEntree): Promise<PresetServeur> {
+  return api.post<PresetServeur>(`/studio/presets/from-version/${versionId}`, entree);
+}
+
+export function modifierPreset(reference: string, champs: Partial<PresetEntree> & { statut?: string }): Promise<PresetServeur> {
+  return api.patch<PresetServeur>(`/studio/presets/${reference}`, champs);
+}
+
+export function supprimerPreset(reference: string): Promise<void> {
+  return api.del<void>(`/studio/presets/${reference}`);
+}
+
 export function listerBundles(): Promise<BundleServeur[]> {
   return api.get<BundleServeur[]>("/studio/bundles");
 }

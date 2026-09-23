@@ -10,6 +10,7 @@ import { STUDIO_ACCESS_POLICY } from "./module-permissions";
 const AdminLayout = lazy(() => import("@/modules/module-administration/shared-module/components/AdminLayout.jsx"));
 const StudioProjectsPage = lazy(() => import("./features/deployment-studio/feature-ui/pages/StudioProjectsPage"));
 const StudioEditorPage = lazy(() => import("./features/deployment-studio/feature-ui/pages/StudioEditorPage"));
+const StudioPresetsPage = lazy(() => import("./features/deployment-studio/feature-ui/pages/StudioPresetsPage"));
 
 function pagePolicy(id: string, code: string): AuthorizationPolicy {
   return {
@@ -29,6 +30,13 @@ export const STUDIO_NAVIGATION: readonly ModuleNavigationItem[] = [
     icon: "blocks",
     policy: pagePolicy("studio.projects.route", DEPLOYMENT_STUDIO_PERMISSIONS.PAGE),
     end: true,
+  },
+  {
+    id: "studio.presets",
+    to: "/studio/presets",
+    label: "Catalogue de présets",
+    icon: "layers",
+    policy: pagePolicy("studio.presets.route", DEPLOYMENT_STUDIO_PERMISSIONS.PRESETS_PAGE),
   },
 ] as const;
 
@@ -50,6 +58,14 @@ export const studioModuleManifest: ApplicationModuleManifest = {
       component: StudioProjectsPage,
     },
     {
+      id: "studio.presets",
+      path: "presets",
+      policy: pagePolicy("studio.presets.route", DEPLOYMENT_STUDIO_PERMISSIONS.PRESETS_PAGE),
+      component: StudioPresetsPage,
+    },
+    {
+      // Route dynamique en dernier : « presets » serait sinon pris pour un
+      // identifiant de projet.
       id: "studio.editor",
       path: ":projectId",
       policy: pagePolicy("studio.editor.route", DEPLOYMENT_STUDIO_PERMISSIONS.PAGE),
