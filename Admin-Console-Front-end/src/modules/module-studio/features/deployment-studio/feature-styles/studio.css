@@ -546,6 +546,38 @@
 .studio-scope .dialog-icon--blue { color: var(--shell-blue-strong); background: var(--shell-blue-soft); }
 .studio-scope .template-selector label,
 .studio-scope .template-field > button { color: var(--shell-text); border-color: var(--shell-line); background: var(--shell-card); }
+
+/* Catalogue de presets. Cette harmonisation reprend chaque classe nommement :
+   une surface qui n'y figure pas reste claire sous un fond sombre, et son
+   texte devient illisible. Toute nouvelle classe visible doit donc arriver
+   ici en meme temps que sa regle de mise en forme. */
+.studio-scope .preset-dialog { border-color: var(--shell-line-strong); background: var(--shell-surface); box-shadow: 0 30px 90px rgba(0,0,0,.55); }
+.studio-scope .preset-search { color: var(--shell-muted); border-bottom-color: var(--shell-line); }
+.studio-scope .preset-search input { color: var(--shell-text); }
+.studio-scope .preset-search input::placeholder { color: var(--shell-dim); }
+.studio-scope .preset-filters button { color: var(--shell-muted); border-color: var(--shell-line); background: var(--shell-card); }
+.studio-scope .preset-filters button em { color: var(--shell-dim); }
+.studio-scope .preset-filters button.is-active { color: var(--shell-blue-strong); border-color: var(--shell-blue-border); background: var(--shell-blue-soft); }
+.studio-scope .preset-filters button.is-active em { color: var(--shell-blue-strong); }
+.studio-scope .preset-card { color: var(--shell-text); border-color: var(--shell-line); background: var(--shell-card); }
+.studio-scope .preset-card:hover { border-color: var(--shell-blue-border); background: var(--shell-card-hover); box-shadow: var(--shadow-sm); }
+.studio-scope .preset-card.is-selected { border-color: var(--shell-blue-strong); background: var(--shell-blue-soft); }
+.studio-scope .preset-card__head svg { color: var(--shell-blue-strong); }
+.studio-scope .preset-card p { color: var(--shell-muted); }
+.studio-scope .preset-card > small { color: var(--shell-dim); }
+.studio-scope .preset-tag { color: var(--shell-muted); background: var(--shell-elevated); }
+.studio-scope .preset-tag--famille { color: var(--shell-purple); background: var(--shell-purple-soft); }
+.studio-scope .preset-vide { color: var(--shell-muted); }
+.studio-scope .preset-ouvrir,
+.studio-scope .preset-retenu { color: var(--shell-text); border-color: var(--shell-line); background: var(--shell-card); }
+.studio-scope .preset-ouvrir:hover { border-color: var(--shell-blue-border); background: var(--shell-card-hover); }
+.studio-scope .preset-retenu { border-color: var(--shell-blue-strong); background: var(--shell-blue-soft); }
+.studio-scope .preset-ouvrir small,
+.studio-scope .preset-retenu small { color: var(--shell-muted); }
+.studio-scope .preset-ouvrir svg,
+.studio-scope .preset-retenu svg { color: var(--shell-blue-strong); }
+.studio-scope .link-button { color: var(--shell-blue-strong); border-color: var(--shell-blue-border); background: transparent; }
+.studio-scope .template-note { color: var(--shell-muted); }
 .studio-scope .template-field > button:hover { background: var(--shell-card-hover); }
 .studio-scope .template-selector label.is-selected,
 .studio-scope .template-field > button.is-selected {
