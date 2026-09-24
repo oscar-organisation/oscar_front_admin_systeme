@@ -134,7 +134,8 @@ test("publier puis déployer sur un robot choisi", async ({ page }) => {
   await cible.getByRole("checkbox").check();
   await page.getByRole("button", { name: /Déployer sur 1 robot/ }).click();
 
-  await expect(page.getByText(/Demande transmise à 1 robot/)).toBeVisible();
+  await expect(page.getByText("1 déploiement en cours")).toBeVisible();
+  await expect(page.getByText("En attente du robot")).toBeVisible();
   expect(etat.deployments).toEqual(["robot-1"]);
 });
 
