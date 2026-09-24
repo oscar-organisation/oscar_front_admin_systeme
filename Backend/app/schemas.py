@@ -684,3 +684,40 @@ class CompositionPresetOut(BaseModel):
     notes: str | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
+
+
+class PerceptionLeaseIn(BaseModel):
+    """Ce qu'un worker de perception annonce à chaque battement."""
+
+    # Nombre de robots que ce worker accepte de porter. C'est lui qui le sait :
+    # il connaît sa mémoire, ses cœurs et les modèles déjà chargés.
+    capacite: int = 4
+
+
+class PerceptionLeasesOut(BaseModel):
+    worker_id: str
+    robots: list[str] = Field(default_factory=list)
+    # Le serveur dicte la cadence plutôt que de la laisser à chaque worker :
+    # allonger le bail sans allonger le battement ferait expirer la flotte.
+    renouveler_dans: int
+
+
+class PerceptionCouvertureOut(BaseModel):
+    robot_id: str
+    nom: str
+    worker_id: str
+    depuis: datetime
+    expire_a: datetime
+
+
+class PerceptionDecouvertOut(BaseModel):
+    robot_id: str
+    nom: str
+
+
+class PerceptionCoverageOut(BaseModel):
+    couverts: list[PerceptionCouvertureOut] = Field(default_factory=list)
+    # La liste qui compte : un robot qui mérite la perception et n'a pas de
+    # bail vivant. C'est la question que personne n'a pu poser le 23 septembre.
+    decouverts: list[PerceptionDecouvertOut] = Field(default_factory=list)
+    workers: list[str] = Field(default_factory=list)
