@@ -644,6 +644,37 @@ class DeploymentBundle(Base, TimestampMixin):
     )
 
 
+class PerceptionLease(Base):
+    """Robot confie a un worker de perception, pour une duree limitee.
+
+    Le bail est a la fois l'affectation et la preuve de vie. Un worker qui ne
+    le renouvelle plus perd ses robots, et un autre les reprend au passage
+    suivant. C'est ce qui evite qu'une panne silencieuse laisse un robot sans
+    perception : le 23 septembre 2026, deux workers se sont arretes a vingt-sept
+    secondes d'intervalle et la couche de vision est restee hors service
+    dix-huit heures sans que rien ne le signale.
+
+    La cle primaire porte sur le robot, pas sur le couple. Deux workers ne
+    peuvent donc pas se croire responsables du meme robot : la base l'interdit,
+    pas seulement le code.
+    """
+
+    __tablename__ = "perception_leases"
+    robot_id: Mapped[str] = mapped_column(
+        ForeignKey("robots.id", ondelete="CASCADE"), primary_key=True
+    )
+    worker_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    acquired_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    renewed_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    expires_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, index=True
+    )
+
+
 class CompositionPreset(Base, TimestampMixin):
     """Composition de référence livrée par la plateforme.
 
