@@ -161,23 +161,37 @@ export default function StudioDeploymentsPage() {
             État observé par les robots de l’organisation active, de la demande initiale à la confirmation d’exécution.
           </p>
 
+          {/* Les compteurs filtrent la liste. Sans cela, un echec vieux de deux
+              jours reste enterre sous les deploiements recents : on le compte
+              sans pouvoir l'atteindre, ce qui est le contraire du but. */}
           <div className="deployment-overview" aria-label="Résumé des déploiements">
-            <article className="deployment-stat-card deployment-stat-card--running">
+            <button
+              className={`deployment-stat-card deployment-stat-card--running${statut === "active" ? " is-active" : ""}`}
+              onClick={() => setStatut(statut === "active" ? "" : "active")}
+              type="button"
+              aria-pressed={statut === "active"}
+            >
               <span className="deployment-stat-card__icon"><Activity size={19} /></span>
               <div className="deployment-stat-card__copy">
                 <span>En cours</span>
                 <strong>{enCours}</strong>
                 <small>dont {actifs} actif{actifs > 1 ? "s" : ""} confirmé{actifs > 1 ? "s" : ""}</small>
               </div>
-            </article>
-            <article className="deployment-stat-card deployment-stat-card--failed">
+            </button>
+            <button
+              className={`deployment-stat-card deployment-stat-card--failed${statut === "failed" ? " is-active" : ""}`}
+              onClick={() => setStatut(statut === "failed" ? "" : "failed")}
+              type="button"
+              aria-pressed={statut === "failed"}
+              disabled={echecs === 0}
+            >
               <span className="deployment-stat-card__icon"><AlertTriangle size={19} /></span>
               <div className="deployment-stat-card__copy">
                 <span>Échecs</span>
                 <strong>{echecs}</strong>
-                <small>{echecs > 0 ? "À diagnostiquer" : "Aucune intervention requise"}</small>
+                <small>{echecs > 0 ? "Voir les échecs" : "Aucune intervention requise"}</small>
               </div>
-            </article>
+            </button>
           </div>
 
           <div className="deployment-filterbar">

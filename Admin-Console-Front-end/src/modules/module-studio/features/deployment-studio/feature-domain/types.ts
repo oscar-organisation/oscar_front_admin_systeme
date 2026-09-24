@@ -111,6 +111,10 @@ export interface RobotCible {
   slug?: string | null;
   statut: string;
   site_id?: string | null;
+  // Modele du chassis tel que l'operateur l'a decrit. Sert a choisir la bonne
+  // cible quand la flotte melange plusieurs materiels : le nom d'un robot ne
+  // dit pas toujours ce qu'il est.
+  modele?: string | null;
 }
 
 export interface DeploiementServeur {

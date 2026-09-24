@@ -39,6 +39,11 @@
   flex-shrink: 0;
 }
 
+/* Un libelle d'action se lit d'un coup ou ne se lit pas. « Changer d'espace »
+   repliait sur deux lignes des que la barre se resserrait, et le bouton
+   devenait deux fois plus haut que ses voisins. */
+.op-head-actions .btn-shell { white-space: nowrap; }
+
 .op-head-actions .organisation-switcher-menu {
   right: 0;
   left: auto;

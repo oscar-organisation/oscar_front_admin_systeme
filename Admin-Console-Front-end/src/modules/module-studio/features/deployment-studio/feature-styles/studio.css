@@ -38,7 +38,23 @@
 .studio-scope .primary-button, .studio-scope .secondary-button, .studio-scope .danger-button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 37px; padding: 0 14px; border: 1px solid transparent; border-radius: 9px; font-weight: 700; font-size: 12.5px; cursor: pointer; transition: .18s ease; }
 .studio-scope .primary-button { color: white; background: var(--blue); box-shadow: 0 6px 16px rgba(55, 102, 245, .2); }
 .studio-scope .primary-button:hover { background: var(--blue-dark); transform: translateY(-1px); }
-.studio-scope .primary-button:disabled { cursor: wait; opacity: .65; transform: none; }
+.studio-scope .primary-button:disabled { cursor: not-allowed; opacity: .38; box-shadow: none; transform: none; }
+
+/* Choix de la portee d'un deploiement.
+   Des pastilles posees cote a cote se lisaient comme des etiquettes : rien ne
+   disait qu'il fallait cliquer, ni laquelle etait retenue. Le rail visible
+   autour des options, et l'option active remplie a l'interieur, rendent le
+   choix evident sans ajouter de texte. */
+.studio-scope .deployment-stat-card { width: 100%; text-align: left; cursor: pointer; transition: .15s ease; }
+.studio-scope .deployment-stat-card:hover:not(:disabled) { transform: translateY(-1px); }
+.studio-scope .deployment-stat-card:disabled { cursor: default; transform: none; }
+.studio-scope .deployment-stat-card.is-active { outline: 2px solid currentColor; outline-offset: -2px; }
+
+.studio-scope .portee-selecteur { display: inline-flex; gap: 3px; margin: 2px 0 14px; padding: 3px; border: 1px solid #dce3ee; border-radius: 11px; background: #f1f4f9; }
+.studio-scope .portee-selecteur button { display: inline-flex; align-items: center; gap: 6px; padding: 7px 13px; font: 650 11.5px/1 var(--font-sans); color: #5c6779; border: 1px solid transparent; border-radius: 8px; background: transparent; cursor: pointer; transition: .15s ease; }
+.studio-scope .portee-selecteur button:hover:not(.is-active) { color: #34405a; background: rgba(255,255,255,.7); }
+.studio-scope .portee-selecteur button em { font-style: normal; opacity: .6; }
+.studio-scope .portee-selecteur button.is-active { color: var(--blue); border-color: #c5d4ff; background: white; box-shadow: 0 1px 3px rgba(20,29,48,.12); }
 .studio-scope .primary-button--large { min-height: 48px; padding: 0 20px; border-radius: 12px; font-size: 14px; }
 .studio-scope .secondary-button { color: #48556c; border-color: #d9e0eb; background: white; }
 .studio-scope .secondary-button:hover { border-color: #bfc9d9; background: #f8faff; }
@@ -647,6 +663,10 @@
 .studio-scope .preset-search { color: var(--shell-muted); border-bottom-color: var(--shell-line); }
 .studio-scope .preset-search input { color: var(--shell-text); }
 .studio-scope .preset-search input::placeholder { color: var(--shell-dim); }
+.studio-scope .portee-selecteur { border-color: var(--shell-line); background: var(--shell-elevated); }
+.studio-scope .portee-selecteur button { color: var(--shell-muted); }
+.studio-scope .portee-selecteur button:hover:not(.is-active) { color: var(--shell-text); background: var(--shell-card-hover); }
+.studio-scope .portee-selecteur button.is-active { color: var(--shell-blue-strong); border-color: var(--shell-blue-border); background: var(--shell-card); box-shadow: none; }
 .studio-scope .preset-filters button { color: var(--shell-muted); border-color: var(--shell-line); background: var(--shell-card); }
 .studio-scope .preset-filters button em { color: var(--shell-dim); }
 .studio-scope .preset-filters button.is-active { color: var(--shell-blue-strong); border-color: var(--shell-blue-border); background: var(--shell-blue-soft); }

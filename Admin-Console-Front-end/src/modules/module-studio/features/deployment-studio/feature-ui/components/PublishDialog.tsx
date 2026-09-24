@@ -219,19 +219,22 @@ export default function PublishDialog({ project, issues, canDeploy, onClose, onP
         {etape === 'CIBLES' && (
           <>
             {(flottes.length > 0 || sites.length > 0) && (
-              <div className="preset-filters" role="group" aria-label="Portée du déploiement">
-                <button className={portee === 'ROBOTS' ? 'is-active' : ''}
+              <div className="portee-selecteur" role="radiogroup" aria-label="Portée du déploiement">
+                <button className={portee === 'ROBOTS' ? 'is-active' : ''} role="radio"
+                        aria-checked={portee === 'ROBOTS'}
                         onClick={() => setPortee('ROBOTS')} type="button">
                   Robots choisis
                 </button>
                 {flottes.length > 0 && (
-                  <button className={portee === 'FLOTTE' ? 'is-active' : ''}
+                  <button className={portee === 'FLOTTE' ? 'is-active' : ''} role="radio"
+                          aria-checked={portee === 'FLOTTE'}
                           onClick={() => setPortee('FLOTTE')} type="button">
                     Une flotte <em>{flottes.length}</em>
                   </button>
                 )}
                 {sites.length > 0 && (
-                  <button className={portee === 'SITE' ? 'is-active' : ''}
+                  <button className={portee === 'SITE' ? 'is-active' : ''} role="radio"
+                          aria-checked={portee === 'SITE'}
                           onClick={() => setPortee('SITE')} type="button">
                     Un site <em>{sites.length}</em>
                   </button>
@@ -289,7 +292,10 @@ export default function PublishDialog({ project, issues, canDeploy, onClose, onP
                   <span><Server size={18} /></span>
                   <div>
                     <strong>{robot.nom}</strong>
-                    <small>{robot.slug || robot.id} · {robot.statut}</small>
+                    <small>
+                      {robot.slug || robot.id} · {robot.statut}
+                      {robot.modele ? ` · ${robot.modele}` : ''}
+                    </small>
                   </div>
                   <input
                     checked={selection.includes(robot.id)}
