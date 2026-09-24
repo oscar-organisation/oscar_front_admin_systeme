@@ -43,6 +43,7 @@ from ..models import (
     Fleet,
     FleetRobot,
     Robot,
+    Site,
 )
 from ..schemas import (
     BundleDraftIn,
@@ -423,10 +424,15 @@ def list_deployments(request: Request, robot_id: str | None = None, bundle_id: s
 @router.post("/deployments", response_model=list[DeploymentOut], status_code=201)
 def create_deployment(request: Request, body: DeploymentIn, db: Session = Depends(get_db),
                       user=Depends(require("api:deployment.execute", "execute"))):
-    """Demande l'application d'une version sur un robot ou une flotte.
+    """Demande l'application d'une version sur des robots, une flotte, un site.
 
-    Déployer sur une flotte crée une ligne par robot : c'est le robot qui
-    applique, et c'est robot par robot que l'on veut savoir si ça a marché.
+    Les trois portées se cumulent et leur union est dédupliquée : cibler une
+    flotte puis l'un de ses robots ne crée pas deux déploiements.
+
+    Quelle que soit la portée demandée, une ligne est créée **par robot**.
+    C'est le robot qui applique, et c'est robot par robot que l'on veut savoir
+    si ça a marché : une flotte de cent robots dont trois échouent n'est pas
+    « une flotte en échec », c'est trois robots à regarder.
     """
     org_id = request_organisation_id(request)
     version = _version_du_perimetre(db, body.version_id, org_id)
@@ -445,8 +451,17 @@ def create_deployment(request: Request, body: DeploymentIn, db: Session = Depend
             db.execute(select(FleetRobot).where(FleetRobot.fleet_id == flotte.id)).scalars()
         ]
         cibles = list(dict.fromkeys(cibles))
+    if body.site_id:
+        site = db.get(Site, body.site_id)
+        if not site or (org_id and site.org_id != org_id):
+            raise HTTPException(404, "Site introuvable")
+        cibles += [
+            robot.id for robot in
+            db.execute(select(Robot).where(Robot.site_id == site.id)).scalars()
+        ]
+        cibles = list(dict.fromkeys(cibles))
     if not cibles:
-        raise HTTPException(400, "Choisissez au moins un robot")
+        raise HTTPException(400, "Aucun robot ciblé : la portée demandée est vide")
 
     robots = [_robot_du_perimetre(db, robot_id, org_id) for robot_id in cibles]
     if any(robot.org_id != bundle.org_id for robot in robots):
