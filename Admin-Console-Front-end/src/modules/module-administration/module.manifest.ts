@@ -31,15 +31,15 @@ function pagePolicy(id: string, code: string): AuthorizationPolicy {
 }
 
 export const ADMINISTRATION_NAVIGATION: readonly ModuleNavigationItem[] = [
-  { id: "administration.overview", to: "/admin", label: "Vue d'ensemble", icon: "home", policy: ADMINISTRATION_ACCESS_POLICY, end: true },
-  { id: "administration.organizations", to: "/admin/organisations", label: "Organisations", icon: "building", policy: pagePolicy("tenant.organizations.route", TENANT_MANAGEMENT_PERMISSIONS.ORGANIZATIONS_PAGE) },
-  { id: "administration.sites", to: "/admin/sites", label: "Sites", icon: "store", policy: pagePolicy("tenant.sites.route", TENANT_MANAGEMENT_PERMISSIONS.SITES_PAGE) },
-  { id: "administration.users", to: "/admin/utilisateurs", label: "Utilisateurs", icon: "users", policy: pagePolicy("identity.users.route", IDENTITY_ACCESS_PERMISSIONS.USERS_PAGE) },
-  { id: "administration.roles", to: "/admin/roles", label: "Accès", icon: "shield", policy: pagePolicy("identity.roles.route", IDENTITY_ACCESS_PERMISSIONS.ROLES_PAGE) },
-  { id: "administration.iam-structure", to: "/admin/structure", label: "Structure IAM", icon: "layers", policy: pagePolicy("identity.structure.route", IDENTITY_ACCESS_PERMISSIONS.STRUCTURE_PAGE) },
-  { id: "administration.robots", to: "/admin/robots", label: "Robots", icon: "robot", policy: pagePolicy("fleet.robots.route", FLEET_MANAGEMENT_PERMISSIONS.ROBOTS_PAGE) },
-  { id: "administration.ai-vision", to: "/admin/sandbox", label: "Sandbox IA & Vision", icon: "cpu", policy: pagePolicy("ai-vision.route", AI_VISION_PERMISSIONS.PAGE) },
-  { id: "administration.audit", to: "/admin/audit", label: "Journal d'audit", icon: "activity", policy: pagePolicy("audit-log.route", AUDIT_LOG_PERMISSIONS.PAGE) },
+  { id: "administration.overview", to: "/admin", label: "Vue d'ensemble", icon: "home", section: "configuration", policy: ADMINISTRATION_ACCESS_POLICY, end: true },
+  { id: "administration.organizations", to: "/admin/organisations", label: "Organisations", icon: "building", section: "configuration", policy: pagePolicy("tenant.organizations.route", TENANT_MANAGEMENT_PERMISSIONS.ORGANIZATIONS_PAGE) },
+  { id: "administration.sites", to: "/admin/sites", label: "Sites", icon: "store", section: "configuration", policy: pagePolicy("tenant.sites.route", TENANT_MANAGEMENT_PERMISSIONS.SITES_PAGE) },
+  { id: "administration.users", to: "/admin/utilisateurs", label: "Utilisateurs", icon: "users", section: "configuration", policy: pagePolicy("identity.users.route", IDENTITY_ACCESS_PERMISSIONS.USERS_PAGE) },
+  { id: "administration.roles", to: "/admin/roles", label: "Accès", icon: "shield", section: "configuration", policy: pagePolicy("identity.roles.route", IDENTITY_ACCESS_PERMISSIONS.ROLES_PAGE) },
+  { id: "administration.iam-structure", to: "/admin/structure", label: "Structure IAM", icon: "layers", section: "configuration", policy: pagePolicy("identity.structure.route", IDENTITY_ACCESS_PERMISSIONS.STRUCTURE_PAGE) },
+  { id: "administration.robots", to: "/admin/robots", label: "Robots", icon: "robot", section: "operations", policy: pagePolicy("fleet.robots.route", FLEET_MANAGEMENT_PERMISSIONS.ROBOTS_PAGE) },
+  { id: "administration.ai-vision", to: "/admin/sandbox", label: "Sandbox IA & Vision", icon: "cpu", section: "operations", policy: pagePolicy("ai-vision.route", AI_VISION_PERMISSIONS.PAGE) },
+  { id: "administration.audit", to: "/admin/audit", label: "Journal d'audit", icon: "activity", section: "operations", policy: pagePolicy("audit-log.route", AUDIT_LOG_PERMISSIONS.PAGE) },
 ] as const;
 
 export const administrationModuleManifest: ApplicationModuleManifest = {

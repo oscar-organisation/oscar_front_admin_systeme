@@ -18,6 +18,7 @@ import {
   EyeOff,
   Grid2X2,
   House,
+  History,
   Info,
   KeyRound,
   Layers3,
@@ -68,6 +69,7 @@ export const IconEye = Eye;
 export const IconEyeOff = EyeOff;
 export const IconGrid = Grid2X2;
 export const IconHome = LayoutDashboard;
+export const IconHistory = History;
 export const IconInfo = Info;
 export const IconKey = KeyRound;
 export const IconLock = LockKeyhole;

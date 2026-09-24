@@ -424,7 +424,7 @@ def list_deployments(request: Request, robot_id: str | None = None, bundle_id: s
 @router.post("/deployments", response_model=list[DeploymentOut], status_code=201)
 def create_deployment(request: Request, body: DeploymentIn, db: Session = Depends(get_db),
                       user=Depends(require("api:deployment.execute", "execute"))):
-    """Demande l'application d'une version sur des robots, une flotte, un site.
+    """Demande l'application d'une version sur des robots, une flotte ou des sites.
 
     Les trois portées se cumulent et leur union est dédupliquée : cibler une
     flotte puis l'un de ses robots ne crée pas deux déploiements.
@@ -451,8 +451,12 @@ def create_deployment(request: Request, body: DeploymentIn, db: Session = Depend
             db.execute(select(FleetRobot).where(FleetRobot.fleet_id == flotte.id)).scalars()
         ]
         cibles = list(dict.fromkeys(cibles))
-    if body.site_id:
-        site = db.get(Site, body.site_id)
+    sites_demandes = list(dict.fromkeys([
+        *body.site_ids,
+        *([body.site_id] if body.site_id else []),
+    ]))
+    for site_id in sites_demandes:
+        site = db.get(Site, site_id)
         if not site or (org_id and site.org_id != org_id):
             raise HTTPException(404, "Site introuvable")
         cibles += [

@@ -134,6 +134,10 @@ export function creerBundle(entree: { nom: string; description: string; target: 
   return api.post<BundleServeur>("/studio/bundles", entree);
 }
 
+export function supprimerBundle(bundleId: string): Promise<void> {
+  return api.del<void>(`/studio/bundles/${bundleId}`);
+}
+
 export function lireBundle(bundleId: string): Promise<BundleServeur> {
   return api.get<BundleServeur>(`/studio/bundles/${bundleId}`);
 }
@@ -196,7 +200,7 @@ export function listerSites(): Promise<SiteCible[]> {
 }
 
 /**
- * Portée d'un déploiement : des robots nommés, une flotte, ou un site.
+ * Portée d'un déploiement : des robots nommés, une flotte, ou plusieurs sites.
  *
  * Les trois se cumulent côté serveur et leur union est dédupliquée. On envoie
  * donc la portée telle que l'opérateur l'a exprimée, sans la résoudre nous-même
@@ -206,7 +210,7 @@ export function listerSites(): Promise<SiteCible[]> {
 export interface PorteeDeploiement {
   robotIds?: string[];
   flotteId?: string;
-  siteId?: string;
+  siteIds?: string[];
 }
 
 export function deployer(versionId: string, portee: PorteeDeploiement,
@@ -215,7 +219,7 @@ export function deployer(versionId: string, portee: PorteeDeploiement,
     version_id: versionId,
     robot_ids: portee.robotIds ?? [],
     fleet_id: portee.flotteId ?? null,
-    site_id: portee.siteId ?? null,
+    site_ids: portee.siteIds ?? [],
     message: message || null,
   });
 }
