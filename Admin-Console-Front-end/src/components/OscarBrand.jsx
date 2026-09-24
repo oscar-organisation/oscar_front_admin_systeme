@@ -8,9 +8,9 @@ export default function OscarBrand({ compact = false, className = "" }) {
     : "/brand/oscar-logo-horizontal-dark.png";
 
   return (
-    <span className={`${base}${className ? ` ${className}` : ""}`} aria-label="OSCAR">
-      <img className="oscar-brand-on-dark" src={lightAsset} alt="OSCAR" />
-      <img className="oscar-brand-on-light" src={darkAsset} alt="OSCAR" />
+    <span className={`${base}${className ? ` ${className}` : ""}`} aria-label="OSCAR" translate="no">
+      <img className="oscar-brand-on-dark" src={lightAsset} alt="" aria-hidden="true" translate="no" />
+      <img className="oscar-brand-on-light" src={darkAsset} alt="" aria-hidden="true" translate="no" />
     </span>
   );
 }

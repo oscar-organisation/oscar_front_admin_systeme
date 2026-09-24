@@ -1,4 +1,4 @@
-"""Portées d'un déploiement : des robots, une flotte, un site.
+"""Portées d'un déploiement : des robots, une flotte, plusieurs sites.
 
 Cibler cent robots un par un n'est pas une méthode. La plateforme savait déjà
 raisonner en flotte du côté des Box IA ; le déploiement de bundles ne le
@@ -58,6 +58,23 @@ class TestPortees:
         assert r.status_code == 201, r.text
         vises = {d["robot_id"] for d in r.json()}
         assert ici["id"] in vises and ailleurs["id"] not in vises
+
+    def test_plusieurs_sites_se_deploient_en_une_demande(self, client, contexte, version):
+        sites = [
+            client.post("/api/sites", headers=contexte["entetes"],
+                        json={"nom": uniq("Magasin"), "code": uniq("site"),
+                              "org_id": contexte["org"]["id"]}).json()
+            for _ in range(2)
+        ]
+        robots = [_robot(client, contexte, site_id=site["id"]) for site in sites]
+        hors_sites = _robot(client, contexte)
+
+        r = _deployer(client, contexte, version,
+                      site_ids=[site["id"] for site in sites])
+        assert r.status_code == 201, r.text
+        vises = {d["robot_id"] for d in r.json()}
+        assert vises >= {robot["id"] for robot in robots}
+        assert hors_sites["id"] not in vises
 
     def test_les_portees_se_cumulent_sans_doublon(self, client, contexte, version):
         """Cibler une flotte puis l'un de ses robots ne doit pas déployer deux fois."""

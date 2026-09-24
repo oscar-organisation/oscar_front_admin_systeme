@@ -583,12 +583,13 @@ class BundleValidationOut(BaseModel):
 
 class DeploymentIn(BaseModel):
     version_id: str
-    # Trois portees, comme du cote des Box IA : un robot nomme, une flotte, un
-    # site. Elles se cumulent, et l'union est dedupliquee — cibler une flotte
-    # et l'un de ses robots ne cree pas deux deploiements.
+    # Les portees se cumulent et leur union est dedupliquee. `site_id` reste
+    # accepte pour les clients precedents ; l'interface courante envoie la
+    # collection afin qu'une publication puisse couvrir plusieurs magasins.
     robot_ids: list[str] = Field(default_factory=list, max_length=200)
     fleet_id: str | None = None
     site_id: str | None = None
+    site_ids: list[str] = Field(default_factory=list, max_length=100)
     message: str | None = None
 
 

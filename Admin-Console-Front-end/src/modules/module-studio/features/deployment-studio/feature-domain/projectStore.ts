@@ -6,6 +6,7 @@ import {
   listerBundles,
   lireVersion,
   projetDepuisBundle,
+  supprimerBundle,
 } from "../feature-data/studioApi";
 import type { OscarProject, ProjectTarget, SyncState } from "./types";
 
@@ -227,8 +228,24 @@ export function ajouterProjet(projet: OscarProject): void {
   publier({ projets: [projet, ...lire().projets] });
 }
 
-export function supprimerProjet(projetId: string): void {
-  publier({ projets: lire().projets.filter((item) => item.id !== projetId) });
+export async function supprimerProjet(projet: OscarProject): Promise<void> {
+  const contexte = generation;
+  const minuterie = minuteries.get(projet.id);
+  if (minuterie) {
+    window.clearTimeout(minuterie);
+    minuteries.delete(projet.id);
+  }
+  // Un projet serveur ne disparaît localement qu'après confirmation : sinon
+  // il réapparaîtrait au prochain rafraîchissement, ce qui donne l'impression
+  // trompeuse que la suppression a réussi puis a été annulée.
+  if (projet.bundleId) await supprimerBundle(projet.bundleId);
+  if (contexte !== generation) return;
+  publier({
+    projets: lire().projets.filter((item) => item.id !== projet.id),
+    sync: Object.fromEntries(
+      Object.entries(lire().sync).filter(([projetId]) => projetId !== projet.id),
+    ),
+  });
 }
 
 export function remplacerProjet(projet: OscarProject): void {
