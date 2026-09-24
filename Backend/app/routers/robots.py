@@ -20,7 +20,7 @@ from ..deps import (
 )
 from ..livekit_admin import list_participants
 from ..livekit_rooms import robot_room, room_slug
-from ..models import CompositionPreset, LiveKitToken, Robot, RobotAssignment, Site, User
+from ..models import LiveKitToken, Robot, RobotAssignment, Site, User
 from ..schemas import (
     LiveKitTokenOut,
     RobotAssignIn,
@@ -93,42 +93,21 @@ def _slug_robot(db: Session, nom: str) -> str:
     return candidat
 
 
-def _normaliser_modele(valeur: str | None) -> str | None:
-    """Ramene une famille de chassis a sa forme canonique.
-
-    L'operateur ecrit « ROSMASTER M3 Pro », le profil embarque et l'image du
-    runtime connaissent « rosmaster-m3pro ». Sans cette normalisation les trois
-    couches cessent de se reconnaitre, et le catalogue de presets ne retrouve
-    plus les robots de la famille qu'il vise.
-    """
-    if valeur is None:
-        return None
-    canonique = re.sub(r"[^a-z0-9]+", "-", valeur.lower()).strip("-")[:80]
-    return canonique or None
-
-
 @router.get("/robots/modeles", response_model=list[str])
 def list_modeles(db: Session = Depends(get_db), _=Depends(require("api:robot.read"))):
-    """Familles de châssis déjà connues, pour que l'opérateur choisisse.
+    """Modèles déjà saisis dans cette flotte, pour aider à rester cohérent.
 
-    La normalisation ne suffit pas à garantir l'identifiant canonique : rien ne
-    permet de deviner que « ROSMASTER M3 Pro » s'écrit `rosmaster-m3pro` et non
-    `rosmaster-m3-pro`, le constructeur ayant collé deux mots. La saisie libre
-    reste donc possible, mais le choix passe d'abord par cette liste.
+    Pure commodité de saisie : deux opérateurs qui décrivent le même matériel
+    gagnent à écrire pareil. Rien n'oblige à choisir dans cette liste, et un
+    châssis qui n'y figure pas s'ajoute en le tapant.
 
-    Elle réunit deux sources : les familles déjà portées par des robots, et
-    celles que le catalogue de présets sait outiller. Proposer une famille pour
-    laquelle aucun préset n'existe reste légitime, l'inverse aussi.
+    Cette liste ne sert pas de clé technique. Celle-là vient du robot, qui lit
+    son propre profil embarqué : lui seul connaît l'orthographe exacte.
     """
     portees = db.execute(
         select(Robot.modele).where(Robot.modele.is_not(None)).distinct()
     ).scalars().all()
-    outillees = db.execute(
-        select(CompositionPreset.famille).where(
-            CompositionPreset.statut == "published"
-        ).distinct()
-    ).scalars().all()
-    return sorted({valeur for valeur in [*portees, *outillees] if valeur})
+    return sorted({valeur for valeur in portees if valeur})
 
 
 @router.post("/robots", response_model=RobotOut, status_code=201)
@@ -138,7 +117,6 @@ def create_robot(body: RobotIn, db: Session = Depends(get_db),
     if not data.get("serial"):
         data["serial"] = None  # série vide -> NULL (pas de doublon sur chaîne vide)
     data.pop("slug", None)  # le slug est dérivé, jamais choisi par l'appelant
-    data["modele"] = _normaliser_modele(data.get("modele"))
     robot = Robot(**data, slug=_slug_robot(db, data.get("nom", "")))
     db.add(robot)
     try:
@@ -191,8 +169,6 @@ def update_robot(robot_id: str, body: RobotIn, request: Request, db: Session = D
     # embarque l'a inscrit dans ses chemins et son enrolement, et un robot qui
     # change d'identite au milieu d'une flotte est un robot qu'on perd.
     data.pop("slug", None)
-    if "modele" in data:
-        data["modele"] = _normaliser_modele(data["modele"])
     for k, v in data.items():
         setattr(robot, k, v)
     try:

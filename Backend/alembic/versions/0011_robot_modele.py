@@ -28,11 +28,12 @@ def upgrade() -> None:
     op.add_column("robots", sa.Column("modele_constate", sa.String(length=80)))
     op.create_index("ix_robots_modele", "robots", ["modele"])
 
-    # Le seul chassis physique de la flotte au moment de cette migration. Le
-    # renseigner ici evite qu'il reste le seul robot sans famille, alors meme
-    # que son paquet embarque tourne deja sur l'image oscar/edge-rosmaster-m3pro.
+    # Etiquette lisible pour le seul chassis physique de la flotte. La cle
+    # technique n'est pas posee ici : le robot la declarera lui-meme au
+    # prochain compte rendu, en lisant son propre profil embarque. La deviner
+    # serait exactement l'erreur que cette separation evite.
     op.execute(
-        "UPDATE robots SET modele = 'rosmaster-m3pro' "
+        "UPDATE robots SET modele = 'ROSMASTER M3 Pro' "
         "WHERE slug = 'oscar-02' AND modele IS NULL"
     )
 
