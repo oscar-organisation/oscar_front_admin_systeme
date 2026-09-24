@@ -113,6 +113,67 @@
 .studio-scope .preset-statut--draft { color: #8a6d1f; background: #fdf4e0; }
 .studio-scope .preset-statut--archived { color: #64748b; background: #f1f4f9; }
 
+/* Suivi des déploiements : une lecture dense, pensée pour repérer l'exception
+   avant d'ouvrir le détail technique renvoyé par le robot. */
+.studio-scope .deployment-history .projects-section { width: min(1320px, calc(100% - 56px)); }
+.studio-scope .deployment-intro { max-width: 760px; margin: -7px 0 18px; color: #64748b; font-size: 12px; line-height: 1.55; }
+.studio-scope .deployment-reload { min-height: 34px; }
+.studio-scope .deployment-overview { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-bottom: 14px; }
+.studio-scope .deployment-stat-card { display: flex; align-items: center; gap: 13px; min-height: 92px; padding: 16px 18px; border: 1px solid #dce3ee; border-radius: 14px; background: white; }
+.studio-scope .deployment-stat-card__icon { display: grid; place-items: center; flex: 0 0 auto; width: 39px; height: 39px; border-radius: 11px; }
+.studio-scope .deployment-stat-card__copy { display: grid; grid-template-columns: 1fr auto; align-items: end; flex: 1; gap: 2px 12px; }
+.studio-scope .deployment-stat-card__copy > span { color: #5f6b7c; font-size: 11px; font-weight: 750; text-transform: uppercase; letter-spacing: .07em; }
+.studio-scope .deployment-stat-card__copy strong { grid-row: 1 / span 2; grid-column: 2; font: 700 30px/1 var(--font-sans); }
+.studio-scope .deployment-stat-card__copy small { color: #8b96a7; font-size: 10px; }
+.studio-scope .deployment-stat-card--running .deployment-stat-card__icon { color: #3766f5; background: #edf2ff; }
+.studio-scope .deployment-stat-card--failed .deployment-stat-card__icon { color: #c7434c; background: #fff0f0; }
+.studio-scope .deployment-filterbar { display: grid; grid-template-columns: minmax(260px, 1fr) 190px 220px; gap: 9px; margin-bottom: 14px; }
+.studio-scope .deployment-search { display: flex; align-items: center; gap: 9px; min-height: 42px; padding: 0 13px; color: #7b8799; border: 1px solid #dce3ee; border-radius: 11px; background: white; }
+.studio-scope .deployment-search input { width: 100%; color: #172033; border: 0; background: transparent; outline: 0; font-size: 12px; }
+.studio-scope .deployment-search input::placeholder { color: #9aa5b6; }
+.studio-scope .deployment-filter { position: relative; display: flex; align-items: center; min-height: 42px; padding: 0 11px; border: 1px solid #dce3ee; border-radius: 11px; background: white; }
+.studio-scope .deployment-filter > span { position: absolute; top: 5px; left: 12px; color: #96a0b0; font-size: 7.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; pointer-events: none; }
+.studio-scope .deployment-filter select { width: 100%; padding: 11px 22px 2px 0; color: #273247; border: 0; background: transparent; outline: 0; font-size: 11.5px; cursor: pointer; }
+.studio-scope .deployment-page-error { display: grid; grid-template-columns: 18px 1fr auto; gap: 10px; align-items: center; margin-bottom: 12px; padding: 11px 13px; color: #9f2f38; border: 1px solid #f0cfd1; border-radius: 10px; background: #fff7f7; font-size: 11px; }
+.studio-scope .deployment-page-error span { display: flex; flex-direction: column; gap: 2px; }
+.studio-scope .deployment-page-error button { padding: 5px 9px; color: inherit; border: 1px solid currentColor; border-radius: 7px; background: transparent; cursor: pointer; font-size: 10px; font-weight: 700; }
+.studio-scope .deployment-list { overflow: hidden; border: 1px solid #dce3ee; border-radius: 14px; background: white; }
+.studio-scope .deployment-list__head { display: grid; grid-template-columns: minmax(180px, 1.05fr) minmax(200px, 1.35fr) 120px 190px; gap: 16px; padding: 9px 16px; color: #8b96a7; border-bottom: 1px solid #e6ebf2; background: #f7f9fc; font-size: 8.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; }
+.studio-scope .deployment-row { border-bottom: 1px solid #e6ebf2; background: white; }
+.studio-scope .deployment-row:last-child { border-bottom: 0; }
+.studio-scope .deployment-row__main { display: grid; grid-template-columns: minmax(180px, 1.05fr) minmax(200px, 1.35fr) 120px 190px; gap: 16px; align-items: center; min-height: 72px; padding: 12px 16px; }
+.studio-scope .deployment-row__identity { display: flex; align-items: center; min-width: 0; gap: 10px; }
+.studio-scope .deployment-robot-icon { display: grid; place-items: center; flex: 0 0 auto; width: 34px; height: 34px; color: #3766f5; border-radius: 10px; background: #eef3ff; }
+.studio-scope .deployment-row__identity > span:last-child,
+.studio-scope .deployment-row__bundle { display: flex; min-width: 0; flex-direction: column; gap: 3px; }
+.studio-scope .deployment-row__identity strong,
+.studio-scope .deployment-row__bundle strong { overflow: hidden; font-size: 12.5px; text-overflow: ellipsis; white-space: nowrap; }
+.studio-scope .deployment-row__identity small,
+.studio-scope .deployment-row__bundle small { overflow: hidden; color: #8a95a7; font-size: 9.5px; text-overflow: ellipsis; white-space: nowrap; }
+.studio-scope .deployment-status { justify-self: start; padding: 5px 8px; border: 1px solid transparent; border-radius: 999px; font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: .045em; }
+.studio-scope .deployment-status--pending { color: #8a6d1f; background: #fdf4e0; }
+.studio-scope .deployment-status--delivered { color: #315a9b; background: #edf3ff; }
+.studio-scope .deployment-status--prepared { color: #765416; border-color: #efd395; background: #fff8e9; }
+.studio-scope .deployment-status--active { color: #1a7f4b; border-color: #b8e4cc; background: #e6f6ed; }
+.studio-scope .deployment-status--failed { color: #b4232d; border-color: #f0cfd1; background: #fff0f0; }
+.studio-scope .deployment-status--rolled-back { color: #7859a7; background: #f3effb; }
+.studio-scope .deployment-status--cancelled,
+.studio-scope .deployment-status--superseded,
+.studio-scope .deployment-status--unknown { color: #64748b; background: #f1f4f9; }
+.studio-scope .deployment-row__time { display: inline-flex; align-items: center; gap: 6px; color: #7b8799; font-size: 10px; }
+.studio-scope .deployment-message { display: flex; align-items: flex-start; gap: 7px; margin: -2px 16px 11px 60px; padding: 8px 10px; color: #6c788a; border-left: 2px solid #b6c0ce; background: #f7f9fc; font-size: 10.5px; line-height: 1.45; }
+.studio-scope .deployment-message svg { flex: 0 0 auto; margin-top: 1px; }
+.studio-scope .deployment-message--failed { color: #a63740; border-left-color: #db4b52; background: #fff5f5; }
+.studio-scope .deployment-report { margin: 0 16px 12px 60px; overflow: hidden; border: 1px solid #e0e6ee; border-radius: 9px; background: #fafbfd; }
+.studio-scope .deployment-report summary { display: flex; align-items: center; gap: 6px; padding: 8px 10px; color: #64748b; cursor: pointer; font-size: 10px; font-weight: 700; list-style: none; }
+.studio-scope .deployment-report summary::-webkit-details-marker { display: none; }
+.studio-scope .deployment-report[open] summary svg { transform: rotate(180deg); }
+.studio-scope .deployment-report pre { max-height: 260px; margin: 0; overflow: auto; padding: 12px; color: #344054; border-top: 1px solid #e0e6ee; background: #f3f5f8; font: 10px/1.55 var(--font-mono); white-space: pre-wrap; overflow-wrap: anywhere; }
+.studio-scope .deployment-loading { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 150px; margin: 0; color: #7b8799; font-size: 11px; }
+.studio-scope .deployment-empty { display: flex; min-height: 180px; flex-direction: column; align-items: center; justify-content: center; gap: 6px; color: #7b8799; text-align: center; }
+.studio-scope .deployment-empty strong { color: #273247; font-size: 13px; }
+.studio-scope .deployment-empty span { font-size: 10.5px; }
+
 /* Catalogue de presets : une surface a part, parce qu'une liste deroulante
    tenait a trois entrees et ne tiendra pas a cent. */
 .studio-scope .preset-dialog { display: flex; flex-direction: column; width: min(880px, calc(100vw - 48px)); max-height: calc(100vh - 64px); border: 1px solid rgba(255,255,255,.6); border-radius: 18px; background: white; box-shadow: 0 30px 90px rgba(20,29,48,.3); }
@@ -381,6 +442,19 @@
   .studio-scope .studio-layout { grid-template-columns: 245px minmax(0, 1fr) 280px; }
   .studio-scope .save-state { display: none; }
   .studio-scope .project-grid { grid-template-columns: repeat(2, 1fr); }
+  .studio-scope .deployment-filterbar { grid-template-columns: 1fr 175px 190px; }
+  .studio-scope .deployment-list__head,
+  .studio-scope .deployment-row__main { grid-template-columns: minmax(150px, 1fr) minmax(160px, 1.1fr) 105px 155px; gap: 11px; }
+}
+
+@media (max-width: 980px) {
+  .studio-scope .deployment-overview,
+  .studio-scope .deployment-filterbar { grid-template-columns: 1fr; }
+  .studio-scope .deployment-list__head { display: none; }
+  .studio-scope .deployment-row__main { grid-template-columns: minmax(0, 1fr) auto; }
+  .studio-scope .deployment-row__bundle { grid-column: 1; padding-left: 44px; }
+  .studio-scope .deployment-status { grid-column: 2; grid-row: 1; }
+  .studio-scope .deployment-row__time { grid-column: 2; grid-row: 2; }
 }
 
 /* Adaptations console : la page projets vit dans la grille de l'administration,
@@ -605,6 +679,64 @@
 .studio-scope .preset-statut--published { color: var(--shell-green); background: var(--shell-green-soft); }
 .studio-scope .preset-statut--draft { color: var(--shell-amber); background: var(--shell-amber-soft); }
 .studio-scope .preset-statut--archived { color: var(--shell-muted); background: var(--shell-elevated); }
+
+/* Suivi des déploiements. Les surfaces sont répétées ici nommément pour que
+   l'écran reste lisible dans le thème sombre de la console. */
+.studio-scope .deployment-history { color: var(--shell-text); background: var(--shell-bg); }
+.studio-scope .deployment-intro { color: var(--shell-muted); }
+.studio-scope .deployment-reload { color: var(--shell-muted); border-color: var(--shell-line-strong); background: var(--shell-card); }
+.studio-scope .deployment-overview { color: var(--shell-text); }
+.studio-scope .deployment-stat-card { color: var(--shell-text); border-color: var(--shell-line); background: var(--shell-card); box-shadow: var(--shadow-sm); }
+.studio-scope .deployment-stat-card__icon { border: 1px solid var(--shell-line); }
+.studio-scope .deployment-stat-card__copy { color: var(--shell-text); }
+.studio-scope .deployment-stat-card__copy > span { color: var(--shell-muted); }
+.studio-scope .deployment-stat-card__copy small { color: var(--shell-dim); }
+.studio-scope .deployment-stat-card--running .deployment-stat-card__icon { color: var(--shell-blue-strong); border-color: var(--shell-blue-border); background: var(--shell-blue-soft); }
+.studio-scope .deployment-stat-card--failed .deployment-stat-card__icon { color: var(--shell-red); border-color: rgba(240,111,114,.28); background: var(--shell-red-soft); }
+.studio-scope .deployment-filterbar { color: var(--shell-text); }
+.studio-scope .deployment-search,
+.studio-scope .deployment-filter { color: var(--shell-muted); border-color: var(--shell-line-strong); background: var(--shell-card); }
+.studio-scope .deployment-search:focus-within,
+.studio-scope .deployment-filter:focus-within { border-color: var(--shell-blue-border); box-shadow: 0 0 0 3px var(--shell-blue-soft); }
+.studio-scope .deployment-search input,
+.studio-scope .deployment-filter select { color: var(--shell-text); }
+.studio-scope .deployment-search input::placeholder,
+.studio-scope .deployment-filter > span { color: var(--shell-dim); }
+.studio-scope .deployment-page-error { color: var(--shell-red); border-color: rgba(240,111,114,.28); background: var(--shell-red-soft); }
+.studio-scope .deployment-page-error span,
+.studio-scope .deployment-page-error button { color: inherit; }
+.studio-scope .deployment-list { border-color: var(--shell-line); background: var(--shell-card); box-shadow: var(--shadow-sm); }
+.studio-scope .deployment-list__head { color: var(--shell-dim); border-color: var(--shell-line); background: var(--shell-surface); }
+.studio-scope .deployment-row { color: var(--shell-text); border-color: var(--shell-line); background: var(--shell-card); }
+.studio-scope .deployment-row:hover { background: var(--shell-card-hover); }
+.studio-scope .deployment-row__main,
+.studio-scope .deployment-row__identity,
+.studio-scope .deployment-row__bundle { color: var(--shell-text); }
+.studio-scope .deployment-robot-icon { color: var(--shell-blue-strong); background: var(--shell-blue-soft); }
+.studio-scope .deployment-row__identity small,
+.studio-scope .deployment-row__bundle small,
+.studio-scope .deployment-row__time { color: var(--shell-dim); }
+.studio-scope .deployment-status { border-color: transparent; }
+.studio-scope .deployment-status--pending { color: var(--shell-amber); background: var(--shell-amber-soft); }
+.studio-scope .deployment-status--delivered { color: #66b8ee; background: rgba(102,184,238,.1); }
+.studio-scope .deployment-status--prepared { color: var(--shell-amber); border-color: rgba(239,180,81,.34); background: var(--shell-amber-soft); }
+.studio-scope .deployment-status--active { color: var(--shell-green); border-color: rgba(73,212,157,.34); background: var(--shell-green-soft); }
+.studio-scope .deployment-status--failed { color: var(--shell-red); border-color: rgba(240,111,114,.34); background: var(--shell-red-soft); }
+.studio-scope .deployment-status--rolled-back { color: var(--shell-purple); background: var(--shell-purple-soft); }
+.studio-scope .deployment-status--cancelled,
+.studio-scope .deployment-status--superseded,
+.studio-scope .deployment-status--unknown { color: var(--shell-muted); background: var(--shell-elevated); }
+.studio-scope .deployment-message { color: var(--shell-muted); border-color: var(--shell-line-strong); background: rgba(255,255,255,.025); }
+.studio-scope .deployment-message svg { color: var(--shell-muted); }
+.studio-scope .deployment-message--failed { color: var(--shell-red); border-color: var(--shell-red); background: var(--shell-red-soft); }
+.studio-scope .deployment-message--failed svg { color: var(--shell-red); }
+.studio-scope .deployment-report { border-color: var(--shell-line); background: var(--shell-surface); }
+.studio-scope .deployment-report summary { color: var(--shell-muted); }
+.studio-scope .deployment-report pre { color: var(--shell-muted); border-color: var(--shell-line); background: rgba(0,0,0,.18); }
+.studio-scope .deployment-loading,
+.studio-scope .deployment-empty { color: var(--shell-dim); }
+.studio-scope .deployment-empty strong { color: var(--shell-text); }
+.studio-scope .deployment-empty span { color: var(--shell-dim); }
 .studio-scope .versement-catalogue { display: flex; flex-wrap: wrap; gap: 9px; align-items: center; justify-content: space-between; margin-top: 12px; padding: 11px 13px; border: 1px solid var(--shell-line); border-radius: 11px; background: var(--shell-card); }
 .studio-scope .versement-catalogue p { display: flex; align-items: center; gap: 6px; margin: 0; font-size: 11.5px; line-height: 1.45; color: var(--shell-muted); }
 .studio-scope .versement-catalogue .secondary-button { width: auto; }
