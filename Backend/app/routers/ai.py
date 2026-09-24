@@ -587,12 +587,14 @@ def configure_deployment(request: Request, model_id: str, robot_id: str, body: M
     return deployment
 
 
-@router.get("/runtime/robots/{robot_id}/manifest")
-def runtime_manifest(robot_id: str, db: Session = Depends(get_db), _=Depends(_worker_authorized)):
-    robot = db.get(Robot, robot_id)
-    if not robot:
-        raise HTTPException(404, "Robot introuvable")
+def construire_manifeste(db: Session, robot: Robot) -> dict:
+    """Modeles qu'un robot doit executer, resolus depuis les Box affectees.
 
+    Extrait de l'endpoint pour etre appele ailleurs : le registre de baux a
+    besoin de savoir si un robot merite qu'un worker lui soit attribue, et la
+    reponse est exactement « son manifeste contient-il des modeles ». Dupliquer
+    cette resolution aurait garanti qu'elle divergerait.
+    """
     fleet_ids = set(db.execute(
         select(FleetRobot.fleet_id).where(FleetRobot.robot_id == robot.id)
     ).scalars())
@@ -647,7 +649,7 @@ def runtime_manifest(robot_id: str, db: Session = Depends(get_db), _=Depends(_wo
     # Backward compatibility for pre-Box assignments. New Studio flows only use Boxes.
     legacy_rows = db.execute(
         select(AiModelDeployment, AiModel).join(AiModel, AiModel.id == AiModelDeployment.model_id).where(
-            AiModelDeployment.robot_id == robot_id,
+            AiModelDeployment.robot_id == robot.id,
             AiModelDeployment.enabled.is_(True),
             AiModel.statut == "production",
             AiModel.validation_status == "manifest_valid",
@@ -676,6 +678,14 @@ def runtime_manifest(robot_id: str, db: Session = Depends(get_db), _=Depends(_wo
         "active_boxes": active_boxes,
         "models": list(selected.values()),
     }
+
+
+@router.get("/runtime/robots/{robot_id}/manifest")
+def runtime_manifest(robot_id: str, db: Session = Depends(get_db), _=Depends(_worker_authorized)):
+    robot = db.get(Robot, robot_id)
+    if not robot:
+        raise HTTPException(404, "Robot introuvable")
+    return construire_manifeste(db, robot)
 
 
 @router.get("/runtime/robots/{robot_id}/session")
