@@ -12,8 +12,6 @@
 **/coverage/
 **/playwright-report/
 **/test-results/
-Admin-Console-Front-end/public/xr/
-
 **/.venv/
 **/.venv_*/
 **/venv/
