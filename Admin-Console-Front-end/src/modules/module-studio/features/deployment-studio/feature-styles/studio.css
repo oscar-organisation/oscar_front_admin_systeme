@@ -146,7 +146,7 @@
 .studio-scope .deployment-history .projects-section { width: min(1320px, calc(100% - 56px)); }
 .studio-scope .deployment-intro { max-width: 760px; margin: -7px 0 18px; color: #64748b; font-size: 12px; line-height: 1.55; }
 .studio-scope .deployment-reload { min-height: 34px; }
-.studio-scope .deployment-overview { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-bottom: 14px; }
+.studio-scope .deployment-overview { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-bottom: 14px; }
 .studio-scope .deployment-stat-card { display: flex; align-items: center; gap: 13px; min-height: 92px; padding: 16px 18px; border: 1px solid #dce3ee; border-radius: 14px; background: white; }
 .studio-scope .deployment-stat-card__icon { display: grid; place-items: center; flex: 0 0 auto; width: 39px; height: 39px; border-radius: 11px; }
 .studio-scope .deployment-stat-card__copy { display: grid; grid-template-columns: 1fr auto; align-items: end; flex: 1; gap: 2px 12px; }
@@ -154,6 +154,7 @@
 .studio-scope .deployment-stat-card__copy strong { grid-row: 1 / span 2; grid-column: 2; font: 700 30px/1 var(--font-sans); }
 .studio-scope .deployment-stat-card__copy small { color: #8b96a7; font-size: 10px; }
 .studio-scope .deployment-stat-card--running .deployment-stat-card__icon { color: #3766f5; background: #edf2ff; }
+.studio-scope .deployment-stat-card--active .deployment-stat-card__icon { color: #1a7f4b; background: #e6f6ed; }
 .studio-scope .deployment-stat-card--failed .deployment-stat-card__icon { color: #c7434c; background: #fff0f0; }
 .studio-scope .deployment-filterbar { display: grid; grid-template-columns: minmax(260px, 1fr) 190px 220px; gap: 9px; margin-bottom: 14px; }
 .studio-scope .deployment-search { display: flex; align-items: center; gap: 9px; min-height: 42px; padding: 0 13px; color: #7b8799; border: 1px solid #dce3ee; border-radius: 11px; background: white; }
@@ -189,6 +190,21 @@
 .studio-scope .deployment-status--superseded,
 .studio-scope .deployment-status--unknown { color: #64748b; background: #f1f4f9; }
 .studio-scope .deployment-row__time { display: inline-flex; align-items: center; gap: 6px; color: #7b8799; font-size: 10px; }
+.studio-scope .deployment-progress { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin: -3px 16px 12px 60px; }
+.studio-scope .deployment-progress__step { position: relative; display: flex; align-items: center; gap: 7px; min-width: 0; color: #9aa5b6; }
+.studio-scope .deployment-progress__step:not(:last-child)::after { position: absolute; z-index: 0; top: 10px; left: 20px; right: 0; height: 1px; content: ""; background: #dce3ee; }
+.studio-scope .deployment-progress__marker { position: relative; z-index: 1; display: grid; place-items: center; flex: 0 0 auto; width: 21px; height: 21px; border: 1px solid #dce3ee; border-radius: 50%; background: white; }
+.studio-scope .deployment-progress__label { position: relative; z-index: 1; overflow: hidden; padding-right: 8px; background: white; font-size: 9px; font-weight: 650; text-overflow: ellipsis; white-space: nowrap; }
+.studio-scope .deployment-progress__step.is-done { color: #1a7f4b; }
+.studio-scope .deployment-progress__step.is-done:not(:last-child)::after { background: #8dd1ae; }
+.studio-scope .deployment-progress__step.is-current { color: #315a9b; }
+.studio-scope .deployment-progress__step.is-current .deployment-progress__marker { border-color: #9bb8ed; background: #edf3ff; }
+.studio-scope .deployment-progress__step.is-warning { color: #8a6d1f; }
+.studio-scope .deployment-progress__step.is-warning .deployment-progress__marker { border-color: #efd395; background: #fff8e9; }
+.studio-scope .deployment-progress__step.is-failed { color: #b4232d; }
+.studio-scope .deployment-progress__step.is-failed .deployment-progress__marker { border-color: #f0cfd1; background: #fff0f0; }
+.studio-scope .deployment-progress--compact { margin: 8px 0 0; }
+.studio-scope .deployment-progress--compact .deployment-progress__label { font-size: 8px; }
 .studio-scope .deployment-message { display: flex; align-items: flex-start; gap: 7px; margin: -2px 16px 11px 60px; padding: 8px 10px; color: #6c788a; border-left: 2px solid #b6c0ce; background: #f7f9fc; font-size: 10.5px; line-height: 1.45; }
 .studio-scope .deployment-message svg { flex: 0 0 auto; margin-top: 1px; }
 .studio-scope .deployment-message--failed { color: #a63740; border-left-color: #db4b52; background: #fff5f5; }
@@ -451,6 +467,8 @@
 .studio-scope .deployment-targets { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 0 20px 14px; }
 .studio-scope .deployment-target { display: flex; align-items: center; gap: 8px; padding: 11px; border: 1px solid #dfe5ed; border-radius: 10px; }
 .studio-scope .deployment-target:has(input:checked) { border-color: #c5d4ff; background: #f5f8ff; box-shadow: inset 0 0 0 1px rgba(55,102,245,.08); }
+.studio-scope .deployment-target--empty { opacity: .58; cursor: not-allowed; }
+.studio-scope .deployment-target--empty input { cursor: not-allowed; }
 .studio-scope .deployment-target > span { display: grid; place-items: center; width: 32px; height: 32px; color: var(--blue); border-radius: 8px; background: #eaf0ff; }
 .studio-scope .deployment-target > div { display: flex; min-width: 0; flex: 1; flex-direction: column; }
 .studio-scope .deployment-target strong { font-size: 9.5px; }
@@ -467,6 +485,21 @@
 .studio-scope .simulation-success > div { display: flex; flex-direction: column; }
 .studio-scope .simulation-success strong { font-size: 10px; }
 .studio-scope .simulation-success span { margin-top: 2px; font-size: 8px; }
+.studio-scope .deployment-live-count { display: inline-block; min-width: 1ch; font-variant-numeric: tabular-nums; }
+.studio-scope .deployment-live { margin: 0 20px 16px; overflow: hidden; border: 1px solid #dce3ee; border-radius: 11px; background: white; }
+.studio-scope .deployment-live > header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 11px 13px; border-bottom: 1px solid #e6ebf2; background: #f7f9fc; }
+.studio-scope .deployment-live > header > div { display: flex; flex-direction: column; gap: 2px; }
+.studio-scope .deployment-live > header span { color: #8b96a7; font-size: 8px; font-weight: 800; text-transform: uppercase; letter-spacing: .07em; }
+.studio-scope .deployment-live > header strong { font-size: 11px; }
+.studio-scope .deployment-live__list { max-height: 260px; overflow: auto; }
+.studio-scope .deployment-live__item { padding: 11px 13px; border-bottom: 1px solid #e6ebf2; }
+.studio-scope .deployment-live__item:last-child { border-bottom: 0; }
+.studio-scope .deployment-live__identity { display: flex; align-items: center; gap: 8px; }
+.studio-scope .deployment-live__identity > span { display: grid; place-items: center; width: 27px; height: 27px; color: #3766f5; border-radius: 8px; background: #eef3ff; }
+.studio-scope .deployment-live__identity > div { display: flex; flex-direction: column; gap: 2px; }
+.studio-scope .deployment-live__identity strong { font-size: 10px; }
+.studio-scope .deployment-live__identity small { color: #7b8799; font-size: 8px; }
+.studio-scope .deployment-live__item > p { display: flex; align-items: flex-start; gap: 6px; margin: 8px 0 0 35px; color: #b4232d; font-size: 8.5px; line-height: 1.4; }
 @media (max-width: 1280px) {
   .studio-scope .studio-layout { grid-template-columns: 245px minmax(0, 1fr) 280px; }
   .studio-scope .save-state { display: none; }
@@ -731,6 +764,7 @@
 .studio-scope .deployment-stat-card__copy > span { color: var(--shell-muted); }
 .studio-scope .deployment-stat-card__copy small { color: var(--shell-dim); }
 .studio-scope .deployment-stat-card--running .deployment-stat-card__icon { color: var(--shell-blue-strong); border-color: var(--shell-blue-border); background: var(--shell-blue-soft); }
+.studio-scope .deployment-stat-card--active .deployment-stat-card__icon { color: var(--shell-green); border-color: rgba(73,212,157,.28); background: var(--shell-green-soft); }
 .studio-scope .deployment-stat-card--failed .deployment-stat-card__icon { color: var(--shell-red); border-color: rgba(240,111,114,.28); background: var(--shell-red-soft); }
 .studio-scope .deployment-filterbar { color: var(--shell-text); }
 .studio-scope .deployment-search,
@@ -755,6 +789,18 @@
 .studio-scope .deployment-row__identity small,
 .studio-scope .deployment-row__bundle small,
 .studio-scope .deployment-row__time { color: var(--shell-dim); }
+.studio-scope .deployment-progress__step { color: var(--shell-dim); }
+.studio-scope .deployment-progress__step:not(:last-child)::after { background: var(--shell-line-strong); }
+.studio-scope .deployment-progress__marker { border-color: var(--shell-line-strong); background: var(--shell-card); }
+.studio-scope .deployment-progress__label { background: var(--shell-card); }
+.studio-scope .deployment-progress__step.is-done { color: var(--shell-green); }
+.studio-scope .deployment-progress__step.is-done:not(:last-child)::after { background: rgba(73,212,157,.5); }
+.studio-scope .deployment-progress__step.is-current { color: #66b8ee; }
+.studio-scope .deployment-progress__step.is-current .deployment-progress__marker { border-color: rgba(102,184,238,.4); background: rgba(102,184,238,.1); }
+.studio-scope .deployment-progress__step.is-warning { color: var(--shell-amber); }
+.studio-scope .deployment-progress__step.is-warning .deployment-progress__marker { border-color: rgba(239,180,81,.34); background: var(--shell-amber-soft); }
+.studio-scope .deployment-progress__step.is-failed { color: var(--shell-red); }
+.studio-scope .deployment-progress__step.is-failed .deployment-progress__marker { border-color: rgba(240,111,114,.34); background: var(--shell-red-soft); }
 .studio-scope .deployment-status { border-color: transparent; }
 .studio-scope .deployment-status--pending { color: var(--shell-amber); background: var(--shell-amber-soft); }
 .studio-scope .deployment-status--delivered { color: #66b8ee; background: rgba(102,184,238,.1); }
@@ -936,10 +982,19 @@
 .studio-scope .publish-blocked p { color: #ffabad; }
 .studio-scope .deployment-target { border-color: var(--shell-line); background: rgba(255,255,255,.018); }
 .studio-scope .deployment-target:has(input:checked) { border-color: var(--shell-blue-border); background: var(--shell-blue-soft); box-shadow: inset 0 0 0 1px rgba(216,88,16,.08); }
+.studio-scope .deployment-target--empty { background: rgba(255,255,255,.01); }
 .studio-scope .deployment-target > span { color: var(--shell-blue-strong); background: var(--shell-blue-soft); }
 .studio-scope .deployment-target em { color: var(--shell-amber); }
 .studio-scope .deployment-steps > div.is-current { color: var(--shell-blue-strong); background: var(--shell-blue-soft); }
 .studio-scope .deployment-steps > div.is-done { color: var(--shell-green); background: var(--shell-green-soft); }
 .studio-scope .simulation-success { color: var(--shell-green); border-color: rgba(73,212,157,.28); background: var(--shell-green-soft); }
+.studio-scope .deployment-live { color: var(--shell-text); border-color: var(--shell-line); background: var(--shell-card); }
+.studio-scope .deployment-live > header { border-color: var(--shell-line); background: var(--shell-surface); }
+.studio-scope .deployment-live > header span,
+.studio-scope .deployment-live__identity small { color: var(--shell-dim); }
+.studio-scope .deployment-live__item { border-color: var(--shell-line); }
+.studio-scope .deployment-live__identity > span { color: var(--shell-blue-strong); background: var(--shell-blue-soft); }
+.studio-scope .deployment-live__item .deployment-progress__label { background: var(--shell-card); }
+.studio-scope .deployment-live__item > p { color: var(--shell-red); }
 .studio-scope .studio-offline { color: var(--shell-amber); border-color: rgba(239,180,81,.28); background: var(--shell-amber-soft); }
 .studio-scope .studio-trop-etroit { color: var(--shell-muted); }

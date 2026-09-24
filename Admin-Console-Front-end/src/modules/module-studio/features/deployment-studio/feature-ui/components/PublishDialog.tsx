@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
+  Activity,
   AlertTriangle,
   Box,
   Check,
@@ -14,10 +16,12 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/shared/kernel/auth/AuthProvider';
 import {
-  deployer, listerFlottes, listerPresetsTous, listerRobots, listerSites, publier, verifier,
+  deployer, listerDeploiements, listerFlottes, listerPresetsTous, listerRobots, listerSites, publier, verifier,
 } from '../../feature-data/studioApi';
 import type { Flotte, SiteCible } from '../../feature-data/studioApi';
 import PresetVersementDialog from './PresetVersementDialog';
+import DeploymentProgress from './DeploymentProgress';
+import { deploiementEnCours, libelleEtatDeploiement } from './deploymentStatus';
 import type { DeploiementServeur, OscarProject, RobotCible, ValidationIssue } from '../../feature-domain/types';
 
 interface PublishDialogProps {
@@ -31,6 +35,7 @@ interface PublishDialogProps {
 type Etape = 'VERIFICATION' | 'PRET' | 'PUBLICATION' | 'CIBLES' | 'DEPLOIEMENT' | 'TERMINE';
 
 export default function PublishDialog({ project, issues, canDeploy, onClose, onPublished }: PublishDialogProps) {
+  const navigate = useNavigate();
   const [etape, setEtape] = useState<Etape>('VERIFICATION');
   const [erreurs, setErreurs] = useState<string[]>([]);
   const [panne, setPanne] = useState<string | null>(null);
@@ -73,9 +78,42 @@ export default function PublishDialog({ project, issues, canDeploy, onClose, onP
     : portee === 'FLOTTE'
       ? (flottes.find((f) => f.id === flotteId)?.robot_ids?.length ?? 0)
       : robots.filter((r) => Boolean(r.site_id && siteIds.includes(r.site_id))).length;
-  const porteePrete = portee === 'ROBOTS'
+  const porteePrete = nombreVise > 0 && (portee === 'ROBOTS'
     ? selection.length > 0
-    : portee === 'FLOTTE' ? Boolean(cibleRetenue) : siteIds.length > 0;
+    : portee === 'FLOTTE' ? Boolean(cibleRetenue) : siteIds.length > 0);
+
+  const identifiantsDeploiements = useMemo(
+    () => deploiements.map((item) => item.id).sort().join(','),
+    [deploiements],
+  );
+  const suiviActif = deploiements.some((item) => deploiementEnCours(item.statut));
+
+  // Les états sont ceux du protocole réel : la demande est d'abord en attente,
+  // puis livrée au robot, puis confirmée par son runtime. Aucun pourcentage
+  // artificiel n'est inventé entre deux comptes rendus de l'agent embarqué.
+  useEffect(() => {
+    const bundleId = project.bundleId;
+    if (etape !== 'TERMINE' || !bundleId || !suiviActif || !identifiantsDeploiements) return;
+    let vivant = true;
+    const connus = new Set(identifiantsDeploiements.split(','));
+    const actualiser = async () => {
+      try {
+        const liste = await listerDeploiements({ bundleId });
+        if (!vivant) return;
+        const aJour = liste.filter((item) => connus.has(item.id));
+        if (aJour.length > 0) setDeploiements(aJour);
+      } catch {
+        // La modale conserve le dernier état connu. L'historique permet de
+        // reprendre le suivi dès que la console redevient joignable.
+      }
+    };
+    void actualiser();
+    const intervalle = window.setInterval(() => { void actualiser(); }, 4000);
+    return () => {
+      vivant = false;
+      window.clearInterval(intervalle);
+    };
+  }, [etape, identifiantsDeploiements, project.bundleId, suiviActif]);
 
   const bloquantsLocaux = useMemo(
     () => issues.filter((issue) => issue.level === 'ERREUR').map((issue) => issue.title),
@@ -250,20 +288,22 @@ export default function PublishDialog({ project, issues, canDeploy, onClose, onP
 
             {portee === 'FLOTTE' && (
               <div className="deployment-targets">
-                {flottes.map((flotte) => (
-                  <label className="deployment-target" key={flotte.id}>
+                {flottes.map((flotte) => {
+                  const compte = flotte.robot_ids?.length ?? 0;
+                  return (
+                  <label className={`deployment-target${compte === 0 ? ' deployment-target--empty' : ''}`} key={flotte.id}>
                     <span><Server size={18} /></span>
                     <div>
                       <strong>{flotte.nom}</strong>
                       <small>
-                        {flotte.robot_ids?.length ?? 0} robot
-                        {(flotte.robot_ids?.length ?? 0) > 1 ? 's' : ''} · {flotte.code}
+                        {compte === 0 ? 'Aucun robot éligible' : `${compte} robot${compte > 1 ? 's' : ''}`} · {flotte.code}
                       </small>
                     </div>
                     <input checked={flotteId === flotte.id} type="radio" name="flotte"
-                           onChange={() => setFlotteId(flotte.id)} />
+                           disabled={compte === 0} onChange={() => setFlotteId(flotte.id)} />
                   </label>
-                ))}
+                  );
+                })}
               </div>
             )}
 
@@ -272,14 +312,14 @@ export default function PublishDialog({ project, issues, canDeploy, onClose, onP
                 {sites.map((site) => {
                   const compte = robots.filter((r) => r.site_id === site.id).length;
                   return (
-                    <label className="deployment-target" key={site.id}>
+                    <label className={`deployment-target${compte === 0 ? ' deployment-target--empty' : ''}`} key={site.id}>
                       <span><Server size={18} /></span>
                       <div>
                         <strong>{site.nom}</strong>
-                        <small>{compte} robot{compte > 1 ? 's' : ''} rattaché{compte > 1 ? 's' : ''}</small>
+                        <small>{compte === 0 ? 'Aucun robot éligible' : `${compte} robot${compte > 1 ? 's' : ''} rattaché${compte > 1 ? 's' : ''}`}</small>
                       </div>
                       <input checked={siteIds.includes(site.id)} type="checkbox"
-                             onChange={() => basculerSite(site.id)} />
+                             disabled={compte === 0} onChange={() => basculerSite(site.id)} />
                     </label>
                   );
                 })}
@@ -347,18 +387,49 @@ export default function PublishDialog({ project, issues, canDeploy, onClose, onP
           </div>
         )}
 
-        {etape === 'TERMINE' && (
+        {etape === 'TERMINE' && deploiements.length === 0 && (
           <div className="simulation-success">
             <CheckCircle2 size={20} />
             <div>
               <strong>Version {versionPubliee?.numero} publiée</strong>
               <span>
-                {deploiements.length > 0
-                  ? `Demande transmise à ${deploiements.length} robot${deploiements.length > 1 ? 's' : ''} : elle s’applique au prochain contact de l’agent embarqué.`
-                  : 'Aucun déploiement demandé pour l’instant.'}
+                Aucun déploiement demandé pour l’instant.
               </span>
             </div>
           </div>
+        )}
+
+        {etape === 'TERMINE' && deploiements.length > 0 && (
+          <section className="deployment-live" aria-live="polite" aria-label="Progression des déploiements">
+            <header>
+              <div>
+                <span>Suivi en direct</span>
+                <strong>
+                  {suiviActif
+                    ? `${deploiements.filter((item) => deploiementEnCours(item.statut)).length} déploiement${deploiements.filter((item) => deploiementEnCours(item.statut)).length > 1 ? 's' : ''} en cours`
+                    : 'Déploiements terminés'}
+                </strong>
+              </div>
+              {suiviActif && <LoaderCircle className="spin" size={16} />}
+            </header>
+            <div className="deployment-live__list">
+              {deploiements.map((deploiement) => (
+                <article className="deployment-live__item" key={deploiement.id}>
+                  <div className="deployment-live__identity">
+                    <span><Server size={15} /></span>
+                    <div>
+                      <strong>{deploiement.robot_nom || deploiement.robot_slug || 'Robot'}</strong>
+                      <small>{libelleEtatDeploiement(deploiement.statut)}</small>
+                    </div>
+                  </div>
+                  <DeploymentProgress statut={deploiement.statut} compact />
+                  {deploiement.statut === 'failed' && deploiement.message && (
+                    <p><AlertTriangle size={12} /> {deploiement.message}</p>
+                  )}
+                </article>
+              ))}
+            </div>
+          </section>
         )}
 
         {versementOuvert && versionPubliee && (
@@ -393,7 +464,18 @@ export default function PublishDialog({ project, issues, canDeploy, onClose, onP
               onClick={() => void lancerDeploiement()}
               type="button"
             >
-              <Server size={16} /> Déployer sur {nombreVise} robot{nombreVise > 1 ? 's' : ''}
+              <Server size={16} /> Déployer sur{' '}
+              <span className="deployment-live-count" translate="no" key={nombreVise}>{nombreVise}</span>{' '}
+              robot{nombreVise > 1 ? 's' : ''}
+            </button>
+          )}
+          {etape === 'TERMINE' && deploiements.length > 0 && (
+            <button
+              className="primary-button"
+              onClick={() => { onClose(); navigate('/studio/deploiements'); }}
+              type="button"
+            >
+              <Activity size={16} /> Voir le suivi
             </button>
           )}
           {enCours && (
