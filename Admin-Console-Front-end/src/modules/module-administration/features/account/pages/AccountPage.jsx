@@ -39,11 +39,6 @@ export default function AccountPage() {
   const [mdpErr, setMdpErr] = useState("");
   const [longueurMin, setLongueurMin] = useState(null);
 
-  useEffect(() => {
-    charger();
-    chargerPolitiqueMotDePasse().then(setLongueurMin);
-  }, []);
-
   async function charger() {
     try {
       const data = await api.get("/auth/me");
@@ -54,6 +49,11 @@ export default function AccountPage() {
       setErr(getUserErrorMessage(error));
     }
   }
+
+  useEffect(() => {
+    charger();
+    chargerPolitiqueMotDePasse().then(setLongueurMin);
+  }, []);
 
   async function enregistrerProfil(e) {
     e.preventDefault();
