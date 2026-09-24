@@ -93,6 +93,23 @@ def _slug_robot(db: Session, nom: str) -> str:
     return candidat
 
 
+@router.get("/robots/modeles", response_model=list[str])
+def list_modeles(db: Session = Depends(get_db), _=Depends(require("api:robot.read"))):
+    """Modèles déjà saisis dans cette flotte, pour aider à rester cohérent.
+
+    Pure commodité de saisie : deux opérateurs qui décrivent le même matériel
+    gagnent à écrire pareil. Rien n'oblige à choisir dans cette liste, et un
+    châssis qui n'y figure pas s'ajoute en le tapant.
+
+    Cette liste ne sert pas de clé technique. Celle-là vient du robot, qui lit
+    son propre profil embarqué : lui seul connaît l'orthographe exacte.
+    """
+    portees = db.execute(
+        select(Robot.modele).where(Robot.modele.is_not(None)).distinct()
+    ).scalars().all()
+    return sorted({valeur for valeur in portees if valeur})
+
+
 @router.post("/robots", response_model=RobotOut, status_code=201)
 def create_robot(body: RobotIn, db: Session = Depends(get_db),
                  user=Depends(require("api:robot.write", "create"))):

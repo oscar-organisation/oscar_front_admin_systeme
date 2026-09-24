@@ -424,6 +424,26 @@ body {
   font-weight: 580;
 }
 
+/* Deux etiquettes cote a cote, deux natures. La premiere est le modele tel que
+   l'operateur l'a decrit. La seconde est la famille technique que le robot
+   declare, celle qui nomme son image de runtime et sur laquelle le catalogue
+   de presets s'accroche. */
+.modele-chip {
+  display: inline-block;
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 560;
+  color: var(--shell-purple);
+  background: var(--shell-purple-soft);
+}
+
+.modele-chip--technique {
+  color: var(--shell-muted);
+  background: var(--shell-elevated);
+}
+
 /* Tables and repeated data */
 .data-table { font-size: 12px; }
 .data-table th {

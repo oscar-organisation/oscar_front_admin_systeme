@@ -697,6 +697,11 @@ def runtime_release_report(reference: str, body: EdgeReleaseReportIn,
     """
     robot = _robot_authentifie(db, reference, cle)
     robot.edge_version = body.version
+    if body.profil:
+        # Constate, pas impose : on enregistre ce que le robot declare sans
+        # ecraser ce que l'operateur a saisi. L'ecart entre les deux est
+        # precisement ce qu'on veut pouvoir montrer.
+        robot.modele_constate = body.profil
     db.commit()
     write_audit(db, actor=None, action="EDGE_RELEASE_" + body.statut.upper(),
                 resource=f"{robot.nom} → {body.version}" + (f" : {body.message}" if body.message else ""),
