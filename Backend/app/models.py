@@ -348,6 +348,18 @@ class Robot(Base, TimestampMixin):
     agent_key_issued_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     serial: Mapped[str | None] = mapped_column(String(120), unique=True)
     firmware: Mapped[str | None] = mapped_column(String(40))
+    # Famille de chassis, au meme identifiant que le profil embarque
+    # (OSCAR_ROBOT_PROFILE) et que le suffixe de l'image du runtime
+    # (oscar/edge-<famille>). Trois couches qui nomment le meme materiel, sans
+    # table de correspondance a tenir entre elles.
+    #
+    # Champ libre et non une enumeration : un chassis d'un autre constructeur
+    # doit pouvoir entrer dans la flotte sans migration de schema.
+    modele: Mapped[str | None] = mapped_column(String(80), index=True)
+    # Famille annoncee par le robot lui-meme, comme edge_version l'est deja. La
+    # console affiche ce qui tourne, pas ce qu'on a saisi ; un ecart entre les
+    # deux se voit au lieu de se deviner.
+    modele_constate: Mapped[str | None] = mapped_column(String(80))
     statut: Mapped[str] = mapped_column(String(20), default="offline")  # online|offline|maintenance
     batterie: Mapped[int | None] = mapped_column(Integer)
     capacites: Mapped[list] = mapped_column(JSON, default=list)

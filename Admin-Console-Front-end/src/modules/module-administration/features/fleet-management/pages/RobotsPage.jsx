@@ -32,6 +32,7 @@ export default function Robots() {
   const [robots, setRobots] = useState([]);
   const [orgs, setOrgs] = useState([]);
   const [sites, setSites] = useState([]);
+  const [modeles, setModeles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
   const [stFilter, setStFilter] = useState("all");
@@ -53,11 +54,19 @@ export default function Robots() {
   function reload() {
     setLoading(true);
     setErr("");
-    Promise.all([api.get("/robots"), api.get("/organisations"), api.get("/sites")])
-      .then(([r, o, s]) => {
+    // Les familles connues sont un confort de saisie : si l'appel echoue, le
+    // champ reste libre et la creation n'est pas bloquee.
+    Promise.all([
+      api.get("/robots"),
+      api.get("/organisations"),
+      api.get("/sites"),
+      api.get("/robots/modeles").catch(() => []),
+    ])
+      .then(([r, o, s, m]) => {
         setRobots(Array.isArray(r) ? r : []);
         setOrgs(Array.isArray(o) ? o : []);
         setSites(Array.isArray(s) ? s : []);
+        setModeles(Array.isArray(m) ? m : []);
       })
       .catch((error) => {
         setRobots([]);
@@ -75,7 +84,8 @@ export default function Robots() {
   const filtered = robots.filter((r) => {
     const matchQ =
       !q ||
-      (r.nom + " " + (r.serial || "") + " " + (r.org_nom || "") + " " + (r.site_nom || ""))
+      (r.nom + " " + (r.serial || "") + " " + (r.modele || "") + " "
+        + (r.org_nom || "") + " " + (r.site_nom || ""))
         .toLowerCase()
         .includes(q.toLowerCase());
     const matchSt = stFilter === "all" || r.statut === stFilter;
@@ -90,6 +100,7 @@ export default function Robots() {
       org_id: orgs[0]?.id || "",
       site_id: "",
       serial: "",
+      modele: "",
       firmware: "1.0.0",
       statut: "online",
       batterie: 100,
@@ -106,6 +117,7 @@ export default function Robots() {
       org_id: r.organisation_id || r.org_id || "",
       site_id: r.site_id || "",
       serial: r.serial || "",
+      modele: r.modele || "",
       firmware: r.firmware || "1.0.0",
       statut: r.statut || "online",
       batterie: r.batterie != null ? r.batterie : 100,
@@ -121,6 +133,7 @@ export default function Robots() {
       organisation_id: modal.org_id,
       site_id: modal.site_id || null,
       serial: modal.serial,
+      modele: modal.modele || null,
       firmware: modal.firmware,
       statut: modal.statut,
       batterie: Number(modal.batterie),
@@ -272,6 +285,24 @@ export default function Robots() {
                     <tr key={r.id} data-testid="robot-row">
                       <td>
                         <strong data-testid="robot-name" style={{ color: "#fff" }}>{r.nom}</strong>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 3 }}>
+                          {r.modele && (
+                            <span className="modele-chip" data-testid="robot-modele">{r.modele}</span>
+                          )}
+                          {/* Le robot est la seule source qui sache sur quel chassis il
+                              tourne. Quand sa declaration contredit la saisie, on le
+                              montre : une famille mal orthographiee empeche le
+                              catalogue de presets de retrouver ses robots. */}
+                          {r.modele_constate && r.modele_constate !== r.modele && (
+                            <span
+                              className="modele-chip modele-chip--ecart"
+                              data-testid="robot-modele-ecart"
+                              title={`Le robot declare ${r.modele_constate}`}
+                            >
+                              robot : {r.modele_constate}
+                            </span>
+                          )}
+                        </div>
                         <div style={{ fontSize: 11, color: "var(--shell-dim)", fontFamily: "var(--font-mono)" }}>
                           {r.serial || "OSC-STD"}
                         </div>
@@ -423,6 +454,27 @@ export default function Robots() {
               </div>
 
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                <div>
+                  <label className="auth-label">Modèle de châssis</label>
+                  <input
+                    className="field-shell"
+                    data-testid="robot-modele"
+                    list="modeles-connus"
+                    placeholder="rosmaster-m3pro"
+                    value={modal.modele}
+                    onChange={(e) => setModal({ ...modal, modele: e.target.value })}
+                  />
+                  {/* Liste et non menu ferme : un chassis d'un nouveau
+                      constructeur doit pouvoir entrer sans attendre une mise a
+                      jour. Mais proposer les familles connues evite d'inventer
+                      une orthographe que le robot ne reconnaitra pas. */}
+                  <datalist id="modeles-connus">
+                    {modeles.map((m) => <option value={m} key={m} />)}
+                  </datalist>
+                  <small style={{ color: "var(--shell-dim)", fontSize: 11 }}>
+                    Le même identifiant que le profil embarqué du robot.
+                  </small>
+                </div>
                 <div>
                   <label className="auth-label">Numéro de série</label>
                   <input
