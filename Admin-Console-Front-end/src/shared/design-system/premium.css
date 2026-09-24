@@ -424,6 +424,26 @@ body {
   font-weight: 580;
 }
 
+/* Famille de chassis d'un robot. L'etiquette d'ecart signale que le robot
+   declare autre chose que ce qui a ete saisi : une orthographe qui diverge
+   empeche le catalogue de presets de retrouver ses robots, et cela ne doit pas
+   rester invisible. */
+.modele-chip {
+  display: inline-block;
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 560;
+  color: var(--shell-purple);
+  background: var(--shell-purple-soft);
+}
+
+.modele-chip--ecart {
+  color: var(--shell-amber);
+  background: var(--shell-amber-soft);
+}
+
 /* Tables and repeated data */
 .data-table { font-size: 12px; }
 .data-table th {

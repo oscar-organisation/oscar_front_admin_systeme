@@ -290,6 +290,10 @@ class RobotIn(BaseModel):
     site_id: str | None = None
     serial: str | None = None
     firmware: str | None = None
+    # Famille de chassis : « rosmaster-m3pro », « unitree-g1 ». Champ libre,
+    # pas une liste fermee, pour qu'un nouveau constructeur entre sans
+    # migration. C'est le meme identifiant que le profil embarque du robot.
+    modele: str | None = None
     statut: str = "offline"
     batterie: int | None = None
     capacites: list[str] = Field(default_factory=list)
@@ -307,6 +311,9 @@ class RobotOut(RobotIn):
     slug: str | None = None
     edge_channel: str = "stable"
     edge_version: str | None = None
+    # Famille declaree par le robot lui-meme. Differente de `modele` quand la
+    # saisie et le terrain ne concordent pas ; la console le signale.
+    modele_constate: str | None = None
 
 
 class TokenIssueIn(BaseModel):
@@ -630,6 +637,10 @@ class EdgeReleaseReportIn(BaseModel):
     statut: str = Field(pattern="^(installed|failed|rolled_back)$")
     message: str | None = None
     sha256: str | None = None
+    # Famille de chassis lue dans le profil embarque. Le robot est la seule
+    # source qui sache vraiment sur quel materiel il tourne ; la saisie de
+    # l'operateur n'est qu'une intention.
+    profil: str | None = None
 
 
 class CompositionPresetIn(BaseModel):
