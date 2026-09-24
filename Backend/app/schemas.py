@@ -290,9 +290,9 @@ class RobotIn(BaseModel):
     site_id: str | None = None
     serial: str | None = None
     firmware: str | None = None
-    # Famille de chassis : « rosmaster-m3pro », « unitree-g1 ». Champ libre,
-    # pas une liste fermee, pour qu'un nouveau constructeur entre sans
-    # migration. C'est le meme identifiant que le profil embarque du robot.
+    # Modele du chassis, tel que l'operateur le decrit. Texte libre, conserve
+    # sans transformation : personne ne connait tous les chassis existants, et
+    # deviner leur identifiant technique produirait des erreurs silencieuses.
     modele: str | None = None
     statut: str = "offline"
     batterie: int | None = None
@@ -311,8 +311,9 @@ class RobotOut(RobotIn):
     slug: str | None = None
     edge_channel: str = "stable"
     edge_version: str | None = None
-    # Famille declaree par le robot lui-meme. Differente de `modele` quand la
-    # saisie et le terrain ne concordent pas ; la console le signale.
+    # Famille technique declaree par le robot, lue dans son profil embarque.
+    # C'est elle qui vaut cle : le catalogue de presets s'y accroche, pas a
+    # l'etiquette humaine.
     modele_constate: str | None = None
 
 

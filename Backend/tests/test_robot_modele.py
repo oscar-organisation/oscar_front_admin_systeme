@@ -1,115 +1,81 @@
-"""Famille de châssis d'un robot : saisie par l'opérateur, constatée par le robot.
+"""Modèle de châssis d'un robot : une étiquette humaine, une clé technique.
 
-La plateforme savait nommer un robot sans pouvoir dire de quel matériel il
-s'agissait. Trois propriétés rendent le champ utile, et ces tests les tiennent :
+Le champ a d'abord porté les deux rôles à la fois, et c'était le défaut : une
+étiquette lisible et une clé qui doit correspondre au profil embarqué n'ont pas
+les mêmes contraintes. Normaliser « ROSMASTER M3 Pro » produisait
+`rosmaster-m3-pro` là où le constructeur écrit `rosmaster-m3pro` — faux, avec
+l'apparence d'une correction.
 
-- la normalisation rattrape la casse et les espaces, mais **ne devine pas** où
-  un constructeur a collé deux mots ; c'est pourquoi la liste des familles
-  connues existe, et c'est elle le vrai garde-fou ;
-- ce que l'opérateur saisit et ce que le robot déclare sont deux champs
-  distincts, et leur écart est une information qu'on montre ;
-- un agent d'une version antérieure, qui ne déclare rien, n'efface pas ce
-  qu'on savait déjà.
+Les deux rôles sont désormais séparés, et ces tests le verrouillent : ce que
+l'opérateur tape est conservé tel quel, et la clé technique vient du robot.
 """
 
 from test_edge_releases import contexte, uniq  # noqa: F401
 
 
-class TestSaisie:
-    def test_la_casse_et_les_espaces_ne_creent_pas_deux_familles(self, client, contexte):
-        r = client.post("/api/robots", headers=contexte["entetes"],
-                        json={"nom": uniq("OSCAR"), "org_id": contexte["org"]["id"],
-                              "modele": "  ROSMASTER-M3PRO  "})
-        assert r.status_code == 201, r.text
-        assert r.json()["modele"] == "rosmaster-m3pro"
-
-    def test_la_normalisation_ne_devine_pas_les_mots_colles(self, client, contexte):
-        """Limite assumée : « M3 Pro » ne peut pas devenir « m3pro ».
-
-        Le constructeur a collé deux mots, rien dans le texte ne le dit. C'est
-        la liste des familles connues qui évite l'erreur, pas le slugifieur, et
-        la déclaration du robot qui la révèle si elle passe quand même.
-        """
+class TestEtiquette:
+    def test_la_saisie_est_conservee_telle_quelle(self, client, contexte):
+        """Aucune transformation : deviner produirait une erreur silencieuse."""
         r = client.post("/api/robots", headers=contexte["entetes"],
                         json={"nom": uniq("OSCAR"), "org_id": contexte["org"]["id"],
                               "modele": "ROSMASTER M3 Pro"})
-        assert r.json()["modele"] == "rosmaster-m3-pro"
-
-    def test_une_famille_inconnue_est_acceptee_sans_migration(self, client, contexte):
-        """Un châssis d'un autre constructeur doit pouvoir entrer tout de suite."""
-        r = client.post("/api/robots", headers=contexte["entetes"],
-                        json={"nom": uniq("G1"), "org_id": contexte["org"]["id"],
-                              "modele": "Unitree G1"})
         assert r.status_code == 201, r.text
-        assert r.json()["modele"] == "unitree-g1"
+        assert r.json()["modele"] == "ROSMASTER M3 Pro"
 
-    def test_un_robot_sans_famille_reste_valide(self, client, contexte):
-        """Le champ est une information, pas une condition d'existence."""
+    def test_un_chassis_inconnu_s_ajoute_en_le_tapant(self, client, contexte):
+        """Personne ne connaît tous les châssis qui existeront."""
+        r = client.post("/api/robots", headers=contexte["entetes"],
+                        json={"nom": uniq("Proto"), "org_id": contexte["org"]["id"],
+                              "modele": "prototype interne v3"})
+        assert r.json()["modele"] == "prototype interne v3"
+
+    def test_un_robot_sans_modele_reste_valide(self, client, contexte):
         r = client.post("/api/robots", headers=contexte["entetes"],
                         json={"nom": uniq("Sans modele"), "org_id": contexte["org"]["id"]})
         assert r.status_code == 201, r.text
         assert r.json()["modele"] is None
 
-
-class TestFamillesConnues:
-    def test_les_familles_deja_portees_sont_proposees(self, client, contexte):
+    def test_les_modeles_deja_saisis_sont_proposes(self, client, contexte):
+        """Commodité de saisie, pas contrainte : deux opérateurs écrivent pareil."""
         client.post("/api/robots", headers=contexte["entetes"],
                     json={"nom": uniq("G1"), "org_id": contexte["org"]["id"],
-                          "modele": "unitree-g1"})
-        familles = client.get("/api/robots/modeles", headers=contexte["entetes"]).json()
-        assert "unitree-g1" in familles
-
-    def test_la_liste_est_triee_et_sans_doublon(self, client, contexte):
-        for nom in ("A", "B"):
-            client.post("/api/robots", headers=contexte["entetes"],
-                        json={"nom": uniq(nom), "org_id": contexte["org"]["id"],
-                              "modele": "unitree-g1"})
-        familles = client.get("/api/robots/modeles", headers=contexte["entetes"]).json()
-        assert familles == sorted(set(familles))
+                          "modele": "Unitree G1"})
+        propositions = client.get("/api/robots/modeles", headers=contexte["entetes"]).json()
+        assert "Unitree G1" in propositions
+        assert propositions == sorted(set(propositions))
 
 
-class TestDeclaration:
-    def test_le_robot_declare_le_chassis_sur_lequel_il_tourne(self, client, contexte):
+class TestCleTechnique:
+    def test_le_robot_declare_la_famille_de_son_profil(self, client, contexte):
         r = client.post(
             f"/api/studio/runtime/robots/{contexte['robot']['slug']}/release/report",
             headers=contexte["cle"],
             json={"version": "1.0.0", "statut": "installed", "profil": "rosmaster-m3pro"})
         assert r.status_code == 200, r.text
-
         detail = client.get(f"/api/robots/{contexte['robot']['id']}",
                             headers=contexte["entetes"]).json()
         assert detail["modele_constate"] == "rosmaster-m3pro"
 
-    def test_la_declaration_n_ecrase_pas_la_saisie(self, client, contexte):
-        """L'écart entre les deux est l'information, pas une erreur à masquer.
-
-        C'est ce cas qui rattrape la limite du slugifieur : une famille mal
-        orthographiée à la saisie se voit dès que le robot déclare la sienne.
-        """
+    def test_l_etiquette_et_la_cle_cohabitent_sans_se_contredire(self, client, contexte):
+        """Deux espaces de noms distincts : l'un se lit, l'autre s'accroche."""
         client.patch(f"/api/robots/{contexte['robot']['id']}", headers=contexte["entetes"],
-                   json={"nom": contexte["robot"]["nom"], "modele": "ROSMASTER M3 Pro"})
+                     json={"nom": contexte["robot"]["nom"], "modele": "ROSMASTER M3 Pro"})
         client.post(
             f"/api/studio/runtime/robots/{contexte['robot']['slug']}/release/report",
             headers=contexte["cle"],
             json={"version": "1.0.0", "statut": "installed", "profil": "rosmaster-m3pro"})
-
         detail = client.get(f"/api/robots/{contexte['robot']['id']}",
                             headers=contexte["entetes"]).json()
-        assert detail["modele"] == "rosmaster-m3-pro"
+        assert detail["modele"] == "ROSMASTER M3 Pro"
         assert detail["modele_constate"] == "rosmaster-m3pro"
-        assert detail["modele"] != detail["modele_constate"], "l'ecart doit rester visible"
 
-    def test_un_compte_rendu_sans_profil_ne_change_rien(self, client, contexte):
-        """Un agent d'une version antérieure ne doit pas effacer ce qu'on sait."""
-        client.post(
-            f"/api/studio/runtime/robots/{contexte['robot']['slug']}/release/report",
-            headers=contexte["cle"],
-            json={"version": "1.0.0", "statut": "installed", "profil": "rosmaster-m3pro"})
-        client.post(
-            f"/api/studio/runtime/robots/{contexte['robot']['slug']}/release/report",
-            headers=contexte["cle"],
-            json={"version": "1.0.1", "statut": "installed"})
-
+    def test_un_compte_rendu_sans_profil_n_efface_rien(self, client, contexte):
+        """Un agent d'une version antérieure ne doit pas perdre ce qu'on sait."""
+        for corps in ({"version": "1.0.0", "statut": "installed", "profil": "rosmaster-m3pro"},
+                      {"version": "1.0.1", "statut": "installed"}):
+            client.post(
+                f"/api/studio/runtime/robots/{contexte['robot']['slug']}/release/report",
+                headers=contexte["cle"], json=corps)
         detail = client.get(f"/api/robots/{contexte['robot']['id']}",
                             headers=contexte["entetes"]).json()
         assert detail["modele_constate"] == "rosmaster-m3pro"

@@ -289,17 +289,18 @@ export default function Robots() {
                           {r.modele && (
                             <span className="modele-chip" data-testid="robot-modele">{r.modele}</span>
                           )}
-                          {/* Le robot est la seule source qui sache sur quel chassis il
-                              tourne. Quand sa declaration contredit la saisie, on le
-                              montre : une famille mal orthographiee empeche le
-                              catalogue de presets de retrouver ses robots. */}
-                          {r.modele_constate && r.modele_constate !== r.modele && (
+                          {/* Deux espaces de noms distincts, pas une
+                              contradiction : l'etiquette se lit, la famille
+                              technique s'accroche. Le robot est seul a
+                              connaitre la seconde, puisqu'elle nomme son
+                              image de runtime. */}
+                          {r.modele_constate && (
                             <span
-                              className="modele-chip modele-chip--ecart"
-                              data-testid="robot-modele-ecart"
-                              title={`Le robot declare ${r.modele_constate}`}
+                              className="modele-chip modele-chip--technique"
+                              data-testid="robot-famille"
+                              title="Famille declaree par le robot, lue dans son profil embarque"
                             >
-                              robot : {r.modele_constate}
+                              {r.modele_constate}
                             </span>
                           )}
                         </div>
@@ -455,12 +456,12 @@ export default function Robots() {
 
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
                 <div>
-                  <label className="auth-label">Modèle de châssis</label>
+                  <label className="auth-label">Modèle</label>
                   <input
                     className="field-shell"
                     data-testid="robot-modele"
                     list="modeles-connus"
-                    placeholder="rosmaster-m3pro"
+                    placeholder="ROSMASTER M3 Pro"
                     value={modal.modele}
                     onChange={(e) => setModal({ ...modal, modele: e.target.value })}
                   />
@@ -472,7 +473,7 @@ export default function Robots() {
                     {modeles.map((m) => <option value={m} key={m} />)}
                   </datalist>
                   <small style={{ color: "var(--shell-dim)", fontSize: 11 }}>
-                    Le même identifiant que le profil embarqué du robot.
+                    Comme vous le décrivez. La famille technique, elle, vient du robot.
                   </small>
                 </div>
                 <div>
