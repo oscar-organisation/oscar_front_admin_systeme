@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { listerDeploiements, listerRobots } from "../../feature-data/studioApi";
 import StudioDeploymentsPage from "./StudioDeploymentsPage";
@@ -35,5 +35,42 @@ describe("StudioDeploymentsPage", () => {
     expect(await screen.findByText("Checksum de l’image invalide")).toBeInTheDocument();
     expect(screen.getByText("Échec", { selector: ".deployment-status" })).toBeInTheDocument();
     expect(screen.getByText("OSCAR-01", { selector: ".deployment-row__identity strong" })).toBeInTheDocument();
+  });
+
+  it("distingue les déploiements en cours des runtimes déjà actifs", async () => {
+    vi.mocked(listerDeploiements).mockResolvedValue([
+      {
+        id: "deployment-pending",
+        robot_id: "robot-1",
+        robot_nom: "OSCAR en attente",
+        statut: "pending",
+        created_at: "2026-09-24T08:30:00Z",
+      },
+      {
+        id: "deployment-delivered",
+        robot_id: "robot-2",
+        robot_nom: "OSCAR en application",
+        statut: "delivered",
+        created_at: "2026-09-24T08:31:00Z",
+      },
+      {
+        id: "deployment-active",
+        robot_id: "robot-3",
+        robot_nom: "OSCAR actif",
+        statut: "active",
+        created_at: "2026-09-24T08:32:00Z",
+      },
+    ]);
+
+    render(<StudioDeploymentsPage />);
+
+    expect(await screen.findByText("OSCAR actif")).toBeInTheDocument();
+    const carteEnCours = screen.getByRole("button", { name: /En cours 2/ });
+    expect(screen.getByRole("button", { name: /Actifs 1/ })).toBeInTheDocument();
+    fireEvent.click(carteEnCours);
+
+    await waitFor(() => expect(screen.queryByText("OSCAR actif")).not.toBeInTheDocument());
+    expect(screen.getByText("OSCAR en attente")).toBeInTheDocument();
+    expect(screen.getByText("OSCAR en application")).toBeInTheDocument();
   });
 });

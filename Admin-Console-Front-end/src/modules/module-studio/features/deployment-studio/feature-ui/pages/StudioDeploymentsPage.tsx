@@ -13,12 +13,13 @@ import {
 import { listerDeploiements, listerRobots } from "../../feature-data/studioApi";
 import type { FiltresDeploiements } from "../../feature-data/studioApi";
 import type { DeploiementServeur, RobotCible } from "../../feature-domain/types";
+import DeploymentProgress from "../components/DeploymentProgress";
+import { deploiementEnCours } from "../components/deploymentStatus";
 import "../../feature-styles/studio.css";
-
-const STATUTS_EN_COURS = new Set(["pending", "delivered", "prepared", "active"]);
 
 const STATUTS = [
   { value: "", label: "Tous les statuts" },
+  { value: "running", label: "En cours" },
   { value: "pending", label: "En attente" },
   { value: "delivered", label: "Livré" },
   { value: "prepared", label: "Préparé" },
@@ -112,7 +113,7 @@ export default function StudioDeploymentsPage() {
     requeteCourante.current = numero;
     setChargement(true);
     const filtres: FiltresDeploiements = {
-      ...(statut ? { statut } : {}),
+      ...(statut && statut !== "running" ? { statut } : {}),
       ...(robotId ? { robotId } : {}),
     };
     try {
@@ -133,15 +134,24 @@ export default function StudioDeploymentsPage() {
   const visibles = useMemo(() => {
     const aiguille = recherche.trim().toLocaleLowerCase("fr");
     return [...deploiements]
+      .filter((item) => statut !== "running" || deploiementEnCours(item.statut))
       .filter((item) => !aiguille ||
         [item.robot_nom ?? "", item.robot_slug ?? "", item.bundle_nom ?? ""]
           .some((champ) => champ.toLocaleLowerCase("fr").includes(aiguille)))
       .sort((a, b) => valeurHorodatage(b) - valeurHorodatage(a));
-  }, [deploiements, recherche]);
+  }, [deploiements, recherche, statut]);
 
-  const enCours = synthese.filter((item) => STATUTS_EN_COURS.has(item.statut)).length;
+  const enCours = synthese.filter((item) => deploiementEnCours(item.statut)).length;
   const actifs = synthese.filter((item) => item.statut === "active").length;
   const echecs = synthese.filter((item) => item.statut === "failed").length;
+
+  // Tant qu'un robot n'a pas confirmé son résultat, l'écran se réactualise
+  // sans intervention de l'opérateur. Les états terminaux arrêtent le polling.
+  useEffect(() => {
+    if (!synthese.some((item) => deploiementEnCours(item.statut))) return;
+    const intervalle = window.setInterval(() => setRevision((valeur) => valeur + 1), 5000);
+    return () => window.clearInterval(intervalle);
+  }, [synthese]);
 
   return (
     <div className="studio-scope">
@@ -166,16 +176,30 @@ export default function StudioDeploymentsPage() {
               sans pouvoir l'atteindre, ce qui est le contraire du but. */}
           <div className="deployment-overview" aria-label="Résumé des déploiements">
             <button
-              className={`deployment-stat-card deployment-stat-card--running${statut === "active" ? " is-active" : ""}`}
-              onClick={() => setStatut(statut === "active" ? "" : "active")}
+              className={`deployment-stat-card deployment-stat-card--running${statut === "running" ? " is-active" : ""}`}
+              onClick={() => setStatut(statut === "running" ? "" : "running")}
               type="button"
-              aria-pressed={statut === "active"}
+              aria-pressed={statut === "running"}
             >
               <span className="deployment-stat-card__icon"><Activity size={19} /></span>
               <div className="deployment-stat-card__copy">
                 <span>En cours</span>
                 <strong>{enCours}</strong>
-                <small>dont {actifs} actif{actifs > 1 ? "s" : ""} confirmé{actifs > 1 ? "s" : ""}</small>
+                <small>{enCours > 0 ? "Actualisation automatique" : "Aucun robot en attente"}</small>
+              </div>
+            </button>
+            <button
+              className={`deployment-stat-card deployment-stat-card--active${statut === "active" ? " is-active" : ""}`}
+              onClick={() => setStatut(statut === "active" ? "" : "active")}
+              type="button"
+              aria-pressed={statut === "active"}
+              disabled={actifs === 0}
+            >
+              <span className="deployment-stat-card__icon"><CheckCircle2 size={19} /></span>
+              <div className="deployment-stat-card__copy">
+                <span>Actifs</span>
+                <strong>{actifs}</strong>
+                <small>Runtime confirmé par le robot</small>
               </div>
             </button>
             <button
@@ -266,6 +290,8 @@ export default function StudioDeploymentsPage() {
                       <Clock3 size={13} /> {dateLisible(horodatage)}
                     </time>
                   </div>
+
+                  <DeploymentProgress statut={deploiement.statut} />
 
                   {deploiement.message && (
                     <p className={`deployment-message${deploiement.statut === "failed" ? " deployment-message--failed" : ""}`}>
