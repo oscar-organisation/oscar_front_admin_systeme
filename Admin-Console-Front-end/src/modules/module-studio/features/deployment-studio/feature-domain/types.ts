@@ -122,8 +122,11 @@ export interface DeploiementServeur {
   version_numero?: number | null;
   bundle_nom?: string | null;
   message?: string | null;
+  report?: Record<string, unknown> | null;
   created_at?: string | null;
+  delivered_at?: string | null;
   applied_at?: string | null;
+  updated_at?: string | null;
 }
 
 export interface ValidationIssue {

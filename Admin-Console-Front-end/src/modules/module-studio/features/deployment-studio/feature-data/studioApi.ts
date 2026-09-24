@@ -220,8 +220,19 @@ export function deployer(versionId: string, portee: PorteeDeploiement,
   });
 }
 
-export function listerDeploiements(bundleId: string): Promise<DeploiementServeur[]> {
-  return api.get<DeploiementServeur[]>(`/studio/deployments?bundle_id=${encodeURIComponent(bundleId)}`);
+export interface FiltresDeploiements {
+  bundleId?: string;
+  robotId?: string;
+  statut?: string;
+}
+
+export function listerDeploiements(filtres: FiltresDeploiements = {}): Promise<DeploiementServeur[]> {
+  const parametres = new URLSearchParams();
+  if (filtres.bundleId) parametres.set("bundle_id", filtres.bundleId);
+  if (filtres.robotId) parametres.set("robot_id", filtres.robotId);
+  if (filtres.statut) parametres.set("statut", filtres.statut);
+  const recherche = parametres.toString();
+  return api.get<DeploiementServeur[]>(`/studio/deployments${recherche ? `?${recherche}` : ""}`);
 }
 
 /** Construit le projet d'édition à partir d'un bundle et de sa composition. */

@@ -11,6 +11,7 @@ const AdminLayout = lazy(() => import("@/modules/module-administration/shared-mo
 const StudioProjectsPage = lazy(() => import("./features/deployment-studio/feature-ui/pages/StudioProjectsPage"));
 const StudioEditorPage = lazy(() => import("./features/deployment-studio/feature-ui/pages/StudioEditorPage"));
 const StudioPresetsPage = lazy(() => import("./features/deployment-studio/feature-ui/pages/StudioPresetsPage"));
+const StudioDeploymentsPage = lazy(() => import("./features/deployment-studio/feature-ui/pages/StudioDeploymentsPage"));
 
 function pagePolicy(id: string, code: string): AuthorizationPolicy {
   return {
@@ -38,6 +39,13 @@ export const STUDIO_NAVIGATION: readonly ModuleNavigationItem[] = [
     icon: "layers",
     policy: pagePolicy("studio.presets.route", DEPLOYMENT_STUDIO_PERMISSIONS.PRESETS_PAGE),
   },
+  {
+    id: "studio.deployments",
+    to: "/studio/deploiements",
+    label: "Suivi des déploiements",
+    icon: "activity",
+    policy: pagePolicy("studio.deploiements.route", DEPLOYMENT_STUDIO_PERMISSIONS.DEPLOYMENT_READ),
+  },
 ] as const;
 
 export const studioModuleManifest: ApplicationModuleManifest = {
@@ -64,8 +72,16 @@ export const studioModuleManifest: ApplicationModuleManifest = {
       component: StudioPresetsPage,
     },
     {
-      // Route dynamique en dernier : « presets » serait sinon pris pour un
-      // identifiant de projet.
+      // Cette route reste avant l'identifiant dynamique : « deploiements »
+      // est un ecran, jamais une cle de projet.
+      id: "studio.deployments",
+      path: "deploiements",
+      policy: pagePolicy("studio.deploiements.route", DEPLOYMENT_STUDIO_PERMISSIONS.DEPLOYMENT_READ),
+      component: StudioDeploymentsPage,
+    },
+    {
+      // Route dynamique en dernier : les ecrans nommes seraient sinon pris
+      // pour des identifiants de projet.
       id: "studio.editor",
       path: ":projectId",
       policy: pagePolicy("studio.editor.route", DEPLOYMENT_STUDIO_PERMISSIONS.PAGE),
