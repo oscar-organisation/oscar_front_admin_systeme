@@ -13,7 +13,10 @@ import {
   X,
 } from 'lucide-react';
 import { useAuth } from '@/shared/kernel/auth/AuthProvider';
-import { deployer, listerPresetsTous, listerRobots, publier, verifier } from '../../feature-data/studioApi';
+import {
+  deployer, listerFlottes, listerPresetsTous, listerRobots, listerSites, publier, verifier,
+} from '../../feature-data/studioApi';
+import type { Flotte, SiteCible } from '../../feature-data/studioApi';
 import PresetVersementDialog from './PresetVersementDialog';
 import type { DeploiementServeur, OscarProject, RobotCible, ValidationIssue } from '../../feature-domain/types';
 
@@ -34,6 +37,13 @@ export default function PublishDialog({ project, issues, canDeploy, onClose, onP
   const [versionPubliee, setVersionPubliee] = useState<{ id: string; numero: number } | null>(null);
   const [robots, setRobots] = useState<RobotCible[]>([]);
   const [selection, setSelection] = useState<string[]>([]);
+  // Trois portees possibles, exclusives a la saisie. Cocher cent robots un par
+  // un n'est pas une methode des qu'une flotte existe.
+  const [portee, setPortee] = useState<'ROBOTS' | 'FLOTTE' | 'SITE'>('ROBOTS');
+  const [flottes, setFlottes] = useState<Flotte[]>([]);
+  const [sites, setSites] = useState<SiteCible[]>([]);
+  const [flotteId, setFlotteId] = useState('');
+  const [siteId, setSiteId] = useState('');
   const [deploiements, setDeploiements] = useState<DeploiementServeur[]>([]);
   // Verser au catalogue est reserve a qui le maintient : le serveur refuse de
   // toute facon, autant ne pas proposer un geste voue a l'echec.
@@ -51,6 +61,21 @@ export default function PublishDialog({ project, issues, canDeploy, onClose, onP
       .catch(() => { if (vivant) setFamillesConnues([]); });
     return () => { vivant = false; };
   }, [maintientLeCatalogue]);
+
+  // Ce que la portee choisie vise reellement. Le nombre exact d'une flotte ou
+  // d'un site est arrete par le serveur au moment du deploiement, pas ici :
+  // resoudre au clic figerait un groupe qui peut changer entre-temps.
+  const cibleRetenue = portee === 'FLOTTE'
+    ? flottes.find((f) => f.id === flotteId)
+    : portee === 'SITE'
+      ? sites.find((s) => s.id === siteId)
+      : undefined;
+  const nombreVise = portee === 'ROBOTS'
+    ? selection.length
+    : portee === 'FLOTTE'
+      ? (flottes.find((f) => f.id === flotteId)?.robot_ids?.length ?? 0)
+      : robots.filter((r) => r.site_id === siteId).length;
+  const porteePrete = portee === 'ROBOTS' ? selection.length > 0 : Boolean(cibleRetenue);
 
   const bloquantsLocaux = useMemo(
     () => issues.filter((issue) => issue.level === 'ERREUR').map((issue) => issue.title),
@@ -91,8 +116,17 @@ export default function PublishDialog({ project, issues, canDeploy, onClose, onP
         setEtape('TERMINE');
         return;
       }
-      const liste = await listerRobots();
+      // Les portees de groupe sont un confort : si l'appel echoue, la
+      // selection robot par robot reste possible et la publication n'est pas
+      // perdue.
+      const [liste, groupes, lieux] = await Promise.all([
+        listerRobots(),
+        listerFlottes().catch(() => [] as Flotte[]),
+        listerSites().catch(() => [] as SiteCible[]),
+      ]);
       setRobots(liste);
+      setFlottes(groupes);
+      setSites(lieux);
       setEtape('CIBLES');
     } catch (erreur) {
       setPanne(erreur instanceof Error ? erreur.message : 'Publication refusée par le serveur.');
@@ -101,11 +135,14 @@ export default function PublishDialog({ project, issues, canDeploy, onClose, onP
   };
 
   const lancerDeploiement = async () => {
-    if (!versionPubliee || selection.length === 0) return;
+    if (!versionPubliee || !porteePrete) return;
     setEtape('DEPLOIEMENT');
     setPanne(null);
     try {
-      setDeploiements(await deployer(versionPubliee.id, selection, project.name));
+      const cible = portee === 'FLOTTE' ? { flotteId }
+        : portee === 'SITE' ? { siteId }
+        : { robotIds: selection };
+      setDeploiements(await deployer(versionPubliee.id, cible, project.name));
       setEtape('TERMINE');
     } catch (erreur) {
       setPanne(erreur instanceof Error ? erreur.message : 'Déploiement refusé par le serveur.');
@@ -181,7 +218,66 @@ export default function PublishDialog({ project, issues, canDeploy, onClose, onP
 
         {etape === 'CIBLES' && (
           <>
-            <div className="deployment-targets">
+            {(flottes.length > 0 || sites.length > 0) && (
+              <div className="preset-filters" role="group" aria-label="Portée du déploiement">
+                <button className={portee === 'ROBOTS' ? 'is-active' : ''}
+                        onClick={() => setPortee('ROBOTS')} type="button">
+                  Robots choisis
+                </button>
+                {flottes.length > 0 && (
+                  <button className={portee === 'FLOTTE' ? 'is-active' : ''}
+                          onClick={() => setPortee('FLOTTE')} type="button">
+                    Une flotte <em>{flottes.length}</em>
+                  </button>
+                )}
+                {sites.length > 0 && (
+                  <button className={portee === 'SITE' ? 'is-active' : ''}
+                          onClick={() => setPortee('SITE')} type="button">
+                    Un site <em>{sites.length}</em>
+                  </button>
+                )}
+              </div>
+            )}
+
+            {portee === 'FLOTTE' && (
+              <div className="deployment-targets">
+                {flottes.map((flotte) => (
+                  <label className="deployment-target" key={flotte.id}>
+                    <span><Server size={18} /></span>
+                    <div>
+                      <strong>{flotte.nom}</strong>
+                      <small>
+                        {flotte.robot_ids?.length ?? 0} robot
+                        {(flotte.robot_ids?.length ?? 0) > 1 ? 's' : ''} · {flotte.code}
+                      </small>
+                    </div>
+                    <input checked={flotteId === flotte.id} type="radio" name="flotte"
+                           onChange={() => setFlotteId(flotte.id)} />
+                  </label>
+                ))}
+              </div>
+            )}
+
+            {portee === 'SITE' && (
+              <div className="deployment-targets">
+                {sites.map((site) => {
+                  const compte = robots.filter((r) => r.site_id === site.id).length;
+                  return (
+                    <label className="deployment-target" key={site.id}>
+                      <span><Server size={18} /></span>
+                      <div>
+                        <strong>{site.nom}</strong>
+                        <small>{compte} robot{compte > 1 ? 's' : ''} rattaché{compte > 1 ? 's' : ''}</small>
+                      </div>
+                      <input checked={siteId === site.id} type="radio" name="site"
+                             onChange={() => setSiteId(site.id)} />
+                    </label>
+                  );
+                })}
+              </div>
+            )}
+
+            <div className="deployment-targets" hidden={portee !== 'ROBOTS'}>
               {robots.length === 0 && (
                 <div className="deployment-target">
                   <span><AlertTriangle size={18} /></span>
@@ -205,9 +301,13 @@ export default function PublishDialog({ project, issues, canDeploy, onClose, onP
             </div>
             <div className="deployment-steps">
               <div className="is-done"><Check size={15} /><span>Version {versionPubliee?.numero} publiée et figée</span></div>
-              <div className={selection.length ? 'is-current' : ''}>
+              <div className={porteePrete ? 'is-current' : ''}>
                 <Server size={15} />
-                <span>{selection.length} robot{selection.length > 1 ? 's' : ''} sélectionné{selection.length > 1 ? 's' : ''}</span>
+                <span>
+                  {cibleRetenue
+                    ? `${cibleRetenue.nom} · ${nombreVise} robot${nombreVise > 1 ? 's' : ''}`
+                    : `${nombreVise} robot${nombreVise > 1 ? 's' : ''} sélectionné${nombreVise > 1 ? 's' : ''}`}
+                </span>
               </div>
             </div>
           </>
@@ -273,11 +373,11 @@ export default function PublishDialog({ project, issues, canDeploy, onClose, onP
           {etape === 'CIBLES' && (
             <button
               className="primary-button"
-              disabled={selection.length === 0}
+              disabled={!porteePrete}
               onClick={() => void lancerDeploiement()}
               type="button"
             >
-              <Server size={16} /> Déployer sur {selection.length} robot{selection.length > 1 ? 's' : ''}
+              <Server size={16} /> Déployer sur {nombreVise} robot{nombreVise > 1 ? 's' : ''}
             </button>
           )}
           {enCours && (

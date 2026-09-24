@@ -174,10 +174,48 @@ export function listerRobots(): Promise<RobotCible[]> {
   return api.get<RobotCible[]>("/robots");
 }
 
-export function deployer(versionId: string, robotIds: string[], message?: string): Promise<DeploiementServeur[]> {
+export interface Flotte {
+  id: string;
+  nom: string;
+  code: string;
+  robot_ids?: string[];
+}
+
+export interface SiteCible {
+  id: string;
+  nom: string;
+  code: string;
+}
+
+export function listerFlottes(): Promise<Flotte[]> {
+  return api.get<Flotte[]>("/fleets");
+}
+
+export function listerSites(): Promise<SiteCible[]> {
+  return api.get<SiteCible[]>("/sites");
+}
+
+/**
+ * Portée d'un déploiement : des robots nommés, une flotte, ou un site.
+ *
+ * Les trois se cumulent côté serveur et leur union est dédupliquée. On envoie
+ * donc la portée telle que l'opérateur l'a exprimée, sans la résoudre nous-même
+ * en liste de robots : résoudre ici figerait la flotte à l'instant du clic,
+ * alors que le serveur la lit au moment où il crée les déploiements.
+ */
+export interface PorteeDeploiement {
+  robotIds?: string[];
+  flotteId?: string;
+  siteId?: string;
+}
+
+export function deployer(versionId: string, portee: PorteeDeploiement,
+                         message?: string): Promise<DeploiementServeur[]> {
   return api.post<DeploiementServeur[]>("/studio/deployments", {
     version_id: versionId,
-    robot_ids: robotIds,
+    robot_ids: portee.robotIds ?? [],
+    fleet_id: portee.flotteId ?? null,
+    site_id: portee.siteId ?? null,
     message: message || null,
   });
 }
