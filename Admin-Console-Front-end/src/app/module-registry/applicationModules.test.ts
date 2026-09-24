@@ -29,4 +29,15 @@ describe("application module registry", () => {
       expect(item.policy.id).toBeTruthy();
     }
   });
+
+  it("sépare la configuration des opérations et distingue le suivi de l'audit", () => {
+    const structure = consoleNavigation.find((item) => item.id === "administration.iam-structure");
+    const robots = consoleNavigation.find((item) => item.id === "administration.robots");
+    const audit = consoleNavigation.find((item) => item.id === "administration.audit");
+    const suivi = consoleNavigation.find((item) => item.id === "studio.deployments");
+
+    expect(structure?.section).toBe("configuration");
+    expect(robots?.section).toBe("operations");
+    expect(suivi?.icon).not.toBe(audit?.icon);
+  });
 });

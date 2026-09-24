@@ -1,11 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createProject } from "./model";
-import { ajouterProjet, configurerPerimetre, rafraichir } from "./projectStore";
-import { listerBundles } from "../feature-data/studioApi";
+import { ajouterProjet, configurerPerimetre, rafraichir, supprimerProjet } from "./projectStore";
+import { listerBundles, supprimerBundle } from "../feature-data/studioApi";
 
 vi.mock("../feature-data/studioApi", () => ({
   listerBundles: vi.fn(), creerBundle: vi.fn(), enregistrerBrouillon: vi.fn(),
-  lireVersion: vi.fn(), projetDepuisBundle: vi.fn(),
+  lireVersion: vi.fn(), projetDepuisBundle: vi.fn(), supprimerBundle: vi.fn(),
 }));
 
 describe("isolation du cache Studio", () => {
@@ -38,5 +38,21 @@ describe("isolation du cache Studio", () => {
     terminer([]);
     await requete;
     expect(localStorage.getItem("oscar.studio.projects.v2:u1:b")).toBeNull();
+  });
+
+  it("supprime aussi le bundle serveur avant de retirer le projet du cache", async () => {
+    vi.mocked(supprimerBundle).mockResolvedValue();
+    configurerPerimetre("u1", "a");
+    const projet = {
+      ...createProject("Projet serveur", "", "ENVIRONNEMENT_EXECUTION_ROBOT", "VIDE"),
+      id: "bundle-1",
+      bundleId: "bundle-1",
+    };
+    ajouterProjet(projet);
+
+    await supprimerProjet(projet);
+
+    expect(supprimerBundle).toHaveBeenCalledWith("bundle-1");
+    expect(JSON.parse(localStorage.getItem("oscar.studio.projects.v2:u1:a")!)).toEqual([]);
   });
 });

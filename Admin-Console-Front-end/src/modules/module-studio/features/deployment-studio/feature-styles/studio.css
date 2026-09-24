@@ -50,7 +50,7 @@
 .studio-scope .deployment-stat-card:disabled { cursor: default; transform: none; }
 .studio-scope .deployment-stat-card.is-active { outline: 2px solid currentColor; outline-offset: -2px; }
 
-.studio-scope .portee-selecteur { display: inline-flex; gap: 3px; margin: 2px 0 14px; padding: 3px; border: 1px solid #dce3ee; border-radius: 11px; background: #f1f4f9; }
+.studio-scope .portee-selecteur { display: inline-flex; gap: 3px; margin: 2px 20px 14px; padding: 3px; border: 1px solid #dce3ee; border-radius: 11px; background: #f1f4f9; }
 .studio-scope .portee-selecteur button { display: inline-flex; align-items: center; gap: 6px; padding: 7px 13px; font: 650 11.5px/1 var(--font-sans); color: #5c6779; border: 1px solid transparent; border-radius: 8px; background: transparent; cursor: pointer; transition: .15s ease; }
 .studio-scope .portee-selecteur button:hover:not(.is-active) { color: #34405a; background: rgba(255,255,255,.7); }
 .studio-scope .portee-selecteur button em { font-style: normal; opacity: .6; }
@@ -66,8 +66,14 @@
 .studio-scope .section-heading span { color: #8792a4; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .09em; }
 .studio-scope .section-heading h2 { margin: 4px 0 0; font: 750 23px/1.2 var(--font-sans); }
 .studio-scope .project-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; }
-.studio-scope .project-card { overflow: hidden; padding: 0; text-align: left; border: 1px solid #dde4ef; border-radius: 17px; background: white; box-shadow: 0 8px 24px rgba(39, 53, 87, .055); cursor: pointer; transition: .2s ease; }
+.studio-scope .project-card { position: relative; overflow: hidden; padding: 0; text-align: left; border: 1px solid #dde4ef; border-radius: 17px; background: white; box-shadow: 0 8px 24px rgba(39, 53, 87, .055); transition: .2s ease; }
 .studio-scope .project-card:hover { border-color: #bdc9e6; box-shadow: 0 14px 34px rgba(39, 53, 87, .1); transform: translateY(-2px); }
+.studio-scope .project-card__open { display: block; width: 100%; padding: 0; color: inherit; text-align: left; border: 0; background: transparent; cursor: pointer; }
+.studio-scope .project-card__delete { position: absolute; z-index: 3; top: 12px; right: 12px; display: grid; place-items: center; width: 32px; height: 32px; padding: 0; color: #9b5960; border: 1px solid rgba(199,67,76,.2); border-radius: 9px; background: rgba(255,255,255,.88); box-shadow: 0 5px 16px rgba(31,39,58,.12); cursor: pointer; opacity: .72; transition: .16s ease; }
+.studio-scope .project-card:hover .project-card__delete,
+.studio-scope .project-card:focus-within .project-card__delete { opacity: 1; }
+.studio-scope .project-card__open:focus-visible { outline: 2px solid var(--blue); outline-offset: -3px; }
+.studio-scope .project-card__delete:hover { color: #b4232d; border-color: rgba(199,67,76,.45); background: #fff7f7; }
 .studio-scope .project-card__preview { position: relative; display: grid; place-items: center; height: 112px; overflow: hidden; color: rgba(55,102,245,.32); background: linear-gradient(145deg, #edf2ff, #f6f3ff); }
 .studio-scope .project-card__preview::before { content: ''; position: absolute; inset: 0; opacity: .6; background-image: radial-gradient(#bac7df 1px, transparent 1px); background-size: 16px 16px; }
 .studio-scope .project-card__preview > svg { position: relative; z-index: 2; }
@@ -93,12 +99,18 @@
 .studio-scope .dialog-header h2 { margin: 3px 0 0; font: 750 18px/1.2 var(--font-sans); }
 .studio-scope .dialog-icon { display: grid; place-items: center; width: 39px; height: 39px; color: #6447cd; border-radius: 11px; background: #eee9ff; }
 .studio-scope .dialog-icon--blue { color: var(--blue); background: #e9efff; }
+.studio-scope .dialog-icon--danger { color: #c7434c; background: #fff0f0; }
 .studio-scope .dialog-footer { display: flex; justify-content: flex-end; gap: 9px; padding: 16px 22px; border-top: 1px solid #e8ecf2; background: #fafbfc; }
 .studio-scope .project-dialog > .dialog-footer { position: static; }
 .studio-scope .project-dialog > .dialog-footer .danger-button { width: auto; }
 .studio-scope .project-dialog form { margin: 0; }
 .studio-scope .project-dialog .form-field { margin-bottom: 15px; }
 .studio-scope .project-dialog__body { padding: 20px 22px; }
+.studio-scope .project-delete-dialog__body { padding: 20px 22px; }
+.studio-scope .project-delete-dialog__body > strong { display: block; font-size: 15px; }
+.studio-scope .project-delete-dialog__body > p { margin: 7px 0 0; color: #64748b; font-size: 12px; line-height: 1.55; }
+.studio-scope .project-delete-dialog__body > small { display: flex; align-items: flex-start; gap: 7px; margin-top: 15px; padding: 10px 11px; color: #9a6a17; border: 1px solid #ecd9a9; border-radius: 9px; background: #fffaf0; font-size: 10.5px; line-height: 1.45; }
+.studio-scope .project-delete-dialog__body > small svg { flex: 0 0 auto; }
 .studio-scope .template-selector, .studio-scope .template-selector label { display: block; }
 .studio-scope .template-selector > span { display: block; margin-bottom: 8px; font-size: 11px; font-weight: 700; }
 .studio-scope .template-selector > div { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
@@ -438,6 +450,7 @@
 .studio-scope .publish-blocked p { margin: 5px 0 0; color: #a65d62; font-size: 9px; }
 .studio-scope .deployment-targets { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 0 20px 14px; }
 .studio-scope .deployment-target { display: flex; align-items: center; gap: 8px; padding: 11px; border: 1px solid #dfe5ed; border-radius: 10px; }
+.studio-scope .deployment-target:has(input:checked) { border-color: #c5d4ff; background: #f5f8ff; box-shadow: inset 0 0 0 1px rgba(55,102,245,.08); }
 .studio-scope .deployment-target > span { display: grid; place-items: center; width: 32px; height: 32px; color: var(--blue); border-radius: 8px; background: #eaf0ff; }
 .studio-scope .deployment-target > div { display: flex; min-width: 0; flex: 1; flex-direction: column; }
 .studio-scope .deployment-target strong { font-size: 9.5px; }
@@ -641,6 +654,8 @@
   background: var(--shell-elevated);
   box-shadow: var(--shadow-sm);
 }
+.studio-scope .project-card__delete { color: var(--shell-muted); border-color: var(--shell-line-strong); background: rgba(17,20,24,.88); box-shadow: var(--shadow-sm); }
+.studio-scope .project-card__delete:hover { color: var(--shell-red); border-color: rgba(240,111,114,.4); background: var(--shell-red-soft); }
 .studio-scope .project-card__title span { color: var(--shell-blue-strong); }
 .studio-scope .project-card__meta { border-top-color: var(--shell-line); }
 
@@ -652,6 +667,10 @@
 .studio-scope .dialog-footer { background: var(--shell-card); }
 .studio-scope .dialog-icon { color: var(--shell-purple); background: var(--shell-purple-soft); }
 .studio-scope .dialog-icon--blue { color: var(--shell-blue-strong); background: var(--shell-blue-soft); }
+.studio-scope .dialog-icon--danger { color: var(--shell-red); background: var(--shell-red-soft); }
+.studio-scope .project-delete-dialog__body > p { color: var(--shell-muted); }
+.studio-scope .project-delete-dialog__body > small { color: var(--shell-amber); border-color: rgba(239,180,81,.28); background: var(--shell-amber-soft); }
+.studio-scope .danger-button:disabled { cursor: not-allowed; opacity: .45; }
 .studio-scope .template-selector label,
 .studio-scope .template-field > button { color: var(--shell-text); border-color: var(--shell-line); background: var(--shell-card); }
 
@@ -757,7 +776,7 @@
 .studio-scope .deployment-empty { color: var(--shell-dim); }
 .studio-scope .deployment-empty strong { color: var(--shell-text); }
 .studio-scope .deployment-empty span { color: var(--shell-dim); }
-.studio-scope .versement-catalogue { display: flex; flex-wrap: wrap; gap: 9px; align-items: center; justify-content: space-between; margin-top: 12px; padding: 11px 13px; border: 1px solid var(--shell-line); border-radius: 11px; background: var(--shell-card); }
+.studio-scope .versement-catalogue { display: flex; flex-wrap: wrap; gap: 9px; align-items: center; justify-content: space-between; margin: 12px 20px 16px; padding: 11px 13px; border: 1px solid var(--shell-line); border-radius: 11px; background: var(--shell-card); }
 .studio-scope .versement-catalogue p { display: flex; align-items: center; gap: 6px; margin: 0; font-size: 11.5px; line-height: 1.45; color: var(--shell-muted); }
 .studio-scope .versement-catalogue .secondary-button { width: auto; }
 .studio-scope .template-field > button:hover { background: var(--shell-card-hover); }
@@ -916,6 +935,7 @@
 .studio-scope .publish-blocked { color: var(--shell-red); border-color: rgba(240,111,114,.28); background: var(--shell-red-soft); }
 .studio-scope .publish-blocked p { color: #ffabad; }
 .studio-scope .deployment-target { border-color: var(--shell-line); background: rgba(255,255,255,.018); }
+.studio-scope .deployment-target:has(input:checked) { border-color: var(--shell-blue-border); background: var(--shell-blue-soft); box-shadow: inset 0 0 0 1px rgba(216,88,16,.08); }
 .studio-scope .deployment-target > span { color: var(--shell-blue-strong); background: var(--shell-blue-soft); }
 .studio-scope .deployment-target em { color: var(--shell-amber); }
 .studio-scope .deployment-steps > div.is-current { color: var(--shell-blue-strong); background: var(--shell-blue-soft); }
