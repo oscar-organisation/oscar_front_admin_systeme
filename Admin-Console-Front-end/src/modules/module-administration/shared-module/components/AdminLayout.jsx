@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 
 import { useAuth } from "@/auth/AuthContext.jsx";
@@ -9,6 +9,7 @@ import OrganisationSwitcher from "@/components/OrganisationSwitcher.jsx";
 import OscarBrand from "@/components/OscarBrand.jsx";
 import {
   IconHome,
+  IconHistory,
   IconBuilding,
   IconStore,
   IconUsers,
@@ -35,6 +36,7 @@ const ICONS = {
   robot: IconRobot,
   cpu: IconCpu,
   activity: IconActivity,
+  history: IconHistory,
   layers: IconLayers,
   blocks: IconBlocks,
 };
@@ -110,22 +112,26 @@ export default function AdminLayout() {
 
         <nav className="side-nav" data-testid="admin-nav">
           <div className="side-nav-title">Administration</div>
-          {items.map((n) => {
+          {items.map((n, index) => {
             const Icon = ICONS[n.icon] || IconHome;
             return (
-              <NavLink
-                key={n.to}
-                to={n.to}
-                end={n.end}
-                className={({ isActive }) => "nav-link" + (isActive ? " active" : "")}
-                data-testid={`nav-${n.to.split("/").pop() || "dashboard"}`}
-                title={n.label}
-                aria-label={n.label}
-                onClick={close}
-              >
-                <span className="nav-icon"><Icon size={17} /></span>
-                <span className="nav-label">{n.label}</span>
-              </NavLink>
+              <Fragment key={n.to}>
+                {index > 0 && items[index - 1]?.section !== n.section && (
+                  <div className="side-nav-divider" aria-hidden="true" />
+                )}
+                <NavLink
+                  to={n.to}
+                  end={n.end}
+                  className={({ isActive }) => "nav-link" + (isActive ? " active" : "")}
+                  data-testid={`nav-${n.to.split("/").pop() || "dashboard"}`}
+                  title={n.label}
+                  aria-label={n.label}
+                  onClick={close}
+                >
+                  <span className="nav-icon"><Icon size={17} /></span>
+                  <span className="nav-label">{n.label}</span>
+                </NavLink>
+              </Fragment>
             );
           })}
 

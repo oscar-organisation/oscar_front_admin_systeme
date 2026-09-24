@@ -447,6 +447,12 @@ button { touch-action: manipulation; }
   text-transform: uppercase;
 }
 
+.side-nav-divider {
+  height: 1px;
+  margin: 10px 10px 7px;
+  background: var(--shell-line);
+}
+
 .nav-link {
   width: 100%;
   min-height: 42px;
@@ -772,6 +778,7 @@ button { touch-action: manipulation; }
 }
 .platform-sidebar.collapsed .organisation-switcher-menu { left: 0; }
 .platform-sidebar.collapsed .side-nav { padding-inline: 9px; }
+.platform-sidebar.collapsed .side-nav-divider { margin-inline: 7px; }
 .platform-sidebar.collapsed .nav-link { padding-inline: 8px; justify-content: center; }
 .platform-sidebar.collapsed .nav-link.active { box-shadow: inset 3px 0 0 var(--shell-blue); }
 .platform-sidebar.collapsed .user-chip { padding: 8px; justify-content: center; }

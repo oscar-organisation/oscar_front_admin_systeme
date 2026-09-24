@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
+  AlertTriangle,
   Blocks,
   Bot,
   CalendarClock,
@@ -8,9 +9,11 @@ import {
   ChevronRight,
   CloudOff,
   Layers3,
+  LoaderCircle,
   Plus,
   Server,
   Sparkles,
+  Trash2,
   X,
 } from "lucide-react";
 import "@xyflow/react/dist/style.css";
@@ -20,6 +23,7 @@ import {
   creerProjet,
   etatSync,
   rafraichir,
+  supprimerProjet,
   useStudioEtat,
   useStudioProjects,
   useStudioPerimetre,
@@ -28,6 +32,7 @@ import PresetPicker from "../components/PresetPicker";
 import { listerPresets, projetDepuisPreset } from "../../feature-data/studioApi";
 import type { PresetServeur } from "../../feature-data/studioApi";
 import type { ProjectTarget } from "../../feature-domain/types";
+import type { OscarProject } from "../../feature-domain/types";
 import "../../feature-styles/studio.css";
 
 type Template = "DEMONSTRATION" | "ROBOT_MINIMAL" | "VIDE";
@@ -64,6 +69,9 @@ export default function StudioProjectsPage() {
   const [depart, setDepart] = useState<Depart>({ sorte: "forme", valeur: "ROBOT_MINIMAL" });
   const [presets, setPresets] = useState<PresetServeur[]>([]);
   const [catalogueOuvert, setCatalogueOuvert] = useState(false);
+  const [aSupprimer, setASupprimer] = useState<OscarProject | null>(null);
+  const [suppression, setSuppression] = useState(false);
+  const [erreurSuppression, setErreurSuppression] = useState<string | null>(null);
 
   // Le serveur fait foi pour la liste ; le cache local prend le relais s'il
   // ne repond pas.
@@ -94,6 +102,22 @@ export default function StudioProjectsPage() {
     const project = await creerProjet(brouillon, target);
     setOpen(false);
     navigate(`/studio/${project.id}`);
+  };
+
+  const confirmerSuppression = async () => {
+    if (!aSupprimer) return;
+    setSuppression(true);
+    setErreurSuppression(null);
+    try {
+      await supprimerProjet(aSupprimer);
+      setASupprimer(null);
+    } catch (erreur) {
+      setErreurSuppression(
+        erreur instanceof Error ? erreur.message : "Le projet n’a pas pu être supprimé.",
+      );
+    } finally {
+      setSuppression(false);
+    }
   };
 
   return (
@@ -130,43 +154,56 @@ export default function StudioProjectsPage() {
                   : project.summary?.agents || 0;
                 const local = etatSync(project) === "LOCAL";
                 return (
-                  <button
-                    className="project-card"
-                    key={project.id}
-                    onClick={() => navigate(`/studio/${project.id}`)}
-                    type="button"
-                  >
-                    <div className="project-card__preview">
-                      <Layers3 size={26} />
-                      <span className="preview-node preview-node--a" />
-                      <span className="preview-node preview-node--b" />
-                      <span className="preview-node preview-node--c" />
-                    </div>
-                    <div className="project-card__body">
-                      <div className="project-card__title">
-                        <div>
-                          <span>
-                            {local
-                              ? "Local"
-                              : project.status === "PRET_A_DEPLOYER" ? "Publié" : "Brouillon"}
-                          </span>
-                          <h3>{project.name}</h3>
+                  <article className="project-card" key={project.id}>
+                    <button
+                      className="project-card__open"
+                      onClick={() => navigate(`/studio/${project.id}`)}
+                      type="button"
+                    >
+                      <div className="project-card__preview">
+                        <Layers3 size={26} />
+                        <span className="preview-node preview-node--a" />
+                        <span className="preview-node preview-node--b" />
+                        <span className="preview-node preview-node--c" />
+                      </div>
+                      <div className="project-card__body">
+                        <div className="project-card__title">
+                          <div>
+                            <span>
+                              {local
+                                ? "Local"
+                                : project.status === "PRET_A_DEPLOYER" ? "Publié" : "Brouillon"}
+                            </span>
+                            <h3>{project.name}</h3>
+                          </div>
+                          <ChevronRight size={18} />
                         </div>
-                        <ChevronRight size={18} />
+                        <p>{project.description}</p>
+                        <div className="project-card__meta">
+                          <span><Blocks size={14} /> {blocs} blocs · {agents} agents</span>
+                          <span><CalendarClock size={14} /> {formatDate(project.updatedAt)}</span>
+                        </div>
+                        <small>
+                          {targetLabel}
+                          {project.summary?.robots
+                            ? <> · <Server size={12} /> {project.summary.robots} robot{project.summary.robots > 1 ? "s" : ""}</>
+                            : null}
+                        </small>
                       </div>
-                      <p>{project.description}</p>
-                      <div className="project-card__meta">
-                        <span><Blocks size={14} /> {blocs} blocs · {agents} agents</span>
-                        <span><CalendarClock size={14} /> {formatDate(project.updatedAt)}</span>
-                      </div>
-                      <small>
-                        {targetLabel}
-                        {project.summary?.robots
-                          ? <> · <Server size={12} /> {project.summary.robots} robot{project.summary.robots > 1 ? "s" : ""}</>
-                          : null}
-                      </small>
-                    </div>
-                  </button>
+                    </button>
+                    <button
+                      className="project-card__delete"
+                      aria-label={`Supprimer le projet ${project.name}`}
+                      title="Supprimer le projet"
+                      onClick={() => {
+                        setErreurSuppression(null);
+                        setASupprimer(project);
+                      }}
+                      type="button"
+                    >
+                      <Trash2 size={15} />
+                    </button>
+                  </article>
                 );
               })}
             </div>
@@ -255,6 +292,34 @@ export default function StudioProjectsPage() {
               <button className="primary-button" type="submit"><Plus size={16} /> Créer et ouvrir</button>
             </footer>
           </form>
+        </div>
+      )}
+
+      {aSupprimer && (
+        <div className="modal-backdrop">
+          <section className="project-dialog project-delete-dialog" role="dialog" aria-modal="true" aria-labelledby="delete-project-title">
+            <header className="dialog-header">
+              <div className="dialog-icon dialog-icon--danger"><Trash2 size={20} /></div>
+              <div><span>Suppression</span><h2 id="delete-project-title">Supprimer ce projet ?</h2></div>
+              <button className="icon-button" disabled={suppression} onClick={() => setASupprimer(null)} type="button"><X size={18} /></button>
+            </header>
+            <div className="project-delete-dialog__body">
+              <strong>{aSupprimer.name}</strong>
+              <p>
+                Le projet et ses versions non déployées seront supprimés. Cette action est définitive.
+              </p>
+              {aSupprimer.bundleId && (
+                <small><AlertTriangle size={14} /> S’il a déjà été déployé, son historique le protège et le serveur refusera sa suppression.</small>
+              )}
+              {erreurSuppression && <div className="dialog-erreur">{erreurSuppression}</div>}
+            </div>
+            <footer className="dialog-footer">
+              <button className="secondary-button" disabled={suppression} onClick={() => setASupprimer(null)} type="button">Annuler</button>
+              <button className="danger-button" disabled={suppression} onClick={() => void confirmerSuppression()} type="button">
+                {suppression ? <><LoaderCircle className="spin" size={15} /> Suppression…</> : <><Trash2 size={15} /> Supprimer le projet</>}
+              </button>
+            </footer>
+          </section>
         </div>
       )}
 
