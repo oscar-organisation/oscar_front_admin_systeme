@@ -13,9 +13,19 @@ Le transport temps réel et le runtime embarqué vivent dans
 `oscar-organisation/oscar_Backend_gateway`. Le client WebXR vit dans
 `oscar-organisation/oscar_front_casque_vr_ar`.
 
-Le contenu généré de `Admin-Console-Front-end/public/xr/` n'est pas versionné.
-Le pipeline de livraison doit y déposer un build du dépôt WebXR ou configurer
-`OSCAR_COCKPIT_URL` vers son déploiement autonome.
+La distribution du cockpit sous `Admin-Console-Front-end/public/xr/` est
+versionnée avec la révision exacte de `oscar_front_casque_vr_ar` qui l'a
+produite. Vite la copie sous `/xr/` et le Dockerfile refuse désormais de créer
+une image si elle manque ou si sa base n'est pas `/xr/`. Un redéploiement de la
+console ne peut donc plus effacer silencieusement l'interface XR.
+
+Pour actualiser cette distribution depuis un clone à jour du dépôt WebXR :
+
+```bash
+Admin-Console-Front-end/scripts/update-xr-bundle.sh ../oscar_front_casque_vr_ar
+```
+
+`OSCAR_COCKPIT_URL` peut toujours viser un déploiement autonome si nécessaire.
 
 ## Validation
 

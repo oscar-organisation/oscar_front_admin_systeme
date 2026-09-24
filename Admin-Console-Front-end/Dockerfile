@@ -12,9 +12,11 @@ COPY package*.json ./
 RUN npm ci
 
 COPY . .
-RUN npm run build
+RUN npm run build \
+    && test -f dist/xr/index.html \
+    && grep -q '/xr/assets/' dist/xr/index.html
 
-# --- Etape 2 : service statique Nginx avec fallback SPA ---
+# --- Etape 2 : service statique Nginx avec console et cockpit ---
 FROM nginxinc/nginx-unprivileged:1.29-alpine AS production
 COPY --chown=101:101 --from=build /app/dist /usr/share/nginx/html
 COPY --chown=101:101 runtime-config.template.js /usr/share/nginx/html/runtime-config.template.js
