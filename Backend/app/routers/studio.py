@@ -269,9 +269,14 @@ def update_bundle(request: Request, bundle_id: str, body: BundleIn, db: Session 
     bundle.nom = body.nom.strip()
     bundle.description = body.description
     bundle.target = body.target
+    if body.statut is not None:
+        if body.statut not in ("active", "archived"):
+            raise HTTPException(400, "Statut attendu : active ou archived")
+        bundle.statut = body.statut
     db.commit()
     db.refresh(bundle)
-    write_audit(db, actor=user, action="BUNDLE_UPDATE", resource=bundle.nom, org_id=bundle.org_id)
+    write_audit(db, actor=user, action="BUNDLE_UPDATE", resource=bundle.nom,
+                result=bundle.statut, org_id=bundle.org_id)
     return _bundle_out(db, bundle)
 
 
@@ -544,6 +549,25 @@ def _robot_par_reference(db: Session, reference: str) -> Robot:
     return robot
 
 
+def _noter_contact(db: Session, robot: Robot) -> None:
+    """Retient l'instant ou l'agent embarque s'est manifeste.
+
+    Toutes les routes du robot passent par l'authentification, donc marquer ici
+    suffit a couvrir la releve du bundle, celle de la release et les deux
+    comptes rendus. C'est ce qui alimente la pastille de presence, qui affichait
+    jusqu'ici « online » pour un robot eteint (voir app/presence.py).
+
+    Le marquage n'a lieu qu'une fois la cle verifiee : sinon n'importe quel
+    appel non authentifie ferait paraitre un robot eteint en ligne.
+
+    L'ecriture reste hors transaction metier : un contact note en trop ne
+    fausse rien, un contact perdu se rattrape a la releve suivante, 45 secondes
+    plus tard.
+    """
+    robot.vu_le = datetime.now(timezone.utc)
+    db.commit()
+
+
 def _robot_authentifie(db: Session, reference: str, cle: str) -> Robot:
     """Le robot désigné, à condition que la clé présentée soit la sienne.
 
@@ -561,12 +585,14 @@ def _robot_authentifie(db: Session, reference: str, cle: str) -> Robot:
         empreinte = hashlib.sha256(cle.encode("utf-8")).hexdigest()
         if not hmac.compare_digest(empreinte, robot.agent_key_hash):
             raise HTTPException(401, "Clé agent embarqué invalide pour ce robot")
+        _noter_contact(db, robot)
         return robot
     flotte = settings.edge_agent_api_key
     if not flotte:
         raise HTTPException(503, "Aucune clé d'agent émise pour ce robot")
     if not hmac.compare_digest(cle, flotte):
         raise HTTPException(401, "Clé agent embarqué invalide")
+    _noter_contact(db, robot)
     return robot
 
 

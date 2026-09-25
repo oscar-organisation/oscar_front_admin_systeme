@@ -10,6 +10,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from ..config import settings
+from ..presence import presence
 from ..database import get_db
 from ..deps import (
     request_organisation_id,
@@ -378,12 +379,13 @@ def robot_diagnostics(robot_id: str, request: Request, db: Session = Depends(get
 
     health = {
         "livekit": "ok" if reachable else "injoignable",
-        "robot": "en_ligne" if robot_present else ("declare_en_ligne" if robot.statut == "online" else "hors_ligne"),
+        "robot": "en_ligne" if robot_present else ("declare_en_ligne" if presence(robot.statut, robot.vu_le) == "online" else "hors_ligne"),
         "commande": "actif" if robot_present else "en_attente",
         "sdk": "connecte" if robot_present else "en_attente",  # SDK pas encore implémenté
     }
     return {
-        "robot": {"id": robot.id, "nom": robot.nom, "statut": robot.statut,
+        "robot": {"id": robot.id, "nom": robot.nom,
+                  "statut": presence(robot.statut, robot.vu_le), "vu_le": robot.vu_le,
                   "batterie": robot.batterie, "firmware": robot.firmware,
                   "capacites": robot.capacites},
         "room": room,
@@ -419,7 +421,8 @@ def supervise(robot_id: str, request: Request, db: Session = Depends(get_db),
         "livekit_url": settings.livekit_url,
         "identity": identity,
         "token": token,
-        "robot": {"id": robot.id, "nom": robot.nom, "statut": robot.statut,
+        "robot": {"id": robot.id, "nom": robot.nom,
+                  "statut": presence(robot.statut, robot.vu_le), "vu_le": robot.vu_le,
                   "batterie": robot.batterie, "firmware": robot.firmware},
     }
 

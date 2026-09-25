@@ -359,6 +359,11 @@ class Robot(Base, TimestampMixin):
     # deviner depuis une etiquette humaine produirait « rosmaster-m3-pro » la
     # ou le constructeur ecrit « rosmaster-m3pro ».
     modele_constate: Mapped[str | None] = mapped_column(String(80))
+    # Dernier contact de l'agent embarque, toutes routes confondues. C'est la
+    # seule mesure de presence dont la console dispose : `statut` n'a jamais ete
+    # reecrit apres la creation du robot, et annoncait « online » un robot
+    # eteint depuis des jours. Voir app/presence.py.
+    vu_le: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     statut: Mapped[str] = mapped_column(String(20), default="offline")  # online|offline|maintenance
     batterie: Mapped[int | None] = mapped_column(Integer)
     capacites: Mapped[list] = mapped_column(JSON, default=list)

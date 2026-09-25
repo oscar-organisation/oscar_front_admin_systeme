@@ -441,3 +441,73 @@ def test_un_composant_peut_declarer_une_mise_en_route(client, contexte):
     besoins = {c["code"]: (c.get("mise_en_route"), c.get("ordre"))
                for c in manifeste["composants"] if c.get("mise_en_route")}
     assert besoins == {"INSTANCE_SERVICE_PILOTAGE_BAS_NIVEAU": ("base", 10)}
+
+
+def test_le_contact_de_l_agent_alimente_la_presence(client, contexte):
+    """La pastille affichait « online » pour un robot hors tension.
+
+    Elle lisait une colonne posée à la création et jamais réécrite. Le robot
+    passe maintenant en ligne parce qu'il s'est manifesté, pas parce qu'on
+    l'avait déclaré ainsi.
+    """
+    version = _publier(client, contexte)
+    robot = client.post("/api/robots", headers=contexte["entetes"],
+                        json={"nom": uniq("OSCAR"), "org_id": contexte["org"]["id"],
+                              "statut": "online"}).json()
+
+    fiche = client.get(f"/api/robots/{robot['id']}", headers=contexte["entetes"]).json()
+    assert fiche["statut"] == "offline", "jamais vu, donc hors ligne"
+    assert fiche["vu_le"] is None
+
+    assert client.get(f"/api/studio/runtime/robots/{robot['slug']}/bundle",
+                      headers=CLE_AGENT).status_code == 200
+
+    fiche = client.get(f"/api/robots/{robot['id']}", headers=contexte["entetes"]).json()
+    assert fiche["statut"] == "online"
+    assert fiche["vu_le"] is not None
+    assert version is not None
+
+
+def test_une_cle_refusee_ne_fait_pas_paraitre_le_robot_en_ligne(client, contexte):
+    """Sinon n'importe quel appel non authentifié suffirait à mentir sur la
+    présence d'un robot éteint."""
+    robot = client.post("/api/robots", headers=contexte["entetes"],
+                        json={"nom": uniq("OSCAR"), "org_id": contexte["org"]["id"]}).json()
+
+    refus = client.get(f"/api/studio/runtime/robots/{robot['slug']}/bundle",
+                       headers={"X-Agent-Key": "mauvaise-cle"})
+    assert refus.status_code == 401
+
+    fiche = client.get(f"/api/robots/{robot['id']}", headers=contexte["entetes"]).json()
+    assert fiche["statut"] == "offline"
+    assert fiche["vu_le"] is None
+
+
+def test_un_projet_deploye_se_refuse_a_la_suppression_mais_s_archive(client, contexte):
+    """Le refus de suppression conseillait d'archiver, sans qu'aucune route ne
+    le permette. Le conseil vaut maintenant quelque chose."""
+    version = _publier(client, contexte)
+    robot = client.post("/api/robots", headers=contexte["entetes"],
+                        json={"nom": uniq("OSCAR"), "org_id": contexte["org"]["id"]}).json()
+    client.post("/api/studio/deployments", headers=contexte["entetes"],
+                json={"version_id": version["id"], "robot_ids": [robot["id"]]})
+
+    bundle_id = contexte["bundle"]["id"]
+    assert client.delete(f"/api/studio/bundles/{bundle_id}",
+                         headers=contexte["entetes"]).status_code == 409
+
+    archive = client.patch(f"/api/studio/bundles/{bundle_id}", headers=contexte["entetes"],
+                           json={"nom": contexte["bundle"]["nom"], "statut": "archived"})
+    assert archive.status_code == 200
+    assert archive.json()["statut"] == "archived"
+
+    rendu = client.patch(f"/api/studio/bundles/{bundle_id}", headers=contexte["entetes"],
+                         json={"nom": contexte["bundle"]["nom"], "statut": "active"})
+    assert rendu.json()["statut"] == "active"
+
+
+def test_un_statut_de_projet_inconnu_est_refuse(client, contexte):
+    bundle_id = contexte["bundle"]["id"]
+    refus = client.patch(f"/api/studio/bundles/{bundle_id}", headers=contexte["entetes"],
+                         json={"nom": contexte["bundle"]["nom"], "statut": "supprime"})
+    assert refus.status_code == 400

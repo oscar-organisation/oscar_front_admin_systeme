@@ -1,6 +1,8 @@
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, model_validator
+
+from .presence import presence
 
 ORM = ConfigDict(from_attributes=True)
 
@@ -307,6 +309,9 @@ class RobotAssignIn(BaseModel):
 class RobotOut(RobotIn):
     model_config = ORM
     id: str
+    # Dernier contact de l'agent embarque. Expose pour que la console puisse
+    # dire « vu il y a 12 minutes » plutot qu'une pastille sans age.
+    vu_le: datetime | None = None
     # Identifiant terrain, derive du nom : c'est celui que porte l'agent embarque.
     slug: str | None = None
     edge_channel: str = "stable"
@@ -315,6 +320,18 @@ class RobotOut(RobotIn):
     # C'est elle qui vaut cle : le catalogue de presets s'y accroche, pas a
     # l'etiquette humaine.
     modele_constate: str | None = None
+
+    @model_validator(mode="after")
+    def _presence_constatee(self) -> "RobotOut":
+        """Remplace le statut declare par celui qu'on observe.
+
+        La correction se fait ici plutot que dans chaque ecran : la console 2D
+        et le cockpit XR lisent tous deux ce champ, et ils affichaient « online »
+        pour un robot hors tension. La mise en maintenance reste intacte, elle
+        n'est pas une observation mais une decision.
+        """
+        self.statut = presence(self.statut, self.vu_le)
+        return self
 
 
 class TokenIssueIn(BaseModel):
@@ -522,6 +539,10 @@ class BundleIn(BaseModel):
     nom: str = Field(min_length=2, max_length=160)
     description: str | None = None
     target: str = Field(default="ENVIRONNEMENT_EXECUTION_ROBOT", max_length=60)
+    # « active » ou « archived ». Un projet deja deploye ne peut pas etre
+    # supprime, son historique le protege ; l'archiver est la seule sortie, et
+    # le refus de suppression le disait deja sans que la route existe.
+    statut: str | None = None
 
 
 class BundleDraftIn(BaseModel):
