@@ -55,7 +55,7 @@ export const studioModuleManifest: ApplicationModuleManifest = {
   id: "module-studio",
   name: "Studio de déploiement",
   version: "1.0.0",
-  description: "Composition visuelle des bundles, agents et canaux avant déploiement sur la flotte.",
+  description: "Composition visuelle des bundles, modules et canaux avant déploiement sur la flotte.",
   basePath: "/studio",
   layout: AdminLayout,
   navigation: STUDIO_NAVIGATION,

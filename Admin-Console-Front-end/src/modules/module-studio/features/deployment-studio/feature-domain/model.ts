@@ -46,7 +46,7 @@ export function createChannel(direction: 'RECEPTION' | 'EMISSION', index: number
 }
 
 export function createAgent(index: number, withChannels = false): AgentConfig {
-  const name = `Agent ${index}`;
+  const name = `Module ${index}`;
   return {
     id: makeId('agent'),
     name,

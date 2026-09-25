@@ -194,7 +194,7 @@ export default function ArchitectureNode({ id, data, selected }: NodeProps<Archi
           {data.agents.length === 0 && (
             <div className="agent-empty">
               <Cpu size={20} />
-              <span>Déposez un agent ici ou utilisez le bouton.</span>
+              <span>Déposez un module ici ou utilisez le bouton.</span>
             </div>
           )}
 
@@ -206,7 +206,7 @@ export default function ArchitectureNode({ id, data, selected }: NodeProps<Archi
             }}
             type="button"
           >
-            <Plus size={15} /> Ajouter un agent
+            <Plus size={15} /> Ajouter un module
           </button>
         </div>
       )}

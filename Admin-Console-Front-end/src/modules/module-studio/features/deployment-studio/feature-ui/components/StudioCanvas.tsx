@@ -17,6 +17,8 @@ import {
 } from '@xyflow/react';
 import {
   AlertCircle,
+  Archive,
+  ArchiveRestore,
   ArrowLeft,
   Check,
   ChevronDown,
@@ -24,9 +26,12 @@ import {
   CloudUpload,
   CircleHelp,
   PanelRightClose,
+  LibraryBig,
+  MoreHorizontal,
   Rocket,
   Save,
   Sparkles,
+  Trash2,
   X,
 } from 'lucide-react';
 import ComponentLibrary from './ComponentLibrary';
@@ -73,11 +78,22 @@ interface StudioProps {
   canPublish: boolean;
   /** Sans `api:deployment.execute`, on publie une version sans la pousser sur un robot. */
   canDeploy: boolean;
+  /** Sans `api:bundle.write`, le projet se compose mais ne se range ni ne s'efface. */
+  canManage: boolean;
+  /** Le catalogue de presets est tenu par la plateforme, pas par chaque organisation. */
+  canVerser: boolean;
+  /** Range le projet hors du plan de travail, ou l'en ressort. */
+  onArchiver: (archive: boolean) => Promise<void>;
+  /** Ouvre la confirmation de suppression, portee par la page des projets. */
+  onSupprimer: () => void;
+  /** Ouvre le versement au catalogue pour la derniere version publiee. */
+  onVerser: () => void;
   /** Accord entre le brouillon local et sa copie serveur. */
   syncEtat: SyncState;
 }
 
-function Canvas({ project, onChange, onBack, canPublish, canDeploy, syncEtat }: StudioProps) {
+function Canvas({ project, onChange, onBack, canPublish, canDeploy, canManage, canVerser,
+                 onArchiver, onSupprimer, onVerser, syncEtat }: StudioProps) {
   const wrapperRef = useRef<HTMLDivElement>(null);
   const { screenToFlowPosition, fitView, setCenter } = useReactFlow();
   const [selection, setSelection] = useState<Selection>(null);
@@ -85,6 +101,11 @@ function Canvas({ project, onChange, onBack, canPublish, canDeploy, syncEtat }: 
   const [showPublish, setShowPublish] = useState(false);
   const [showGuide, setShowGuide] = useState(() => localStorage.getItem('oscar.studio.guide.dismissed') !== 'true');
   const [toast, setToast] = useState<string | null>(null);
+  // Les actions qui portent sur le projet entier, et non sur la composition,
+  // vivent dans un menu : les mettre toutes dans la barre la rendait illisible
+  // alors qu'on ne s'en sert qu'une fois par projet.
+  const [menuOuvert, setMenuOuvert] = useState(false);
+  const [actionEnCours, setActionEnCours] = useState(false);
 
   const update = useCallback((changes: Partial<OscarProject>) => {
     onChange({ ...project, ...changes, updatedAt: new Date().toISOString() });
@@ -299,6 +320,8 @@ function Canvas({ project, onChange, onBack, canPublish, canDeploy, syncEtat }: 
     flash(`Version ${numero} publiée.`);
   };
 
+  const modulesPoses = project.nodes.reduce((somme, noeud) => somme + noeud.data.agents.length, 0);
+
   return (
     <main className="studio-shell">
       <header className="studio-topbar">
@@ -308,6 +331,61 @@ function Canvas({ project, onChange, onBack, canPublish, canDeploy, syncEtat }: 
         <button className="version-button" type="button">Version {project.version} <ChevronDown size={13} /></button>
         <span className="save-state">{ETAT_SYNC[syncEtat].icone} {ETAT_SYNC[syncEtat].court}</span>
         <div className="topbar-actions">
+          {(canManage || canVerser) && (
+            <div className="projet-menu">
+              <button className="secondary-button projet-menu__bouton" type="button"
+                      aria-haspopup="menu" aria-expanded={menuOuvert}
+                      aria-label="Actions sur le projet"
+                      disabled={actionEnCours}
+                      onClick={() => setMenuOuvert((ouvert) => !ouvert)}>
+                <MoreHorizontal size={16} />
+              </button>
+              {menuOuvert && (
+                <>
+                  {/* Un clic hors du menu le referme, sans capturer le clavier. */}
+                  <button className="projet-menu__voile" type="button" tabIndex={-1}
+                          aria-hidden="true" onClick={() => setMenuOuvert(false)} />
+                  <div className="projet-menu__liste" role="menu">
+                    {canVerser && (
+                      <button role="menuitem" type="button"
+                              disabled={!project.publishedVersionId}
+                              title={project.publishedVersionId
+                                ? "Proposer cette composition comme point de départ à toutes les organisations"
+                                : "Publiez d'abord une version : un préset part d'une composition figée"}
+                              onClick={() => { setMenuOuvert(false); onVerser(); }}>
+                        <LibraryBig size={14} /> Verser au catalogue
+                      </button>
+                    )}
+                    {canManage && project.bundleId && (
+                      <button role="menuitem" type="button"
+                              title={project.archive
+                                ? "Le remettre dans le plan de travail"
+                                : "Le ranger hors du plan de travail, sans rien effacer"}
+                              onClick={async () => {
+                                setMenuOuvert(false);
+                                setActionEnCours(true);
+                                try {
+                                  await onArchiver(!project.archive);
+                                  flash(project.archive ? 'Projet désarchivé.' : 'Projet archivé.');
+                                } finally {
+                                  setActionEnCours(false);
+                                }
+                              }}>
+                        {project.archive ? <ArchiveRestore size={14} /> : <Archive size={14} />}
+                        {project.archive ? 'Sortir des archives' : 'Archiver le projet'}
+                      </button>
+                    )}
+                    {canManage && (
+                      <button role="menuitem" className="is-danger" type="button"
+                              onClick={() => { setMenuOuvert(false); onSupprimer(); }}>
+                        <Trash2 size={14} /> Supprimer le projet
+                      </button>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
           <button className="secondary-button" onClick={() => setShowGuide(true)} type="button"><CircleHelp size={15} /> Guide</button>
           <button className={`secondary-button validation-button ${errors ? 'has-errors' : ''}`} onClick={() => setShowValidation((value) => !value)} type="button"><AlertCircle size={15} /> Vérifier {errors + warnings > 0 && <b>{errors + warnings}</b>}</button>
           {canPublish && <button className="primary-button" onClick={() => setShowPublish(true)} type="button"><Rocket size={16} /> Publier</button>}
@@ -375,8 +453,8 @@ function Canvas({ project, onChange, onBack, canPublish, canDeploy, syncEtat }: 
 
       <footer className="studio-statusbar">
         <span><i className="status-dot status-dot--online" /> {ETAT_SYNC[syncEtat].long}</span>
-        <span>{project.nodes.length} composants</span>
-        <span>{project.nodes.reduce((sum, node) => sum + node.data.agents.length, 0)} agents</span>
+        <span>{project.nodes.length} composant{project.nodes.length > 1 ? 's' : ''}</span>
+        <span>{modulesPoses} module{modulesPoses > 1 ? 's' : ''}</span>
         <span>{project.edges.filter((edge) => edge.data?.edgeKind === 'DONNEES').length} liaisons de données</span>
         <span className="statusbar-spacer" />
         <span><Save size={13} /> Brouillon conservé dans ce navigateur</span>

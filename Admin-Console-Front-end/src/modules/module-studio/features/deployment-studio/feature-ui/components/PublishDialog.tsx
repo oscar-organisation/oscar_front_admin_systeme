@@ -57,6 +57,7 @@ export default function PublishDialog({ project, issues, canDeploy, onClose, onP
   const [versementOuvert, setVersementOuvert] = useState(false);
   const [verse, setVerse] = useState<string | null>(null);
   const [famillesConnues, setFamillesConnues] = useState<string[]>([]);
+  const modulesPoses = project.nodes.reduce((somme, noeud) => somme + noeud.data.agents.length, 0);
 
   useEffect(() => {
     if (!maintientLeCatalogue) return;
@@ -229,7 +230,7 @@ export default function PublishDialog({ project, issues, canDeploy, onClose, onP
             <span>
               <small>Composants</small>
               <strong>
-                {project.nodes.length} blocs · {project.nodes.reduce((somme, noeud) => somme + noeud.data.agents.length, 0)} agents
+                {project.nodes.length} bloc{project.nodes.length > 1 ? 's' : ''} · {modulesPoses} module{modulesPoses > 1 ? 's' : ''}
               </strong>
             </span>
           </div>

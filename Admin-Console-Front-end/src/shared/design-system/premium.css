@@ -424,10 +424,9 @@ body {
   font-weight: 580;
 }
 
-/* Deux etiquettes cote a cote, deux natures. La premiere est le modele tel que
-   l'operateur l'a decrit. La seconde est la famille technique que le robot
-   declare, celle qui nomme son image de runtime et sur laquelle le catalogue
-   de presets s'accroche. */
+/* Le modele du chassis, tel que l'operateur l'a decrit. Une seule etiquette
+   dans le cas courant : afficher aussi la famille technique quand les deux
+   disent la meme chose encombrait la ligne sans rien apprendre. */
 .modele-chip {
   display: inline-block;
   padding: 2px 7px;
@@ -439,9 +438,12 @@ body {
   background: var(--shell-purple-soft);
 }
 
-.modele-chip--technique {
-  color: var(--shell-muted);
-  background: var(--shell-elevated);
+/* La famille declaree par le robot ne s'affiche que lorsqu'elle contredit la
+   saisie, ou qu'aucune saisie n'existe. C'est alors un ecart a lever, pas une
+   etiquette de plus : elle prend le ton de l'avertissement. */
+.modele-chip--ecart {
+  color: var(--shell-amber, var(--shell-muted));
+  background: var(--shell-amber-soft, var(--shell-elevated));
 }
 
 /* Tables and repeated data */

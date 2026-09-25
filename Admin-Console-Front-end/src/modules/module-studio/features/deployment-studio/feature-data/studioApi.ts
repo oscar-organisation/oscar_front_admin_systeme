@@ -134,6 +134,19 @@ export function creerBundle(entree: { nom: string; description: string; target: 
   return api.post<BundleServeur>("/studio/bundles", entree);
 }
 
+/**
+ * Range ou ressort un projet du plan de travail.
+ *
+ * Un projet deja deploye ne peut pas etre supprime : son historique dit ce qui
+ * a tourne sur les robots. L'archivage est sa seule sortie, et c'est ce que le
+ * refus de suppression conseillait deja sans qu'aucun chemin ne le permette.
+ */
+export function archiverBundle(bundleId: string, nom: string,
+                               archive: boolean): Promise<BundleServeur> {
+  return api.patch<BundleServeur>(`/studio/bundles/${bundleId}`,
+                                  { nom, statut: archive ? "archived" : "active" });
+}
+
 export function supprimerBundle(bundleId: string): Promise<void> {
   return api.del<void>(`/studio/bundles/${bundleId}`);
 }
@@ -276,10 +289,12 @@ export function projetDepuisBundle(bundle: BundleServeur, detail: VersionDetail 
     // porte une valeur, jamais `undefined` explicite.
     ...(bundle.draft_version ? { draftVersionId: bundle.draft_version.id } : {}),
     ...(version ? { sourceVersionId: version.id } : {}),
+    ...(bundle.published_version ? { publishedVersionId: bundle.published_version.id } : {}),
     name: bundle.nom,
     description: bundle.description ?? "",
     target: bundle.target as ProjectTarget,
     status: bundle.published_version ? "PRET_A_DEPLOYER" : "BROUILLON",
+    archive: bundle.statut === "archived",
     version: version?.numero ?? 1,
     updatedAt: bundle.updated_at ?? new Date().toISOString(),
     nodes: detail?.spec?.nodes ?? [],

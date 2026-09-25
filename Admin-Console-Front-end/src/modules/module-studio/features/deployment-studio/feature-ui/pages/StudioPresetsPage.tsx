@@ -127,51 +127,56 @@ export default function StudioPresetsPage() {
                 : "Aucun préset ne correspond à cette recherche."}
             </p>
           ) : (
-            <div className="preset-table">
+            <div className="preset-grid">
               {visibles.map((preset) => (
-                <article className="preset-ligne" key={preset.slug}>
-                  <div className="preset-ligne__icone"><Server size={17} /></div>
-                  <div className="preset-ligne__corps">
-                    <div className="preset-ligne__titre">
-                      <strong>{preset.nom}</strong>
-                      <span className={`preset-statut preset-statut--${preset.statut}`}>
-                        {ETIQUETTES[preset.statut] ?? preset.statut}
-                      </span>
-                    </div>
-                    <div className="preset-card__tags">
-                      {preset.constructeur && <span className="preset-tag">{preset.constructeur}</span>}
-                      <span className="preset-tag preset-tag--famille">{preset.famille}</span>
-                    </div>
-                    {preset.description && <p>{preset.description}</p>}
-                    <small>
-                      {preset.spec?.nodes?.length ?? 0} composants · révision {preset.revision} · {preset.slug}
-                    </small>
+                <article className="preset-carte" key={preset.slug} data-testid="preset-carte">
+                  <header className="preset-carte__tete">
+                    <span className="preset-carte__icone"><Server size={16} /></span>
+                    <span className={`preset-statut preset-statut--${preset.statut}`}>
+                      {ETIQUETTES[preset.statut] ?? preset.statut}
+                    </span>
+                  </header>
+                  <h3>{preset.nom}</h3>
+                  <div className="preset-card__tags">
+                    {preset.constructeur && <span className="preset-tag">{preset.constructeur}</span>}
+                    <span className="preset-tag preset-tag--famille">{preset.famille}</span>
                   </div>
+                  {preset.description && <p>{preset.description}</p>}
+                  <small>{preset.spec?.nodes?.length ?? 0} composants · révision {preset.revision}</small>
                   {maintient && (
-                    <div className="preset-ligne__actions">
+                    <div className="preset-carte__actions">
                       {enCours === preset.slug ? (
-                        <LoaderCircle size={16} className="spin" />
+                        <LoaderCircle size={15} className="spin" />
                       ) : (
                         <>
                           {preset.statut === "published" ? (
-                            <button className="secondary-button" type="button"
+                            <button className="preset-action" type="button"
+                                    title="Le retirer du sélecteur de création, sans l'archiver"
+                                    aria-label={`Retirer ${preset.nom} du sélecteur`}
                                     onClick={() => void agir(preset, { statut: "draft" })}>
-                              <EyeOff size={14} /> Retirer du sélecteur
+                              <EyeOff size={14} />
                             </button>
                           ) : (
-                            <button className="secondary-button" type="button"
+                            <button className="preset-action" type="button"
+                                    title="Le proposer au sélecteur de création"
+                                    aria-label={`Publier ${preset.nom}`}
                                     onClick={() => void agir(preset, { statut: "published" })}>
-                              <Eye size={14} /> Publier
+                              <Eye size={14} />
                             </button>
                           )}
                           {preset.statut !== "archived" && (
-                            <button className="secondary-button" type="button"
+                            <button className="preset-action" type="button"
+                                    title="L'archiver : il reste consultable, plus proposé"
+                                    aria-label={`Archiver ${preset.nom}`}
                                     onClick={() => void agir(preset, { statut: "archived" })}>
-                              <Archive size={14} /> Archiver
+                              <Archive size={14} />
                             </button>
                           )}
-                          <button className="danger-button" type="button" onClick={() => void retirer(preset)}>
-                            <Trash2 size={14} /> Retirer
+                          <button className="preset-action preset-action--danger" type="button"
+                                  title="Le retirer du catalogue"
+                                  aria-label={`Retirer ${preset.nom} du catalogue`}
+                                  onClick={() => void retirer(preset)}>
+                            <Trash2 size={14} />
                           </button>
                         </>
                       )}

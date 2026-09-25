@@ -73,7 +73,7 @@ export default function ComponentLibrary({ nodes, selection, onAdd, onSelect }: 
           </div>
           <div className="library-note">
             <strong>Ajout intelligent</strong>
-            <p>Un agent crée automatiquement son traitement métier, son interface de communication, sa bande de données et ses deux bus.</p>
+            <p>Un module crée automatiquement son traitement métier, son interface de communication, sa bande de données et ses deux bus.</p>
           </div>
         </>
       ) : (

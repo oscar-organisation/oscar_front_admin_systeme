@@ -1,6 +1,7 @@
 import { useLayoutEffect, useSyncExternalStore } from "react";
 import { useAuth } from "@/auth/AuthContext.jsx";
 import {
+  archiverBundle,
   creerBundle,
   enregistrerBrouillon,
   listerBundles,
@@ -227,6 +228,25 @@ export function enregistrerProjet(projet: OscarProject): void {
 export function ajouterProjet(projet: OscarProject): void {
   publier({ projets: [projet, ...lire().projets] });
 }
+
+/**
+ * Range un projet hors du plan de travail, ou l'en ressort.
+ *
+ * Un projet deja deploye refuse d'etre supprime : son historique dit ce qui a
+ * tourne sur les robots. Le serveur conseillait de l'archiver, mais rien ne le
+ * permettait. Un projet purement local n'a pas de contrepartie serveur, donc
+ * rien a archiver : on le supprime ou on le garde.
+ */
+export async function archiverProjet(projet: OscarProject, archive: boolean): Promise<void> {
+  if (!projet.bundleId) throw new Error("Ce projet n'existe que dans ce navigateur.");
+  const contexte = generation;
+  await archiverBundle(projet.bundleId, projet.name, archive);
+  if (contexte !== generation) return;
+  publier({
+    projets: lire().projets.map((item) => (item.id === projet.id ? { ...item, archive } : item)),
+  });
+}
+
 
 export async function supprimerProjet(projet: OscarProject): Promise<void> {
   const contexte = generation;

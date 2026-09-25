@@ -5,6 +5,8 @@ import PageHeader from "@/components/PageHeader.jsx";
 import { captureError } from "@/shared/kernel/observability";
 import {
   IconAlertCircle,
+  IconArchive,
+  IconArchiveRestore,
   IconArrowUpRight,
   IconCheck,
   IconCpu,
@@ -19,6 +21,13 @@ import {
   IconUpload,
   IconX,
 } from "@/components/Icons.jsx";
+
+const QUESTION_STATUT = {
+  production: (model) => `Promouvoir « ${model.nom} » v${model.version} en production ?`,
+  archive: (model) => `Archiver « ${model.nom} » v${model.version} ? Il cessera de tourner sur `
+    + "tous les robots qui l'exécutent, quelle que soit la Box qui le porte.",
+  sandbox: (model) => `Renvoyer « ${model.nom} » v${model.version} en bac à sable ?`,
+};
 
 const MODEL_CHIP = { sandbox: "warning", production: "online", archive: "neutral", archived: "neutral" };
 const BOX_CHIP = { draft: "warning", published: "online", archive: "neutral" };
@@ -301,10 +310,20 @@ export default function AiVisionPage() {
     }
   }
 
-  async function promote(model) {
-    if (!window.confirm(`Promouvoir « ${model.nom} » v${model.version} en production ?`)) return;
+  /**
+   * Fait passer un modele d'un etat a l'autre.
+   *
+   * L'archivage etait atteignable par l'API mais par aucun bouton : un modele
+   * promu en production n'avait plus de sortie, puisque le supprimer est refuse
+   * des qu'une Box le reference. Seule la resolution du manifeste compte pour
+   * l'execution, et elle exige « production » : archiver coupe donc le modele
+   * partout d'un coup, la ou suspendre une affectation coupe la Box entiere.
+   */
+  async function changerStatut(model, statut) {
+    const question = QUESTION_STATUT[statut];
+    if (question && !window.confirm(question(model))) return;
     try {
-      await api.post(`/ai/models/${model.id}/promote`, { statut: "production" });
+      await api.post(`/ai/models/${model.id}/promote`, { statut });
       await loadStudio();
     } catch (error) {
       setErr(captureError(error, { feature: "ai-studio", action: "promote-model" }));
@@ -434,7 +453,7 @@ export default function AiVisionPage() {
             <div className="card-body flush table-wrap ai-section-scroll" role="region" aria-label="Registre de modèles" tabIndex={0}>
               <table className="data-table ai-model-table"><thead><tr><th>Modèle</th><th>Catégories</th><th>Artefact</th><th>Cycle</th><th>Validation</th><th>Actions</th></tr></thead><tbody>
                 {loading && <tr><td colSpan={6} className="ai-empty">Chargement des modèles...</td></tr>}
-                {!loading && models.map((model) => <tr key={model.id} data-testid="model-row"><td><div className="ai-model-identity"><span><strong data-testid="model-name">{model.nom}</strong><small>{model.tache} · v{model.version}</small></span></div></td><td><div className="ai-category-chips">{(model.category_ids || []).map((id) => <span key={id}>{cats.find((cat) => cat.id === id)?.label || id}</span>)}{!model.category_ids?.length && <small>Non classé</small>}</div></td><td><div className="ai-artifact-cell"><strong className="ai-runtime-name">{model.runtime || model.framework}</strong><small>{formatBytes(model.artifact_size)}</small></div></td><td><span className={`status-chip ${MODEL_CHIP[model.statut] || "neutral"}`}>{model.statut}</span></td><td><span className={`status-chip ${model.validation_status === "manifest_valid" ? "online" : "warning"}`}>{model.validation_status || "à valider"}</span></td><td className="row-actions">{canPromote && model.statut === "sandbox" && <button className="btn-shell small" data-testid="model-promote" onClick={() => promote(model)}><IconArrowUpRight size={13} /> Promouvoir</button>}{canModelDelete && <button className="btn-shell small danger" data-testid="model-delete" onClick={() => removeModel(model)} title="Retirer du catalogue"><IconTrash size={12} /></button>}</td></tr>)}
+                {!loading && models.map((model) => <tr key={model.id} data-testid="model-row"><td><div className="ai-model-identity"><span><strong data-testid="model-name">{model.nom}</strong><small>{model.tache} · v{model.version}</small></span></div></td><td><div className="ai-category-chips">{(model.category_ids || []).map((id) => <span key={id}>{cats.find((cat) => cat.id === id)?.label || id}</span>)}{!model.category_ids?.length && <small>Non classé</small>}</div></td><td><div className="ai-artifact-cell"><strong className="ai-runtime-name">{model.runtime || model.framework}</strong><small>{formatBytes(model.artifact_size)}</small></div></td><td><span className={`status-chip ${MODEL_CHIP[model.statut] || "neutral"}`}>{model.statut}</span></td><td><span className={`status-chip ${model.validation_status === "manifest_valid" ? "online" : "warning"}`}>{model.validation_status || "à valider"}</span></td><td className="row-actions">{canPromote && model.statut === "sandbox" && <button className="btn-shell small" data-testid="model-promote" onClick={() => changerStatut(model, "production")}><IconArrowUpRight size={13} /> Promouvoir</button>}{canPromote && model.statut === "production" && <button className="btn-shell small" data-testid="model-archive" title="Le retirer de tous les manifestes, sans toucher aux Box" onClick={() => changerStatut(model, "archive")}><IconArchive size={13} /> Archiver</button>}{canPromote && (model.statut === "archive" || model.statut === "archived") && <button className="btn-shell small" data-testid="model-restore" title="Le remettre en production sur les robots qui le portent" onClick={() => changerStatut(model, "production")}><IconArchiveRestore size={13} /> Réactiver</button>}{canModelDelete && <button className="btn-shell small danger" data-testid="model-delete" onClick={() => removeModel(model)} title="Retirer du catalogue"><IconTrash size={12} /></button>}</td></tr>)}
                 {!loading && models.length === 0 && <tr><td colSpan={6} className="ai-empty">Aucun modèle chargé pour cette organisation.</td></tr>}
               </tbody></table>
             </div>

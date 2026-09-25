@@ -69,11 +69,23 @@
 .studio-scope .project-card { position: relative; overflow: hidden; padding: 0; text-align: left; border: 1px solid #dde4ef; border-radius: 17px; background: white; box-shadow: 0 8px 24px rgba(39, 53, 87, .055); transition: .2s ease; }
 .studio-scope .project-card:hover { border-color: #bdc9e6; box-shadow: 0 14px 34px rgba(39, 53, 87, .1); transform: translateY(-2px); }
 .studio-scope .project-card__open { display: block; width: 100%; padding: 0; color: inherit; text-align: left; border: 0; background: transparent; cursor: pointer; }
-.studio-scope .project-card__delete { position: absolute; z-index: 3; top: 12px; right: 12px; display: grid; place-items: center; width: 32px; height: 32px; padding: 0; color: #9b5960; border: 1px solid rgba(199,67,76,.2); border-radius: 9px; background: rgba(255,255,255,.88); box-shadow: 0 5px 16px rgba(31,39,58,.12); cursor: pointer; opacity: .72; transition: .16s ease; }
-.studio-scope .project-card:hover .project-card__delete,
-.studio-scope .project-card:focus-within .project-card__delete { opacity: 1; }
+/* Archiver et supprimer se tiennent ensemble, au meme endroit sur toutes les
+   cartes. Un projet deja deploye refuse la suppression : l'archivage est alors
+   la seule sortie, et il doit etre aussi visible qu'elle. */
+.studio-scope .project-card__actions { position: absolute; z-index: 3; top: 12px; right: 12px; display: flex; gap: 6px; opacity: .72; transition: opacity .16s ease; }
+.studio-scope .project-card:hover .project-card__actions,
+.studio-scope .project-card:focus-within .project-card__actions { opacity: 1; }
+.studio-scope .project-card__action { display: grid; place-items: center; width: 32px; height: 32px; padding: 0; color: #5c6779; border: 1px solid #dce3ee; border-radius: 9px; background: rgba(255,255,255,.88); box-shadow: 0 5px 16px rgba(31,39,58,.12); cursor: pointer; transition: .16s ease; }
+.studio-scope .project-card__action:hover { color: var(--blue); border-color: #b9c9f0; background: #eef3ff; }
+.studio-scope .project-card__action:disabled { cursor: progress; opacity: .6; }
+.studio-scope .project-card__action--danger { color: #9b5960; border-color: rgba(199,67,76,.2); }
+.studio-scope .project-card__action--danger:hover { color: #b4232d; border-color: rgba(199,67,76,.45); background: #fff7f7; }
+/* Un projet archive reste lisible mais cesse d'attirer l'oeil. */
+.studio-scope .project-card.is-archived { opacity: .62; }
+.studio-scope .project-card.is-archived:hover { opacity: 1; }
+.studio-scope .archives-bascule { display: inline-flex; align-items: center; gap: 7px; margin-bottom: 12px; padding: 7px 12px; color: #5c6779; border: 1px solid #dce3ee; border-radius: 10px; background: white; font: 600 11.5px/1 var(--font-sans); cursor: pointer; }
+.studio-scope .archives-bascule:hover { color: var(--blue); border-color: #b9c9f0; background: #eef3ff; }
 .studio-scope .project-card__open:focus-visible { outline: 2px solid var(--blue); outline-offset: -3px; }
-.studio-scope .project-card__delete:hover { color: #b4232d; border-color: rgba(199,67,76,.45); background: #fff7f7; }
 .studio-scope .project-card__preview { position: relative; display: grid; place-items: center; height: 112px; overflow: hidden; color: rgba(55,102,245,.32); background: linear-gradient(145deg, #edf2ff, #f6f3ff); }
 .studio-scope .project-card__preview::before { content: ''; position: absolute; inset: 0; opacity: .6; background-image: radial-gradient(#bac7df 1px, transparent 1px); background-size: 16px 16px; }
 .studio-scope .project-card__preview > svg { position: relative; z-index: 2; }
@@ -126,16 +138,23 @@
 
 /* Catalogue : la page de gestion */
 .studio-scope .preset-search--page { margin: 6px 0 14px; padding: 10px 14px; border: 1px solid #dce3ee; border-bottom: 1px solid #dce3ee; border-radius: 11px; background: white; }
-.studio-scope .preset-table { display: flex; flex-direction: column; gap: 10px; }
-.studio-scope .preset-ligne { display: grid; grid-template-columns: 38px 1fr auto; gap: 13px; align-items: start; padding: 14px 15px; border: 1px solid #dce3ee; border-radius: 13px; background: white; }
-.studio-scope .preset-ligne__icone { display: grid; place-items: center; width: 34px; height: 34px; color: var(--blue); border-radius: 10px; background: #eef3ff; }
-.studio-scope .preset-ligne__corps { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
-.studio-scope .preset-ligne__titre { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-.studio-scope .preset-ligne__titre strong { font: 700 13.5px/1.3 var(--font-sans); }
-.studio-scope .preset-ligne__corps p { margin: 0; font-size: 11.5px; line-height: 1.45; color: #64748b; }
-.studio-scope .preset-ligne__corps > small { color: #9aa5b6; font-size: 10px; }
-.studio-scope .preset-ligne__actions { display: flex; flex-wrap: wrap; gap: 7px; justify-content: flex-end; }
-.studio-scope .preset-ligne__actions .secondary-button, .studio-scope .preset-ligne__actions .danger-button { width: auto; min-height: 31px; padding: 0 10px; font-size: 11.5px; }
+/* Le catalogue tenait sur des lignes pleine largeur : a cent presets, la page
+   devenait un rouleau. Des carreaux se comparent d'un coup d'oeil et tiennent
+   le meme espace quel que soit leur nombre. */
+.studio-scope .preset-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(258px, 1fr)); gap: 12px; }
+.studio-scope .preset-carte { display: flex; flex-direction: column; gap: 7px; min-width: 0; padding: 14px 15px 12px; border: 1px solid #dce3ee; border-radius: 13px; background: white; }
+.studio-scope .preset-carte__tete { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.studio-scope .preset-carte__icone { display: grid; place-items: center; width: 30px; height: 30px; color: var(--blue); border-radius: 9px; background: #eef3ff; }
+.studio-scope .preset-carte h3 { margin: 0; font: 700 13.5px/1.35 var(--font-sans); overflow-wrap: anywhere; }
+.studio-scope .preset-carte p { margin: 0; font-size: 11.5px; line-height: 1.45; color: #64748b; overflow-wrap: anywhere; }
+.studio-scope .preset-carte > small { color: #9aa5b6; font-size: 10px; }
+/* Les actions se collent au bas de la carte pour que toutes les cartes d'une
+   rangee alignent leur barre, quelle que soit la longueur des descriptions. */
+.studio-scope .preset-carte__actions { display: flex; align-items: center; gap: 6px; margin-top: auto; padding-top: 10px; border-top: 1px solid #eef1f7; }
+.studio-scope .preset-action { display: grid; place-items: center; width: 29px; height: 29px; color: #64748b; border: 1px solid #dce3ee; border-radius: 9px; background: white; cursor: pointer; transition: color 140ms ease, border-color 140ms ease, background-color 140ms ease; }
+.studio-scope .preset-action:hover { color: var(--blue); border-color: #b9c9f0; background: #eef3ff; }
+.studio-scope .preset-action--danger { margin-left: auto; }
+.studio-scope .preset-action--danger:hover { color: #c0392b; border-color: #f0b9b3; background: #fdeeec; }
 .studio-scope .preset-statut { padding: 3px 8px; font: 700 9.5px/1 var(--font-sans); text-transform: uppercase; letter-spacing: .05em; border-radius: 999px; }
 .studio-scope .preset-statut--published { color: #1a7f4b; background: #e6f6ed; }
 .studio-scope .preset-statut--draft { color: #8a6d1f; background: #fdf4e0; }
@@ -157,12 +176,12 @@
 .studio-scope .deployment-stat-card--active .deployment-stat-card__icon { color: #1a7f4b; background: #e6f6ed; }
 .studio-scope .deployment-stat-card--failed .deployment-stat-card__icon { color: #c7434c; background: #fff0f0; }
 .studio-scope .deployment-filterbar { display: grid; grid-template-columns: minmax(260px, 1fr) 190px 220px; gap: 9px; margin-bottom: 14px; }
-.studio-scope .deployment-search { display: flex; align-items: center; gap: 9px; min-height: 42px; padding: 0 13px; color: #7b8799; border: 1px solid #dce3ee; border-radius: 11px; background: white; }
+.studio-scope .deployment-search { display: flex; align-items: center; gap: 9px; min-height: 46px; padding: 0 13px; color: #7b8799; border: 1px solid #dce3ee; border-radius: 11px; background: white; }
 .studio-scope .deployment-search input { width: 100%; color: #172033; border: 0; background: transparent; outline: 0; font-size: 12px; }
 .studio-scope .deployment-search input::placeholder { color: #9aa5b6; }
-.studio-scope .deployment-filter { position: relative; display: flex; align-items: center; min-height: 42px; padding: 0 11px; border: 1px solid #dce3ee; border-radius: 11px; background: white; }
-.studio-scope .deployment-filter > span { position: absolute; top: 5px; left: 12px; color: #96a0b0; font-size: 7.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; pointer-events: none; }
-.studio-scope .deployment-filter select { width: 100%; padding: 11px 22px 2px 0; color: #273247; border: 0; background: transparent; outline: 0; font-size: 11.5px; cursor: pointer; }
+.studio-scope .deployment-filter { display: grid; grid-template-rows: auto auto; align-content: center; gap: 1px; min-height: 46px; padding: 6px 12px; border: 1px solid #dce3ee; border-radius: 11px; background: white; }
+.studio-scope .deployment-filter > span { color: #96a0b0; font-size: 8px; font-weight: 800; line-height: 1.2; text-transform: uppercase; letter-spacing: .08em; pointer-events: none; }
+.studio-scope .deployment-filter select { width: 100%; max-width: 100%; height: 18px; margin: 0; padding: 0 2px 0 0; color: #273247; border: 0; background: transparent; outline: 0; font-family: inherit; font-size: 11.5px; line-height: 18px; cursor: pointer; }
 .studio-scope .deployment-page-error { display: grid; grid-template-columns: 18px 1fr auto; gap: 10px; align-items: center; margin-bottom: 12px; padding: 11px 13px; color: #9f2f38; border: 1px solid #f0cfd1; border-radius: 10px; background: #fff7f7; font-size: 11px; }
 .studio-scope .deployment-page-error span { display: flex; flex-direction: column; gap: 2px; }
 .studio-scope .deployment-page-error button { padding: 5px 9px; color: inherit; border: 1px solid currentColor; border-radius: 7px; background: transparent; cursor: pointer; font-size: 10px; font-weight: 700; }
@@ -272,6 +291,18 @@
 .studio-scope .save-state svg { color: var(--green); }
 .studio-scope .topbar-actions { display: flex; gap: 8px; margin-left: auto; }
 .studio-scope .topbar-actions .secondary-button, .studio-scope .topbar-actions .primary-button { min-height: 34px; }
+/* Archiver, supprimer, verser au catalogue : trois gestes qu'on pose une fois
+   par projet. Les aligner dans la barre l'encombrait au profit d'actions
+   rares ; ils tiennent dans un menu, la barre garde ce qu'on utilise. */
+.studio-scope .projet-menu { position: relative; }
+.studio-scope .projet-menu__bouton { min-width: 34px; padding-inline: 9px; }
+.studio-scope .projet-menu__voile { position: fixed; z-index: 40; inset: 0; border: 0; background: transparent; cursor: default; }
+.studio-scope .projet-menu__liste { position: absolute; z-index: 41; top: calc(100% + 6px); right: 0; display: flex; flex-direction: column; min-width: 216px; padding: 5px; border: 1px solid #dce3ee; border-radius: 11px; background: white; box-shadow: 0 14px 34px rgba(31,39,58,.16); }
+.studio-scope .projet-menu__liste button { display: flex; align-items: center; gap: 9px; padding: 8px 10px; color: #273247; border: 0; border-radius: 8px; background: transparent; font: 500 12px/1.3 var(--font-sans); text-align: left; cursor: pointer; }
+.studio-scope .projet-menu__liste button:hover:not(:disabled) { color: var(--blue); background: #eef3ff; }
+.studio-scope .projet-menu__liste button:disabled { color: #9aa5b6; cursor: not-allowed; }
+.studio-scope .projet-menu__liste button.is-danger { color: #b4232d; }
+.studio-scope .projet-menu__liste button.is-danger:hover:not(:disabled) { color: #b4232d; background: #fdeeec; }
 .studio-scope .validation-button b { display: grid; place-items: center; min-width: 18px; height: 18px; padding: 0 4px; color: #8c6515; border-radius: 6px; background: #fff0c7; font-size: 9px; }
 .studio-scope .validation-button.has-errors b { color: #b43a42; background: #ffe0e1; }
 .studio-scope .studio-layout { display: grid; grid-template-columns: 268px minmax(0, 1fr) 298px; min-height: 0; }
@@ -687,8 +718,11 @@
   background: var(--shell-elevated);
   box-shadow: var(--shadow-sm);
 }
-.studio-scope .project-card__delete { color: var(--shell-muted); border-color: var(--shell-line-strong); background: rgba(17,20,24,.88); box-shadow: var(--shadow-sm); }
-.studio-scope .project-card__delete:hover { color: var(--shell-red); border-color: rgba(240,111,114,.4); background: var(--shell-red-soft); }
+.studio-scope .project-card__action { color: var(--shell-muted); border-color: var(--shell-line-strong); background: rgba(17,20,24,.88); box-shadow: var(--shadow-sm); }
+.studio-scope .project-card__action:hover { color: var(--shell-blue-strong); border-color: var(--shell-blue-border); background: var(--shell-blue-soft); }
+.studio-scope .project-card__action--danger:hover { color: var(--shell-red); border-color: rgba(240,111,114,.4); background: var(--shell-red-soft); }
+.studio-scope .archives-bascule { color: var(--shell-muted); border-color: var(--shell-line-strong); background: var(--shell-card); }
+.studio-scope .archives-bascule:hover { color: var(--shell-blue-strong); border-color: var(--shell-blue-border); background: var(--shell-blue-soft); }
 .studio-scope .project-card__title span { color: var(--shell-blue-strong); }
 .studio-scope .project-card__meta { border-top-color: var(--shell-line); }
 
@@ -732,6 +766,18 @@
 .studio-scope .preset-tag { color: var(--shell-muted); background: var(--shell-elevated); }
 .studio-scope .preset-tag--famille { color: var(--shell-purple); background: var(--shell-purple-soft); }
 .studio-scope .preset-vide { color: var(--shell-muted); }
+.studio-scope .preset-carte { color: var(--shell-text); border-color: var(--shell-line); background: var(--shell-card); }
+.studio-scope .preset-carte:hover { border-color: var(--shell-line-strong); background: var(--shell-card-hover); }
+.studio-scope .preset-carte__icone { color: var(--shell-blue-strong); background: var(--shell-blue-soft); }
+.studio-scope .preset-carte p { color: var(--shell-muted); }
+.studio-scope .preset-carte > small { color: var(--shell-dim); }
+.studio-scope .preset-carte__actions { border-top-color: var(--shell-line); }
+.studio-scope .preset-action { color: var(--shell-muted); border-color: var(--shell-line-strong); background: var(--shell-card); }
+.studio-scope .preset-action:hover { color: var(--shell-blue-strong); border-color: var(--shell-blue-border); background: var(--shell-blue-soft); }
+.studio-scope .preset-action--danger:hover { color: var(--shell-red); border-color: var(--shell-red); background: var(--shell-red-soft); }
+.studio-scope .preset-statut--published { color: var(--shell-green); background: var(--shell-green-soft); }
+.studio-scope .preset-statut--draft { color: var(--shell-amber); background: var(--shell-amber-soft); }
+.studio-scope .preset-statut--archived { color: var(--shell-dim); background: var(--shell-elevated); }
 .studio-scope .preset-ouvrir,
 .studio-scope .preset-retenu { color: var(--shell-text); border-color: var(--shell-line); background: var(--shell-card); }
 .studio-scope .preset-ouvrir:hover { border-color: var(--shell-blue-border); background: var(--shell-card-hover); }
@@ -742,12 +788,14 @@
 .studio-scope .preset-retenu svg { color: var(--shell-blue-strong); }
 .studio-scope .link-button { color: var(--shell-blue-strong); border-color: var(--shell-blue-border); background: transparent; }
 .studio-scope .template-note { color: var(--shell-muted); }
+.studio-scope .projet-menu__liste { border-color: var(--shell-line-strong); background: var(--shell-card); box-shadow: var(--shadow-lg, 0 14px 34px rgba(0,0,0,.5)); }
+.studio-scope .projet-menu__liste button { color: var(--shell-text); }
+.studio-scope .projet-menu__liste button:hover:not(:disabled) { color: var(--shell-blue-strong); background: var(--shell-blue-soft); }
+.studio-scope .projet-menu__liste button:disabled { color: var(--shell-dim); }
+.studio-scope .projet-menu__liste button.is-danger { color: var(--shell-red); }
+.studio-scope .projet-menu__liste button.is-danger:hover:not(:disabled) { color: var(--shell-red); background: var(--shell-red-soft); }
 .studio-scope .dialog-erreur { color: var(--shell-red); border-color: var(--shell-red); background: var(--shell-red-soft); }
 .studio-scope .preset-search--page { border-color: var(--shell-line); background: var(--shell-card); }
-.studio-scope .preset-ligne { border-color: var(--shell-line); background: var(--shell-card); }
-.studio-scope .preset-ligne__icone { color: var(--shell-blue-strong); background: var(--shell-blue-soft); }
-.studio-scope .preset-ligne__corps p { color: var(--shell-muted); }
-.studio-scope .preset-ligne__corps > small { color: var(--shell-dim); }
 .studio-scope .preset-statut--published { color: var(--shell-green); background: var(--shell-green-soft); }
 .studio-scope .preset-statut--draft { color: var(--shell-amber); background: var(--shell-amber-soft); }
 .studio-scope .preset-statut--archived { color: var(--shell-muted); background: var(--shell-elevated); }

@@ -43,7 +43,7 @@ export const INPUT_TYPES: Array<{ value: InputChannelType; label: string; hint: 
   {
     value: 'TYPE_ENTREE_ABONNEMENT_TEMPS_REEL',
     label: 'Abonnement temps réel',
-    hint: 'Reçoit les données émises par un autre agent de la salle du robot.',
+    hint: 'Reçoit les données émises par un autre module de la salle du robot.',
   },
   {
     value: 'TYPE_ENTREE_SERVICE_LOCAL',
@@ -65,7 +65,7 @@ export const INPUT_TYPES: Array<{ value: InputChannelType; label: string; hint: 
 export const OUTPUT_TYPES: Array<{ value: OutputChannelType; label: string; hint: string }> = [
   {
     value: 'TYPE_SORTIE_PUBLICATION_TEMPS_REEL_CANAL_AGENT',
-    label: 'Canal précis d’un agent',
+    label: 'Canal précis d’un module',
     hint: 'Envoie en temps réel vers un canal de réception précis.',
   },
   {
@@ -119,7 +119,7 @@ export const PALETTE_ITEMS = [
   },
   {
     type: 'INSTANCE_AGENT',
-    label: 'Agent',
+    label: 'Module',
     hint: 'Traitement métier avec interface de communication.',
     icon: Cpu,
     tone: 'amber',
@@ -127,14 +127,14 @@ export const PALETTE_ITEMS = [
   {
     type: 'CANAL_RECEPTION',
     label: 'Canal de réception',
-    hint: 'Entrée unitaire d’un agent.',
+    hint: 'Entrée unitaire d’un module.',
     icon: LogIn,
     tone: 'green',
   },
   {
     type: 'CANAL_EMISSION',
     label: 'Canal d’émission',
-    hint: 'Sortie unitaire d’un agent.',
+    hint: 'Sortie unitaire d’un module.',
     icon: LogOut,
     tone: 'rose',
   },
@@ -143,6 +143,6 @@ export const PALETTE_ITEMS = [
 export const HIERARCHY_ITEMS = [
   { label: 'Bundle de déploiement', code: 'BUNDLE_DEPLOIEMENT', icon: Boxes },
   { label: 'Service ou application', code: 'INSTANCE_SERVICE / INSTANCE_APPLICATION', icon: Box },
-  { label: 'Agent', code: 'INSTANCE_AGENT', icon: Cpu },
+  { label: 'Module', code: 'INSTANCE_AGENT', icon: Cpu },
   { label: 'Interface de communication', code: 'INTERFACE_COMMUNICATION_AGENT', icon: Cable },
 ];

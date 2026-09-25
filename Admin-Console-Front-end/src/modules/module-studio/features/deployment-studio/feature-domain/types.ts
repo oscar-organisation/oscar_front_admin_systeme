@@ -96,8 +96,16 @@ export interface OscarProject {
   /** Version brouillon cote serveur, cible des enregistrements automatiques. */
   draftVersionId?: string;
   sourceVersionId?: string;
+  /** Derniere version publiee. Seule une version figee peut etre versee au
+   *  catalogue de presets : un point de depart propose a tous doit avoir fait
+   *  ses preuves ailleurs que dans un brouillon. */
+  publishedVersionId?: string;
   /** Horodatage du dernier accord avec le serveur ; absent tant qu'il n'y en a pas eu. */
   syncedAt?: string;
+  /** Range hors du plan de travail. Un projet deja deploye ne peut pas etre
+   *  supprime, son historique dit ce qui a tourne : l'archivage est sa seule
+   *  sortie. */
+  archive?: boolean;
   /** Compteurs servis par la liste, quand la composition n'est pas encore chargee. */
   summary?: { composants: number; agents: number; robots: number };
 }

@@ -20,10 +20,10 @@ import {
   IconGrid,
   IconLogOut,
   IconMenu,
-  IconPanelLeftClose,
-  IconPanelLeftOpen,
   IconLayers,
   IconBlocks,
+  IconChevronLeft,
+  IconChevronRight,
   IconX,
 } from "@/components/Icons.jsx";
 
@@ -85,21 +85,21 @@ export default function AdminLayout() {
       {open && <div className="sidebar-backdrop" onClick={close} />}
 
       <aside className={`platform-sidebar${open ? " open" : ""}${collapsed ? " collapsed" : ""}`}>
+        <button
+          className="sidebar-collapse"
+          type="button"
+          title={collapsed ? "Déployer la navigation" : "Réduire la navigation"}
+          aria-label={collapsed ? "Déployer la navigation" : "Réduire la navigation"}
+          aria-pressed={collapsed}
+          onClick={toggleCollapsed}
+        >
+          {collapsed ? <IconChevronRight size={14} /> : <IconChevronLeft size={14} />}
+        </button>
         <div className="sidebar-top-row">
           <a className="brand" href="/" title={branding.applicationName} aria-label={`${branding.applicationName} - espaces`} onClick={(e) => { e.preventDefault(); navigate("/"); }}>
             <OscarBrand compact={collapsed} />
           </a>
           <div className="sidebar-controls">
-            <button
-              className="sidebar-collapse"
-              type="button"
-              title={collapsed ? "Déployer la navigation" : "Réduire la navigation"}
-              aria-label={collapsed ? "Déployer la navigation" : "Réduire la navigation"}
-              aria-pressed={collapsed}
-              onClick={toggleCollapsed}
-            >
-              {collapsed ? <IconPanelLeftOpen size={17} /> : <IconPanelLeftClose size={17} />}
-            </button>
             <button className="sidebar-close" aria-label="Fermer le menu" onClick={close}>
               <IconX size={18} />
             </button>
