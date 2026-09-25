@@ -15,7 +15,7 @@ perception se déploie et tombe en panne indépendamment du reste.
 | --- | --- | --- |
 | Admin API | `oscar-admin-console/Backend/app/routers/ai.py` | Stocker les artefacts, leur SHA-256, les Model Boxes et leurs affectations |
 | Admin Front | `oscar-admin-console/Admin-Console-Front-end/src/modules/module-administration/features/ai-vision/` | Importer, catégoriser, composer, publier et affecter les capacités IA |
-| Perception Worker | `oscar_Backend_gateway/services/perception-worker/` | Souscrire à la vidéo, exécuter l'inférence et publier les résultats |
+| Perception Worker | dépôt `oscar-perception-worker` | Prendre des baux sur des robots, souscrire à leur vidéo, exécuter l'inférence et publier les résultats |
 | Cockpit 2D / XR | `OSCAR/src/overlay/` | Valider et rendre les boîtes normalisées reçues par LiveKit Data |
 
 ## Objets du domaine
@@ -41,8 +41,8 @@ nouvelle version, ce qui rend un déploiement reproductible et auditable.
 4. L'administrateur compose un ou plusieurs modèles dans une Model Box, puis
    publie cette version.
 5. La Box est affectée à un robot, une flotte ou un site.
-6. Le worker lit le manifeste résolu toutes les dix secondes et charge ou retire
-   les modèles sans redémarrer le publisher vidéo.
+6. Un worker du pool prend un bail sur le robot, lit le manifeste résolu et
+   charge ou retire les modèles sans redémarrer le publisher vidéo.
 7. Pour chaque image échantillonnée, il publie un paquet
    `oscar.vision.overlay.v1` non fiable sur `oscar.vision.overlay`.
 8. Le cockpit dessine les boîtes sur la vidéo 2D ou les ancre sur la surface XR.
@@ -51,10 +51,23 @@ Les anciennes affectations directes modèle-vers-robot restent lues par le
 manifeste `1.1` pour compatibilité, mais elles ne font plus partie du parcours
 principal de la Sandbox IA & Vision.
 
+## Répartition de la flotte entre les workers
+
+Un worker sert plusieurs robots, et plusieurs workers se partagent la flotte.
+L'affectation passe par un bail : `POST /api/ai/runtime/workers/{worker_id}/leases`
+annonce la capacité du worker et reçoit la liste des robots qu'il doit servir.
+Le bail vaut 45 secondes et se renouvelle toutes les 15 ; un worker qui meurt
+brutalement libère donc ses robots en moins d'une minute, et un autre les
+reprend. `GET /api/ai/perception/coverage` dit qui couvre quoi, et surtout quel
+robot n'est couvert par personne.
+
+Les modèles sont chargés une fois par worker et partagés entre ses sessions.
+La cadence d'inférence, elle, reste propre à chaque robot.
+
 ## Session LiveKit du worker
 
 Le worker s'authentifie auprès de l'API avec `X-OSCAR-Worker-Key`, puis demande
-`GET /api/ai/runtime/robots/{robot_id}/session`. Le jeton retourné permet de
+`GET /api/ai/runtime/robots/{robot_id}/session` pour chacun de ses robots. Le jeton retourné permet de
 s'abonner aux pistes et de publier des données, mais pas de publier une piste
 audio ou vidéo. Aucun jeton longue durée n'est conservé dans l'interface.
 
@@ -124,8 +137,8 @@ opérationnel alors que son contrat de sortie n'a pas été vérifié.
 2. Importer les poids Ultralytics fournis par l'équipe dans la Sandbox IA.
 3. Promouvoir les modèles validés, créer une Box et publier sa version.
 4. Affecter la Box au robot, à sa flotte ou à son site.
-5. Démarrer un worker avec `worker.env` construit depuis
-   `oscar_Backend_gateway/services/perception-worker/worker.env.example`.
+5. Démarrer le pool de workers avec `worker.env` construit depuis
+   `worker.env.example` du dépôt `oscar-perception-worker`.
 6. Ouvrir le cockpit du même robot et vérifier les paquets
    `oscar.vision.overlay.v1`.
 
