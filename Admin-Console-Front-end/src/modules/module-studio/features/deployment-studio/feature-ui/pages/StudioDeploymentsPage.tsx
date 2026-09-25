@@ -74,6 +74,23 @@ function horodatageDeploiement(deploiement: DeploiementServeur): string | null {
     ?? null;
 }
 
+/**
+ * Ce que la page montre reellement d'un deploiement, reduit a une chaine.
+ *
+ * Le suivi s'actualise toutes les cinq secondes alors qu'un robot ne rend
+ * compte qu'une fois par releve. Sans cette comparaison, chaque tour remplacait
+ * la liste par des objets neufs et l'ecran sautait pour rien.
+ */
+function empreinte(liste: DeploiementServeur[]): string {
+  return liste
+    .map((item) => [
+      item.id, item.statut, item.message ?? "", item.version_numero ?? "",
+      item.robot_nom ?? "", item.bundle_nom ?? "", horodatageDeploiement(item) ?? "",
+      reportPresent(item.report) ? JSON.stringify(item.report) : "",
+    ].join("~"))
+    .join("|");
+}
+
 function valeurHorodatage(deploiement: DeploiementServeur): number {
   const valeur = horodatageDeploiement(deploiement);
   if (!valeur) return 0;
@@ -88,7 +105,14 @@ export default function StudioDeploymentsPage() {
   const [statut, setStatut] = useState("");
   const [robotId, setRobotId] = useState("");
   const [recherche, setRecherche] = useState("");
-  const [chargement, setChargement] = useState(true);
+  const [premierChargement, setPremierChargement] = useState(true);
+  // Rafraichissement discret : l'operateur voit que ca travaille sans que la
+  // liste disparaisse sous ses yeux.
+  const [enRafraichissement, setEnRafraichissement] = useState(false);
+  // Comptes rendus deployes, tenus en etat React : ainsi ils survivent a un
+  // rafraichissement, la ou un <details> non controle se refermait des que sa
+  // ligne etait remontee.
+  const [rapportsOuverts, setRapportsOuverts] = useState<Record<string, boolean>>({});
   const [panne, setPanne] = useState<string | null>(null);
   const [revision, setRevision] = useState(0);
   const requeteCourante = useRef(0);
@@ -98,8 +122,10 @@ export default function StudioDeploymentsPage() {
     Promise.all([listerDeploiements(), listerRobots()])
       .then(([tous, listeRobots]) => {
         if (!vivant) return;
-        setSynthese(tous);
-        setRobots(listeRobots);
+        // Les compteurs ne changent qu'a l'arrivee d'un compte rendu : les
+        // reecrire a chaque tour ferait clignoter les trois cartes.
+        setSynthese((actuelle) => (empreinte(actuelle) === empreinte(tous) ? actuelle : tous));
+        setRobots((actuels) => (actuels.length === listeRobots.length ? actuels : listeRobots));
       })
       .catch(() => {
         // La liste principale porte l'erreur utile. Les compteurs et le filtre
@@ -111,7 +137,7 @@ export default function StudioDeploymentsPage() {
   const charger = useCallback(async () => {
     const numero = requeteCourante.current + 1;
     requeteCourante.current = numero;
-    setChargement(true);
+    setEnRafraichissement(true);
     const filtres: FiltresDeploiements = {
       ...(statut && statut !== "running" ? { statut } : {}),
       ...(robotId ? { robotId } : {}),
@@ -119,13 +145,18 @@ export default function StudioDeploymentsPage() {
     try {
       const liste = await listerDeploiements(filtres);
       if (requeteCourante.current !== numero) return;
-      setDeploiements(liste);
+      // Seul un changement reel remplace l'etat. Sinon la page reste
+      // exactement telle qu'elle est, y compris le compte rendu qu'on lit.
+      setDeploiements((actuels) => (empreinte(actuels) === empreinte(liste) ? actuels : liste));
       setPanne(null);
     } catch (erreur) {
       if (requeteCourante.current !== numero) return;
       setPanne(erreurLisible(erreur));
     } finally {
-      if (requeteCourante.current === numero) setChargement(false);
+      if (requeteCourante.current === numero) {
+        setEnRafraichissement(false);
+        setPremierChargement(false);
+      }
     }
   }, [robotId, statut]);
 
@@ -145,12 +176,33 @@ export default function StudioDeploymentsPage() {
   const actifs = synthese.filter((item) => item.statut === "active").length;
   const echecs = synthese.filter((item) => item.statut === "failed").length;
 
-  // Tant qu'un robot n'a pas confirmé son résultat, l'écran se réactualise
-  // sans intervention de l'opérateur. Les états terminaux arrêtent le polling.
+  // Tant qu'un robot n'a pas confirmé son résultat, l'écran va chercher la
+  // suite sans intervention de l'opérateur. Les états terminaux l'arrêtent.
+  //
+  // L'interrogation reste fréquente, mais elle ne se voit plus : seule une
+  // différence réelle remplace l'état, donc un tour sans nouvelle ne provoque
+  // aucun rendu. On se met en veille quand l'onglet passe à l'arrière-plan,
+  // pour ne pas interroger un écran que personne ne regarde.
   useEffect(() => {
     if (!synthese.some((item) => deploiementEnCours(item.statut))) return;
-    const intervalle = window.setInterval(() => setRevision((valeur) => valeur + 1), 5000);
-    return () => window.clearInterval(intervalle);
+    let intervalle = 0;
+    const demarrer = () => {
+      window.clearInterval(intervalle);
+      if (document.visibilityState !== "visible") return;
+      intervalle = window.setInterval(() => setRevision((valeur) => valeur + 1), 5000);
+    };
+    const auRetour = () => {
+      // Au retour sur l'onglet, une relève immédiate évite d'attendre le tour
+      // suivant devant un état qu'on sait périmé.
+      if (document.visibilityState === "visible") setRevision((valeur) => valeur + 1);
+      demarrer();
+    };
+    demarrer();
+    document.addEventListener("visibilitychange", auRetour);
+    return () => {
+      window.clearInterval(intervalle);
+      document.removeEventListener("visibilitychange", auRetour);
+    };
   }, [synthese]);
 
   return (
@@ -162,8 +214,11 @@ export default function StudioDeploymentsPage() {
               <span>Déploiement</span>
               <h2>Suivi des déploiements</h2>
             </div>
-            <button className="secondary-button deployment-reload" type="button" onClick={() => setRevision((valeur) => valeur + 1)}>
-              <RefreshCw size={15} /> Actualiser
+            <button className="secondary-button deployment-reload" type="button"
+                    disabled={enRafraichissement}
+                    onClick={() => setRevision((valeur) => valeur + 1)}>
+              <RefreshCw size={15} className={enRafraichissement ? "spin" : ""} />
+              {enRafraichissement ? "Actualisation…" : "Actualiser"}
             </button>
           </div>
 
@@ -257,7 +312,7 @@ export default function StudioDeploymentsPage() {
               <span>Robot</span><span>Bundle</span><span>Statut</span><span>Horodatage</span>
             </div>
 
-            {chargement ? (
+            {premierChargement ? (
               <p className="deployment-loading"><LoaderCircle size={16} className="spin" /> Chargement des déploiements…</p>
             ) : visibles.length === 0 ? (
               <div className="deployment-empty">
@@ -300,7 +355,14 @@ export default function StudioDeploymentsPage() {
                   )}
 
                   {rapport && (
-                    <details className="deployment-report">
+                    <details
+                      className="deployment-report"
+                      open={Boolean(rapportsOuverts[deploiement.id])}
+                      onToggle={(evenement) => {
+                        const ouvert = (evenement.currentTarget as HTMLDetailsElement).open;
+                        setRapportsOuverts((etat) => ({ ...etat, [deploiement.id]: ouvert }));
+                      }}
+                    >
                       <summary><ChevronDown size={14} /> Compte rendu du robot</summary>
                       <pre>{JSON.stringify(deploiement.report, null, 2)}</pre>
                     </details>

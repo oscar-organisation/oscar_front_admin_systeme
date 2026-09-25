@@ -73,4 +73,47 @@ describe("StudioDeploymentsPage", () => {
     expect(screen.getByText("OSCAR en attente")).toBeInTheDocument();
     expect(screen.getByText("OSCAR en application")).toBeInTheDocument();
   });
+
+  it("garde le compte rendu ouvert quand la page se réactualise", async () => {
+    // Le suivi interrogeait le serveur toutes les cinq secondes et remplacait
+    // la liste par un voyant de chargement : les lignes etaient demontees, et
+    // le compte rendu qu'on etait en train de lire se refermait.
+    const enCours = {
+      id: "deployment-1",
+      robot_id: "robot-1",
+      robot_nom: "OSCAR-01",
+      robot_slug: "oscar-01",
+      bundle_nom: "Navigation magasin",
+      version_numero: 3,
+      statut: "delivered",
+      report: { etape: "reception" },
+      created_at: "2026-09-24T08:30:00Z",
+    };
+    vi.mocked(listerDeploiements).mockResolvedValue([enCours]);
+
+    render(<StudioDeploymentsPage />);
+
+    const details = await screen.findByText("Compte rendu du robot");
+    fireEvent.click(details);
+    const bloc = details.closest("details") as HTMLDetailsElement;
+    await waitFor(() => expect(bloc.open).toBe(true));
+
+    fireEvent.click(screen.getByRole("button", { name: /Actualiser/ }));
+
+    await waitFor(() => expect(vi.mocked(listerDeploiements).mock.calls.length).toBeGreaterThan(2));
+    expect(bloc.open).toBe(true);
+    expect(screen.queryByText(/Chargement des déploiements/)).not.toBeInTheDocument();
+  });
+
+  it("ne remplace pas la liste quand le serveur renvoie la même chose", async () => {
+    // C'est ce qui supprime les sauts : sans changement, aucun rendu.
+    render(<StudioDeploymentsPage />);
+
+    const ligne = await screen.findByText("Navigation magasin");
+    fireEvent.click(screen.getByRole("button", { name: /Actualiser/ }));
+
+    await waitFor(() => expect(vi.mocked(listerDeploiements).mock.calls.length).toBeGreaterThan(2));
+    // Le meme noeud du DOM, donc React n'a rien remonte.
+    expect(screen.getByText("Navigation magasin")).toBe(ligne);
+  });
 });
