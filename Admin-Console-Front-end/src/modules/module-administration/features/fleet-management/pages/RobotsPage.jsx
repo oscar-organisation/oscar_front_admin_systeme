@@ -5,6 +5,7 @@ import PageHeader from "@/components/PageHeader.jsx";
 import RobotOperators from "@/components/RobotOperators.jsx";
 import IntegrationModal from "@/components/IntegrationModal.jsx";
 import { captureError } from "@/shared/kernel/observability";
+import { corpsRobot } from "../feature-domain/robotPayload.js";
 import {
   IconRobot,
   IconPlus,
@@ -142,7 +143,7 @@ export default function Robots() {
       mode: "edit",
       id: r.id,
       nom: r.nom,
-      org_id: r.organisation_id || r.org_id || "",
+      org_id: r.org_id || "",
       site_id: r.site_id || "",
       serial: r.serial || "",
       modele: r.modele || "",
@@ -156,19 +157,7 @@ export default function Robots() {
   async function submitModal(e) {
     e.preventDefault();
     setErr("");
-    const payload = {
-      nom: modal.nom,
-      organisation_id: modal.org_id,
-      site_id: modal.site_id || null,
-      serial: modal.serial,
-      modele: modal.modele || null,
-      firmware: modal.firmware,
-      statut: modal.statut,
-      batterie: Number(modal.batterie),
-      capacites: modal.capacites
-        ? modal.capacites.split(",").map((s) => s.trim()).filter(Boolean)
-        : [],
-    };
+    const payload = corpsRobot(modal);
     try {
       if (modal.mode === "edit") {
         await api.patch(`/robots/${modal.id}`, payload);
