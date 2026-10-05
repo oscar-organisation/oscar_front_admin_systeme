@@ -29,6 +29,7 @@ services:
         condition: service_healthy
     volumes:
       - oscar_ai_models:/app/storage/models
+      - oscar_edge_releases:/app/storage/edge-releases
     networks:
       - default
       - proxy-network
@@ -85,6 +86,7 @@ volumes:
   oscar_admin_pg:
   oscar_keycloak_pg:
   oscar_ai_models:
+  oscar_edge_releases:
 
 networks:
   proxy-network:
