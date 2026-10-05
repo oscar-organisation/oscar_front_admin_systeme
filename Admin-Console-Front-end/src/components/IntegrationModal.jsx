@@ -109,17 +109,39 @@ export default function IntegrationModal({ robot, onClose }) {
                         {agentKey.agent_key}
                       </code>
                       <p style={{ margin: 0, color: "var(--shell-dim)", fontSize: 12 }}>
-                        Affichée une seule fois : installez-la maintenant dans{" "}
-                        <code>{agentKey.installation?.fichier}</code> en mode{" "}
-                        <code>{agentKey.installation?.mode}</code>. La perdre coûte une réémission.
+                        Affichée une seule fois. La perdre coûte une réémission.
                       </p>
-                      <button
-                        type="button"
-                        className="btn-shell small"
-                        onClick={() => navigator.clipboard?.writeText(agentKey.installation?.commande || agentKey.agent_key)}
-                      >
-                        <IconCopy size={14} /> Copier la commande d'installation
-                      </button>
+                      {/* Deux situations, deux commandes. Un robot neuf n'a rien :
+                          la commande d'enrôlement fait tout. Un robot déjà en
+                          service dont on révoque la clé n'a besoin que d'elle. */}
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                        <button
+                          type="button"
+                          className="btn-shell small"
+                          data-testid="copier-enrolement"
+                          disabled={!agentKey.installation?.commande_enrolement}
+                          title="Robot neuf : pose la clé, tire le paquet, installe et met en service"
+                          onClick={() => navigator.clipboard?.writeText(
+                            agentKey.installation?.commande_enrolement || "")}
+                        >
+                          <IconCopy size={14} /> Copier la commande d'enrôlement
+                        </button>
+                        <button
+                          type="button"
+                          className="btn-shell small"
+                          data-testid="copier-cle"
+                          title="Robot déjà installé : remplace seulement la clé"
+                          onClick={() => navigator.clipboard?.writeText(
+                            agentKey.installation?.commande || agentKey.agent_key)}
+                        >
+                          <IconCopy size={14} /> Copier la clé seule
+                        </button>
+                      </div>
+                      <p style={{ margin: 0, color: "var(--shell-dim)", fontSize: 11.5 }}>
+                        À coller sur le robot, après <code>ssh</code>. Vérifiez la famille de
+                        châssis dans la commande : elle est déduite du modèle saisi tant que le
+                        robot n'a rien déclaré.
+                      </p>
                     </>
                   )}
                 </div>

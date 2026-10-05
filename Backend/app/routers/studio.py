@@ -33,6 +33,7 @@ from ..bundle_spec import (
 from ..config import settings
 from ..database import get_db
 from ..deps import request_organisation_id, require, sans_perimetre, write_audit
+from .robots import forger_identifiants_embarques
 from ..models import (
     AiModelBox,
     EdgeRelease,
@@ -629,6 +630,24 @@ def runtime_bundle(reference: str, db: Session = Depends(get_db),
         },
         "manifest": manifeste,
     }
+
+
+@router.get("/runtime/robots/{reference}/credentials")
+def runtime_credentials(reference: str, db: Session = Depends(get_db),
+                        cle: str = Depends(_cle_presentee)):
+    """Identifiants LiveKit du robot, qu'il demande lui-meme avec sa cle d'agent.
+
+    C'etait la derniere piece deposee a la main pendant l'enrolement : deux
+    fichiers JSON copies depuis la console vers `/etc/oscar/credentials`. Le
+    robot sait deja prouver qui il est — sa cle sert exactement a cela pour le
+    bundle et pour la release. Il n'y avait aucune raison de le faire passer
+    par un humain pour ses propres jetons.
+
+    La reponse est indexee par chemin de destination : l'appelant n'a qu'a
+    ecrire chaque valeur a la cle correspondante, sans connaitre l'arborescence.
+    """
+    robot = _robot_authentifie(db, reference, cle)
+    return forger_identifiants_embarques(db, robot)
 
 
 @router.post("/runtime/robots/{reference}/bundle/report")

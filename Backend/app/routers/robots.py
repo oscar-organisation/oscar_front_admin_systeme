@@ -270,20 +270,13 @@ def issue_tokens(robot_id: str, body: TokenIssueIn, request: Request, db: Sessio
     )
 
 
-@router.post("/robots/{robot_id}/edge-credentials")
-def issue_edge_credentials(robot_id: str, request: Request, db: Session = Depends(get_db),
-                           user=Depends(require("api:robot.token.issue", "execute"))):
-    """Identifiants LiveKit de l'agent embarqué, dans la forme qu'il attend.
+def forger_identifiants_embarques(db: Session, robot: Robot) -> dict:
+    """Émet les deux identités LiveKit du runtime, dans la forme qu'il attend.
 
-    Le runtime embarqué tient deux rôles dans la même room : il publie la vidéo
-    et il reçoit les commandes. LiveKit n'admet qu'un participant par identité —
-    leur en donner une seule ferait que le second évince le premier à chaque
-    connexion. D'où deux identités distinctes, émises ensemble.
-
-    Jusqu'ici ces deux fichiers étaient déposés à la main sur le robot ; c'est
-    la derniere etape manuelle de l'enrôlement, et elle disparaît ici.
+    Extrait de la route pour que le robot puisse les demander lui-même avec sa
+    clé d'agent, au lieu qu'un humain les dépose à la main. Les deux appelants
+    partagent la même émission : une seule façon de forger ces jetons.
     """
-    robot = _robot_du_perimetre(db, request, robot_id)
     room = robot_room(robot)
     base = room_slug(robot.nom)
     maintenant = datetime.now(timezone.utc)
@@ -309,7 +302,6 @@ def issue_edge_credentials(robot_id: str, request: Request, db: Session = Depend
             "token": jeton,
         }}
     db.commit()
-    write_audit(db, actor=user, action="EDGE_CREDENTIALS_ISSUE", resource=f"{robot.nom}:{room}")
     return {
         "robot": {"id": robot.id, "nom": robot.nom, "slug": robot.slug},
         "room": room,
@@ -319,6 +311,26 @@ def issue_edge_credentials(robot_id: str, request: Request, db: Session = Depend
             "/etc/oscar/credentials/command.json": fichiers["command"],
         },
     }
+
+
+@router.post("/robots/{robot_id}/edge-credentials")
+def issue_edge_credentials(robot_id: str, request: Request, db: Session = Depends(get_db),
+                           user=Depends(require("api:robot.token.issue", "execute"))):
+    """Identifiants LiveKit de l'agent embarqué, dans la forme qu'il attend.
+
+    Le runtime embarqué tient deux rôles dans la même room : il publie la vidéo
+    et il reçoit les commandes. LiveKit n'admet qu'un participant par identité —
+    leur en donner une seule ferait que le second évince le premier à chaque
+    connexion. D'où deux identités distinctes, émises ensemble.
+
+    Jusqu'ici ces deux fichiers étaient déposés à la main sur le robot ; c'est
+    la derniere etape manuelle de l'enrôlement, et elle disparaît ici.
+    """
+    robot = _robot_du_perimetre(db, request, robot_id)
+    sortie = forger_identifiants_embarques(db, robot)
+    write_audit(db, actor=user, action="EDGE_CREDENTIALS_ISSUE",
+                resource=f"{robot.nom}:{sortie['room']}")
+    return sortie
 
 
 @router.get("/robots/{robot_id}/tokens", response_model=list[LiveKitTokenOut])
@@ -455,6 +467,66 @@ def integration(robot_id: str, request: Request, db: Session = Depends(get_db),
     }
 
 
+def _famille_suggeree(robot: Robot) -> str:
+    """Famille de chassis a proposer dans la commande d'enrolement.
+
+    Le robot n'a encore rien declare — `modele_constate` ne se remplit qu'au
+    premier compte rendu. On se rabat donc sur l'etiquette saisie, reduite au
+    format d'un nom de profil. C'est une *suggestion*, pas une normalisation :
+    elle n'est stockee nulle part, et le script d'enrolement la confronte aux
+    profils reellement presents dans le paquet. Une suggestion fausse echoue
+    donc immediatement, en listant les familles disponibles.
+    """
+    declaree = (robot.modele_constate or "").strip()
+    if declaree:
+        return declaree
+    saisie = re.sub(r"[^a-z0-9]+", "-", (robot.modele or "").lower()).strip("-")
+    return saisie or "FAMILLE-A-RENSEIGNER"
+
+
+def _commande_cle(cle: str) -> str:
+    """Pose la seule cle, pour un robot deja installe dont on reemet le secret."""
+    return f"sudo install -m 600 /dev/stdin /etc/oscar/credentials/agent.key <<< '{cle}'"
+
+
+def _commande_enrolement(request: Request, robot: Robot, cle: str) -> str:
+    """Enrolement complet d'un robot neuf, en une seule commande a coller.
+
+    Tout ce qui doit arriver *avant* que l'archive existe tient ici, et rien de
+    plus : poser la cle, tirer l'archive avec elle, l'ouvrir. Le reste est
+    delegue au script du paquet, versionne et relu comme le reste du code.
+
+    Rien n'est telecharge sans authentification : l'archive passe par la route
+    runtime, qui exige la cle. On evite ainsi d'exposer un chemin public, et
+    surtout d'executer du code recupere sans preuve de provenance.
+
+    La cle apparait une fois dans la commande, donc dans l'historique du shell
+    du robot. C'est le prix d'un amorcage en un collage ; la supprimer demande
+    un jeton d'enrolement a usage unique, qui reste a construire.
+    """
+    api = str(request.base_url).rstrip("/") + settings.api_prefix
+    profil = _famille_suggeree(robot)
+    return (
+        "sudo bash -s <<'OSCAR'\n"
+        "set -Eeuo pipefail\n"
+        "umask 077\n"
+        "install -d -m 0700 /etc/oscar/credentials\n"
+        f"printf %s '{cle}' > /etc/oscar/credentials/agent.key\n"
+        "chmod 600 /etc/oscar/credentials/agent.key\n"
+        "t=$(mktemp -d)\n"
+        "printf 'header = \"X-Oscar-Agent-Key: %s\"\\n' "
+        "\"$(cat /etc/oscar/credentials/agent.key)\" > \"$t/curlrc\"\n"
+        "curl -fsSL --config \"$t/curlrc\" "
+        f"'{api}/studio/runtime/robots/{robot.slug}/release/archive'"
+        " -o \"$t/oscar-edge.tar.gz\"\n"
+        "tar -xzf \"$t/oscar-edge.tar.gz\" -C \"$t\"\n"
+        "\"$t\"/oscar-edge-*/scripts/enroll-local.sh "
+        f"--robot {robot.slug} --api '{api}' --profil {profil}\n"
+        "rm -rf \"$t\"\n"
+        "OSCAR"
+    )
+
+
 @router.post("/robots/{robot_id}/agent-key")
 def issue_agent_key(robot_id: str, request: Request, db: Session = Depends(get_db),
                     user=Depends(require("api:robot.agent_key", "execute"))):
@@ -481,7 +553,8 @@ def issue_agent_key(robot_id: str, request: Request, db: Session = Depends(get_d
         "installation": {
             "fichier": "/etc/oscar/credentials/agent.key",
             "mode": "0600",
-            "commande": f"sudo install -m 600 /dev/stdin /etc/oscar/credentials/agent.key <<< '{cle}'",
+            "commande": _commande_cle(cle),
+            "commande_enrolement": _commande_enrolement(request, robot, cle),
         },
     }
 

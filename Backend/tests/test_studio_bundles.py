@@ -511,3 +511,42 @@ def test_un_statut_de_projet_inconnu_est_refuse(client, contexte):
     refus = client.patch(f"/api/studio/bundles/{bundle_id}", headers=contexte["entetes"],
                          json={"nom": contexte["bundle"]["nom"], "statut": "supprime"})
     assert refus.status_code == 400
+
+
+def test_le_robot_recupere_ses_identifiants_livekit_avec_sa_cle(client, contexte):
+    """Derniere piece deposee a la main pendant l'enrolement : elle disparait.
+
+    Le robot sait deja prouver qui il est pour le bundle et pour la release ;
+    il n'y avait aucune raison de le faire passer par un humain pour ses
+    propres jetons.
+    """
+    robot = client.post("/api/robots", headers=contexte["entetes"],
+                        json={"nom": uniq("OSCAR"), "org_id": contexte["org"]["id"]}).json()
+
+    reponse = client.get(f"/api/studio/runtime/robots/{robot['slug']}/credentials",
+                         headers=CLE_AGENT)
+    assert reponse.status_code == 200
+    fichiers = reponse.json()["fichiers"]
+
+    # La reponse est indexee par chemin de destination : le script n'a pas a
+    # connaitre l'arborescence du robot.
+    assert set(fichiers) == {
+        "/etc/oscar/credentials/media.json",
+        "/etc/oscar/credentials/command.json",
+    }
+    for contenu in fichiers.values():
+        assert contenu["livekit"]["token"]
+        assert contenu["livekit"]["roomName"]
+
+    # Deux identites distinctes : LiveKit n'admet qu'un participant par
+    # identite, une seule ferait que le second evince le premier.
+    identites = {c["livekit"]["identity"] for c in fichiers.values()}
+    assert len(identites) == 2
+
+
+def test_les_identifiants_livekit_exigent_la_cle_du_robot(client, contexte):
+    robot = client.post("/api/robots", headers=contexte["entetes"],
+                        json={"nom": uniq("OSCAR"), "org_id": contexte["org"]["id"]}).json()
+    chemin = f"/api/studio/runtime/robots/{robot['slug']}/credentials"
+    assert client.get(chemin).status_code == 401
+    assert client.get(chemin, headers={"X-Agent-Key": "mauvaise-cle"}).status_code == 401
